@@ -2,145 +2,6 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
-class Geocode:
-    def __init__(self, type, coordinates, crs):
-        self.type = type
-        self.coordinates = coordinates
-        self.crs = crs
-
-    def to_dict(self):
-        return {
-            "type": self.type,
-            "coordinates": self.coordinates,
-            "crs": self.crs,
-        }
-
-
-class GeocodeField(models.Field):
-    def from_db_value(self, value, expression, connection):
-        db_val = super().from_db_value(value, expression, connection)
-
-        if db_val is None:
-            return db_val
-
-        return Geocode(**db_val)
-
-    def get_prep_value(self, value):
-        dict_value = value.to_dict()
-        prep_value = super().get_prep_value(dict_value)
-        return prep_value
-
-
-class ParentOrganisation:
-    def __init__(self, ODSCode, OrganisationName):
-        self.ODSCode = ODSCode
-        self.OrganisationName = OrganisationName
-
-    def to_dict(self):
-        return {
-            "ODSCode": self.ODSCode,
-            "OrganisationName": self.OrganisationName,
-        }
-
-
-class ParentOrganisationField(models.Field):
-    def from_db_value(self, value, expression, connection):
-        db_val = super().from_db_value(value, expression, connection)
-
-        if db_val is None:
-            return db_val
-
-        return ParentOrganisation(**db_val)
-
-    def get_prep_value(self, value):
-        dict_value = value.to_dict()
-        prep_value = super().get_prep_value(dict_value)
-        return prep_value
-
-
-class AcceptingPatients:
-    def __init__(self, GP, Dentist):
-        self.GP = GP
-        self.Dentist = Dentist
-
-    def to_dict(self):
-        return {
-            "ODSCode": self.ODSCode,
-            "OrganisationName": self.OrganisationName,
-        }
-
-
-class AcceptingPatientsField(models.Field):
-    def from_db_value(self, value, expression, connection):
-        db_val = super().from_db_value(value, expression, connection)
-
-        if db_val is None:
-            return db_val
-
-        return AcceptingPatients(**db_val)
-
-    def get_prep_value(self, value):
-        dict_value = value.to_dict()
-        prep_value = super().get_prep_value(dict_value)
-        return prep_value
-
-
-class LastUpdatedDates:
-    def __init__(
-        self,
-        OpeningTimes,
-        BankHolidayOpeningTimes,
-        DentistsAcceptingPatients,
-        Facilities,
-        HospitalDepartment,
-        Services,
-        ContactDetails,
-        AcceptingPatients,
-    ):
-        self.OpeningTimes = OpeningTimes
-        self.BankHolidayOpeningTimes = BankHolidayOpeningTimes
-        self.DentistsAcceptingPatients = DentistsAcceptingPatients
-        self.Facilities = Facilities
-        self.HospitalDepartment = HospitalDepartment
-        self.Services = Services
-        self.ContactDetails = ContactDetails
-        self.AcceptingPatients = AcceptingPatients
-
-    def to_dict(self):
-        return {
-            "OpeningTimes": self.OpeningTimes,
-            "BankHolidayOpeningTimes": self.BankHolidayOpeningTimes,
-            "DentistsAcceptingPatients": self.DentistsAcceptingPatients,
-            "Facilities": self.Facilities,
-            "HospitalDepartment": self.HospitalDepartment,
-            "Services": self.Services,
-            "ContactDetails": self.ContactDetails,
-            "AcceptingPatients": self.AcceptingPatients,
-            "BankHolidayOpeningTimes": self.BankHolidayOpeningTimes,
-            "DentistsAcceptingPatients": self.DentistsAcceptingPatients,
-            "Facilities": self.Facilities,
-            "HospitalDepartment": self.HospitalDepartment,
-            "Services": self.Services,
-            "ContactDetails": self.ContactDetails,
-            "AcceptingPatients": self.AcceptingPatients,
-        }
-
-
-class LastUpdatedDatesField(models.Field):
-    def from_db_value(self, value, expression, connection):
-        db_val = super().from_db_value(value, expression, connection)
-
-        if db_val is None:
-            return db_val
-
-        return LastUpdatedDates(**db_val)
-
-    def get_prep_value(self, value):
-        dict_value = value.to_dict()
-        prep_value = super().get_prep_value(dict_value)
-        return prep_value
-
-
 class Service(models.Model):
     ServiceName = models.CharField(max_length=100, unique=False)
     ServiceCode = models.CharField(max_length=100, unique=False)
@@ -180,18 +41,17 @@ class Organisation(models.Model):
     Latitude = models.CharField(max_length=250)
     Longitude = models.CharField(max_length=250)
     Postcode = models.CharField(max_length=250)
-    Geocode = GeocodeField()
     OrganisationSubType = models.CharField(max_length=250)
     # OrganisationAliases = models.CharField(max_length=250)
-    ParentOrganisation = ParentOrganisationField()
+    # ParentOrganisation = ParentOrganisationField()
     # Services = models.ForeignKey(Service, on_delete=models.CASCADE)
-    OpeningTimes = models.CharField(max_length=250)
+    # OpeningTimes = models.CharField(max_length=250)
     # Contacts = models.CharField(max_length=250)
     # Facilities = models.CharField(max_length=250)
     Staff = models.CharField(max_length=250)
     GSD = models.CharField(max_length=250)
     # LastUpdatedDates = LastUpdatedDatesField()
-    # AcceptingPatients = AcceptingPatientsField()
+    AcceptingPatients = models.JSONField()
     GPRegistration = models.CharField(max_length=250)
     CCG = models.CharField(max_length=250)
     RelatedIAPTCCGs = models.CharField(max_length=250)
@@ -276,3 +136,51 @@ class Metric(models.Model):
         null=True,
         related_name="Metrics",
     )
+
+
+class Geocode(models.Model):
+    type = models.CharField(max_length=100, unique=False)
+    coordinates = models.CharField(max_length=100, unique=False)
+    crs = models.JSONField(max_length=100, unique=False)
+    organisation = models.OneToOneField(
+        Organisation, on_delete=models.CASCADE, blank=True, null=True)
+
+
+class ParentOrganisation(models.Model):
+    ODSCode = models.CharField(max_length=100, unique=False)
+    OrganisationName = models.CharField(max_length=100, unique=False)
+    organisation = models.OneToOneField(
+        Organisation, on_delete=models.CASCADE, blank=True, null=True, related_name='ParentOrganisation')
+
+
+class OpeningTime(models.Model):
+    Weekday = models.CharField(
+        max_length=50, unique=False, blank=True, null=True)
+    Times = models.DateTimeField(unique=False, blank=True, null=True)
+    OpeningTime = models.DateTimeField(unique=False, blank=True, null=True)
+    ClosingTime = models.DateTimeField(unique=False, blank=True, null=True)
+    OffsetOpeningTime = models.DateTimeField(
+        unique=False, blank=True, null=True)
+    OffsetClosingTime = models.DateTimeField(
+        unique=False, blank=True, null=True)
+    OpeningTimeType = models.CharField(
+        max_length=50, unique=False, blank=True, null=True)
+    AdditionalOpeningDate = models.DateTimeField(
+        unique=False, blank=True, null=True)
+    IsOpen = models.BooleanField(unique=False, blank=True, null=True)
+    organisation = models.ForeignKey(
+        Organisation, on_delete=models.CASCADE, blank=True, null=True, related_name='OpeningTimes')
+
+
+class LastUpdatedDate(models.Model):
+    OpeningTimes = models.DateField()
+    BankHolidayOpeningTimes = models.DateTimeField()
+    DentistsAcceptingPatients = models.BooleanField(blank=True, null=True)
+    Facilities = models.DateTimeField()
+    HospitalDepartment = models.CharField(
+        max_length=50, unique=False, blank=True, null=True)
+    Services = models.DateTimeField()
+    ContactDetails = models.DateTimeField()
+    AcceptingPatients = models.DateTimeField()
+    organisation = models.OneToOneField(
+        Organisation, on_delete=models.CASCADE, null=True, blank=True)

@@ -32,6 +32,7 @@ class UserViewSet(viewsets.ModelViewSet):
     """
 
     all_hospitals = all_nhs_hospitals_list()
+    print(all_hospitals)
 
     # for hospital in all_hospitals:
     #     services = deserialize(instance=hospital)
