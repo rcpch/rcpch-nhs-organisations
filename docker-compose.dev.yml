@@ -1,0 +1,40 @@
+# runs a local version of Epilepsy12 for development on port 8000
+# syncs changes in local code folder to the RCPCH_NHS_ORGANISATIONS container
+# migrates the database
+
+version: '3.11'
+
+services:
+  
+  # web container - runs the django app
+  web:
+    build: .
+    ports:
+      - 8005:8005
+    depends_on:
+      - db
+    volumes:
+      - .:/home/app/webapp
+    environment:
+      # these env vars are ONLY for development
+      - RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_NAME=nhs_organisationsdb
+      - RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_USER=nhs_organisationsuser
+      - RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_PORT=5432
+      - RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_PASSWORD=password
+      - RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_HOST=db
+      - RCPCH_NHS_ORGANISATIONS_SECRET_KEY="mysecretkey"
+      - NHS_API_KEY=api-key
+      - DEBUG=True
+      - DJANGO_ALLOWED_HOSTS=0.0.0.0
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8005"
+  
+  # db container - runs postgres
+  db:
+    image: postgres:latest
+    # volumes:
+    #   - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=nhs_organisationsuser
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=nhs_organisationsdb

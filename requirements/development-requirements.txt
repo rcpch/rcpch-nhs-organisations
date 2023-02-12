@@ -1,0 +1,14 @@
+# load common requirements
+-r common-requirements.txt
+
+# standard imports
+autopep8
+coverage
+black
+pytest
+
+# third party imports
+bump2version
+
+# RCPCH imports
+

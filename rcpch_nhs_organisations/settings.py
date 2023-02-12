@@ -10,7 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+# standard imports
+import os
 from pathlib import Path
+
+# third party imports
+from django.core.management.utils import get_random_secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,13 +25,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-)2x_*6wr&0c=olh=a%b@q7s^yfa!b2bo290x(74__sevk&o*jq"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") + [
+    "127.0.0.1",
+    "localhost",
+    "0.0.0.0",
+]
 
 # Application definition
 
@@ -36,12 +44,16 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework.authtoken",
+    "rcpch_nhs_organisations",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -76,8 +88,12 @@ WSGI_APPLICATION = "rcpch_nhs_organisations.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_NAME"),
+        "USER": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_USER"),
+        "PASSWORD": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_PASSWORD"),
+        "HOST": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_HOST"),
+        "PORT": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_PORT"),
     }
 }
 
@@ -116,7 +132,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATICFILES_DIRS = (str(BASE_DIR.joinpath("static")),)
+STATIC_ROOT = str(BASE_DIR.joinpath("staticfiles"))
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+WHITENOISE_ROOT = os.path.join(BASE_DIR, "static/root")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field

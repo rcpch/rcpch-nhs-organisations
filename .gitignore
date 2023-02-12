@@ -1,2 +1,4 @@
 .vscode
 __pycache__
+rcpch_nhs_organisations/api-key.env
+staticfiles
