@@ -173,3 +173,12 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
 }
+
+# drf-spectacular schema settings
+SPECTACULAR_SETTINGS = {
+    "TITLE": "RCPCH NHS Organisations",
+    "DESCRIPTION": "UK NHS Organisations responsible for children's health, as a service.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # OTHER SETTINGS
+}
