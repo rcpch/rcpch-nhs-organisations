@@ -5,10 +5,9 @@
 autopep8
 coverage
 black
-pytest
+pytest-django
 
 # third party imports
 bump2version
 
 # RCPCH imports
-

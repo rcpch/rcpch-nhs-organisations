@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 # third party imports
+from celery.schedules import crontab
 from django.core.management.utils import get_random_secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -25,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", get_random_secret_key())
+SECRET_KEY = os.getenv("RCPCH_NHS_ORGANISATIONS_SECRET_KEY", get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
@@ -47,8 +48,9 @@ INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "rest_framework",
-    "rest_framework.authtoken",
-    "rcpch_nhs_organisations",
+    "django_filters",
+    "drf_spectacular",
+    "rcpch_nhs_organisations.hospitals",
 ]
 
 MIDDLEWARE = [
@@ -82,13 +84,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "rcpch_nhs_organisations.wsgi.application"
 
+# REDIS / Celery
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+CELERY_ACCEPT_CONTENT = ["application/json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Europe/London"
+
+CELERY_BEAT_SCHEDULE = {
+    "update-organisations-daily-at-six-am": {
+        "task": "rcpch_nhs_organisations.tasks.poll_ORD_spineservices_update_organisations_and_trusts",
+        "schedule": crontab(hour="6", minute=0),
+        "options": {
+            "expires": 15.0,
+        },
+    }
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
         "NAME": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_NAME"),
         "USER": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_USER"),
         "PASSWORD": os.environ.get("RCPCH_NHS_ORGANISATIONS_POSTGRES_DB_PASSWORD"),
@@ -146,4 +166,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
+    ],
 }

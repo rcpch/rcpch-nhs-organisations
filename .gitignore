@@ -2,3 +2,5 @@
 __pycache__
 rcpch_nhs_organisations/api-key.env
 staticfiles
+staticdocs
+envs/.env

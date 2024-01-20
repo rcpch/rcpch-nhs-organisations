@@ -1,0 +1,147 @@
+# main site metadata and titles
+site_name: RCPCH NHS Organisations - Documentation
+site_description: RCPCH NHS Organisations - Documentation
+site_author: The Royal College of Paediatrics and Child Health
+site_url: !ENV DOCS_URL
+
+# copyright information which is shown in the footer
+copyright: Copyright &copy; 2021-24 The Royal College of Paediatrics and Child Health (RCPCH)
+
+# these lines configure the 'GitHub repo' widget on the top right
+repo_url: https://github.com/rcpch/rcpch-nhs-organisations
+repo_name: rcpch/rcpch-nhs-organisations
+edit_uri: blob/development/documentation/docs
+
+# `mkdocs serve` serves the documentation at custom port (to avoid clashing with other services we commonly run)
+dev_addr: "0.0.0.0:8004"
+
+# Specifies the destination directory in which to build the static site
+site_dir: ../staticdocs
+
+# theme settings, fonts, colours
+theme:
+  favicon: ../docs/_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg
+  name: material
+  #custom_dir: rcpch-theme
+  features:
+    - content.action.edit # explicitly adds edit button (Material4MkDocs9.0)
+    - content.action.view # explicitly adds view button (Material4MkDocs9.0)
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+    - content.tabs.link # enables the content tabs to all change in a linked way, on selection
+    - navigation.expand
+    - navigation.footer # explicitly adds footer prev/next (Material4MkDocs9.0)
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+
+  palette:
+    # Light mode only for now
+      scheme: default
+
+  font:
+    text: Montserrat
+    code: Roboto Mono
+
+  # favicon: _assets/_images/dynamic-child-favicon.png
+  logo: _assets/_images/rcpch_logo.png
+
+# mkdocs plugins
+plugins:
+  # - git-committers:
+  #     repository: rcpch/epilepsy12-documentation
+  #     branch: live
+  #     enabled: !ENV [ENABLE_GIT_COMMITTERS, false] # makes Git Committers optional
+  # - git-revision-date-localized:
+  #     enable_creation_date: true
+  - macros
+  - search
+  - with-pdf:
+      back_cover: false
+      cover_title: RCPCH NHS Organisations Documentation
+      cover_subtitle: User and Developer Manual
+      #custom_template_path: TEMPLATES PATH
+      #toc_title: TOC TITLE TEXT
+      #heading_shift: false
+      #toc_level: 3
+      #ordered_chapter_level: 2
+      #excludes_children:
+      exclude_pages:
+        - 'home/download/'
+      #convert_iframe:
+      #    - src: IFRAME SRC
+      #      img: POSTER IMAGE URL
+      #      text: ALTERNATE TEXT
+      #    - src: ...
+      #two_columns_level: 3
+      #render_js: true
+      #headless_chrome_path: headless-chromium
+      output_path: pdf/rcpch-nhs-organisations-full-documentation.pdf
+      enabled_if_env: ENABLE_PDF_EXPORT
+      #debug_html: true
+      #show_anchors: true
+      #verbose: true
+
+# additional markdown features
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.snippets:
+      check_paths: true
+      base_path:
+        - "documentation"
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+
+# set extra CSS file
+extra_css:
+  - _assets/_stylesheets/extra.css
+
+# footer links and variables
+extra:
+  social:
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/rcpchtweets
+    - icon: fontawesome/brands/github
+      link: https://github.com/rcpch
+  site_contact_email: !ENV SITE_CONTACT_EMAIL
+
+nav:
+  - Home:
+    - 'index.md'
+    - 'home/nhs-organisations.md'
+    - 'home/getting-started.md'
+    - 'home/routes.md'
+    - 'home/citation.md'
+  - Researchers:
+    - 'api.md'
+  - Contact:
+    - 'contact/contact-rcpch.md'
+  - Legal:
+    - 'legal/intellectual-property.md'
+    - 'legal/license.md'
+    - 'legal/clinical-safety.md'
+    - 'legal/privacy-overview.md'
+    - 'legal/privacy-notice.md'
+    - 'legal/privacy-impact-assessment.md'
+    - 'legal/terms-of-service.md'
