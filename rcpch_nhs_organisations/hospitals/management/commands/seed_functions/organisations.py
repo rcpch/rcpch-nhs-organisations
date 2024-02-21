@@ -20,7 +20,7 @@ from rcpch_nhs_organisations.hospitals.constants import (
 def seed_organisations():
     """
     Seed function which populates the Organisation table from JSON.
-    This instead uses a list provided by RCPCH E12 team of all organisations in England
+    This instead uses a list provided by RCPCH team of all organisations in England
     and Wales that care for children with Epilepsy - community paediatrics and hospital paediatrics
     in the same trust are counted as one organisation.
     """
@@ -38,11 +38,11 @@ def seed_organisations():
     wales = Country.objects.get(boundary_identifier="W92000004")
 
     if Organisation.objects.all().count() >= 330:
-        logging.info(
+        logger.info(
             "\033[31m 329 RCPCH organisations already seeded. Skipping... \033[31m",
         )
     else:
-        logging.info("\033[31m Adding new RCPCH organisations... \033[31m")
+        logger.info("\033[31m Adding new RCPCH organisations... \033[31m")
 
         for added, rcpch_organisation in enumerate(RCPCH_ORGANISATIONS):
             # Apply longitude and latitude data, if exists
@@ -131,7 +131,7 @@ def seed_organisations():
 
         print(f"{added+1} organisations added.")
 
-    logging.info(
+    logger.info(
         "\033[31m Updating RCPCH organisations with ICB, NHS England relationships... \033[31m",
     )
     # add integrated care boards and NHS regions to organisations
@@ -146,7 +146,7 @@ def seed_organisations():
             trust = Trust.objects.get(ods_code=icb_trust["ODS Trust Code"])
         except Exception as error:
             error_message = f"Could not match Trust ODS Code {icb_trust['ODS Trust Code']} with that in Trust table."
-            logging.error(error_message)
+            logger.error(error_message)
 
         try:
             nhs_england_region = NHSEnglandRegion.objects.get(

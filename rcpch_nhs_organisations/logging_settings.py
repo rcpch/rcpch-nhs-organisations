@@ -93,7 +93,7 @@ LOGGING = {
             "formatter": "simple_django",
             "filters": [],
         },
-        # hospitasl file logger, each file is 15MB max, with 10 historic versions when filled, post-fixed with .1, .2, ..., .10
+        # hospitals file logger, each file is 15MB max, with 10 historic versions when filled, post-fixed with .1, .2, ..., .10
         "hospitals_logfile": {
             "level": FILE_LOG_LEVEL,
             "class": "logging.handlers.RotatingFileHandler",

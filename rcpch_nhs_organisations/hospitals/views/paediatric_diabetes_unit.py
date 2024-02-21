@@ -19,7 +19,7 @@ from drf_spectacular.types import OpenApiTypes
 from ..models import PaediatricDiabetesUnit
 from ..serializers import (
     PaediatricDiabetesUnitSerializer,
-    PaediatricDiabetesUnitWithNestedOrganisationTrustSerializer,
+    PaediatricDiabetesUnitWithNestedOrganisationSerializer,
 )
 
 
@@ -65,14 +65,14 @@ class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema(
-    request=PaediatricDiabetesUnitWithNestedOrganisationTrustSerializer,
+    request=PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     responses={
         200: OpenApiResponse(
             response=OpenApiTypes.OBJECT,
             description="Valid Response",
             examples=[
                 OpenApiExample(
-                    "/paediatric_diabetes_units/1/extended",
+                    "/paediatric_diabetes_units/1/organisations",
                     external_value="external value",
                     value={
                         "pz_code": "PZ002",
@@ -100,7 +100,7 @@ class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
     """
 
     queryset = PaediatricDiabetesUnit.objects.all().order_by("pz_code")
-    serializer_class = PaediatricDiabetesUnitWithNestedOrganisationTrustSerializer
+    serializer_class = PaediatricDiabetesUnitWithNestedOrganisationSerializer
     lookup_field = "pz_code"
     filterset_fields = [
         "pz_code",

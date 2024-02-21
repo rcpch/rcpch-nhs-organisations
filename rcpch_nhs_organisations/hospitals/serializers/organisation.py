@@ -4713,13 +4713,13 @@ class LocalHealthBoardOrganisationsSerializer(serializers.ModelSerializer):
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            "/paediatric_diabetes_unit/1/extended",
-            value={"pz_code": "", "organisations": [], "trust": {}},
+            "/paediatric_diabetes_unit/1/organisations",
+            value={"pz_code": "", "organisations": []},
             response_only=True,
         )
     ]
 )
-class PaediatricDiabetesUnitWithNestedOrganisationTrustSerializer(
+class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
     serializers.ModelSerializer
 ):
     organisations = OrganisationNoParentsSerializer(

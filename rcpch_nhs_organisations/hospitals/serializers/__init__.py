@@ -20,7 +20,7 @@ from .organisation import (
     LocalHealthBoardOrganisationsSerializer,
     LondonBoroughWithNestedOrganisationsSerializer,
     NHSEnglandRegionWithNestedOrganisationsSerializer,
-    PaediatricDiabetesUnitWithNestedOrganisationTrustSerializer,
+    PaediatricDiabetesUnitWithNestedOrganisationSerializer
 )
 from .paediatric_diabetes_unit import PaediatricDiabetesUnitSerializer
 from .trust import TrustSerializer

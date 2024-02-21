@@ -31,132 +31,96 @@ def seed_pdus():
     LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
     PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
 
-    if Organisation.objects.filter(paediatric_diabetes_unit__isnull=True).count() > 0:
-        logger.info(
-            "\033[31m Paediatric Diabetes Units already seeded. Skipping... \033[31m"
-        )
-    else:
-        logger.info("\033[31m Paediatric Diabetes Units being seeded... \033[31m")
-        for pdu in PZ_CODES:
-            if Organisation.objects.filter(ods_code=pdu["ods_code"]).exists():
-                organisation = Organisation.objects.get(ods_code=pdu["ods_code"])
+    # if Organisation.objects.filter(paediatric_diabetes_unit__isnull=False).count() > 0:
+    #     logger.info(
+    #         "\033[31m Paediatric Diabetes Units already seeded. Skipping... \033[31m"
+    #     )
+    #     print("\033[31m Paediatric Diabetes Units already seeded. Skipping... \033[31m")
+    # else:
+    logger.info("\033[31m Paediatric Diabetes Units being seeded... \033[31m")
+    print("\033[31m Paediatric Diabetes Units being seeded... \033[31m")
+    for pdu in PZ_CODES:
+        if Organisation.objects.filter(ods_code=pdu["ods_code"]).exists():
+            print(f"{pdu['ods_code']} exists as an organistation - update with pz code")
+            paediatric_diabetes_unit = PaediatricDiabetesUnit.objects.create(
+                pz_code=pdu["npda_code"]
+            )
+            Organisation.objects.filter(ods_code=pdu["ods_code"]).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
+        else:
+            if Trust.objects.filter(ods_code=pdu["ods_code"]).exists():
+                print(f"{pdu['ods_code']} exists as a trust")
+                # the ods_code provided is for a Trust, update all the related organisations
+                
+                # create the PDU
                 paediatric_diabetes_unit = PaediatricDiabetesUnit.objects.create(
                     pz_code=pdu["npda_code"]
                 )
-                organisation.paediatric_diabetes_unit = paediatric_diabetes_unit
-                organisation.save(update_fields=["paediatric_diabetes_unit"])
-                logger_info = (
-                    f"\033[31m Adding {organisation} to {paediatric_diabetes_unit}... \033[31m",
+                # get the trust
+                trust = Trust.objects.filter(ods_code=pdu["ods_code"]).get()
+                # Update trust's child organisations and update their affiliation with the new PDU
+                Organisation.objects.filter(trust=trust).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
+            elif LocalHealthBoard.objects.filter(ods_code=pdu["ods_code"]).exists():
+                print(f"{pdu['ods_code']} exists as a Local Health Board")
+                # create the PDU
+                paediatric_diabetes_unit = PaediatricDiabetesUnit.objects.create(
+                    pz_code=pdu["npda_code"]
                 )
-                logger.info(logger_info)
+                lhb = LocalHealthBoard.objects.get(ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"]["extension"])
+                Organisation.objects.filter(local_health_board=lhb).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
             else:
-                if Trust.objects.filter(ods_code=pdu["ods_code"]).exists():
-                    # the ods_code provided is for a Trust, update all the related organisations
-                    trust = Trust.objects.filter(ods_code=pdu["ods_code"]).get()
-                    organisations = Organisation.objects.filter(trust=trust).all()
-                    for organisation in organisations:
-                        organisation.paediatric_diabetes_unit == pdu["ods_code"]
-                        organisation.save(update_fields=["paediatric_diabetes_unit"])
-                    logger_info = f"\033[31m Adding {organisation} in {trust} to {paediatric_diabetes_unit}... \033[31m"
-                    logger.info(logger_info)
-                else:
-                    # this organisation is associate with a pz code but does not exist in the organisation list we have
-                    ORD_organisation = fetch_organisation_by_ods_code(pdu["ods_code"])
-                    if ORD_organisation is not None:
-                        if Trust.objects.filter(
+                # this organisation is associate with a pz code but does not exist in the organisation list we have
+                # Fetch therefore from the Spine
+                print(f"Does not exist as an organisation or a trust: fetching {pdu['ods_code']} from the spine...")
+                ORD_organisation = fetch_organisation_by_ods_code(pdu["ods_code"])
+                if ORD_organisation is not None:
+                    print("exists!")
+                    if Trust.objects.filter(ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"]["extension"]).exists():
+                        parent_trust = Trust.objects.get(
                             ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"][
                                 "OrgId"
                             ]["extension"]
-                        ).exists():
-                            parent_trust = Trust.objects.get(
-                                ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"][
-                                    "OrgId"
-                                ]["extension"]
-                            )
-                            organisations = parent_trust.trust_organisations.all()
-                            county = getattr(
-                                ORD_organisation["GeoLoc"]["Location"], "county", None
-                            )
-                            try:
-                                Organisation.objects.create(
-                                    ods_code=pdu["ods_code"],
-                                    name=ORD_organisation["Name"],
-                                    address1=ORD_organisation["GeoLoc"]["Location"][
-                                        "AddrLn1"
-                                    ],
-                                    city=ORD_organisation["GeoLoc"]["Location"]["Town"],
-                                    county=county,
-                                    postcode=ORD_organisation["GeoLoc"]["Location"][
-                                        "PostCode"
-                                    ],
-                                    active=ORD_organisation["Status"] == "Active",
-                                    published_at=ORD_organisation["Date"][0]["Start"],
-                                    trust=parent_trust,
-                                    local_health_board=None,
-                                    integrated_care_board=organisations[
-                                        0
-                                    ].integrated_care_board,
-                                    nhs_england_region=organisations[
-                                        0
-                                    ].nhs_england_region,
-                                    openuk_network=organisations[0].openuk_network,
-                                    paediatric_diabetes_unit=paediatric_diabetes_unit,
-                                    london_borough=organisations[0].london_borough,
-                                    country=organisations[0].country,
-                                )
-                            except Exception as error:
-                                print(
-                                    f"{ORD_organisation['Name']} {pdu['ods_code']} not saved due to {error} {parent_trust.name} has count: {organisations.count()} organisations"
-                                )
-                        elif LocalHealthBoard.objects.filter(
-                            ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"][
-                                "OrgId"
-                            ]["extension"]
-                        ).exists():
-                            parent_local_health_board = LocalHealthBoard.objects.get(
-                                ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"][
-                                    "OrgId"
-                                ]["extension"]
-                            )
-                            organisations = (
-                                parent_local_health_board.local_health_board_organisations.all()
-                            )
-                            county = getattr(
-                                ORD_organisation["GeoLoc"]["Location"], "county", None
-                            )
-                            try:
-                                Organisation.objects.create(
-                                    ods_code=pdu["ods_code"],
-                                    name=ORD_organisation["Name"],
-                                    address1=ORD_organisation["GeoLoc"]["Location"][
-                                        "AddrLn1"
-                                    ],
-                                    city=ORD_organisation["GeoLoc"]["Location"]["Town"],
-                                    county=county,
-                                    postcode=ORD_organisation["GeoLoc"]["Location"][
-                                        "PostCode"
-                                    ],
-                                    active=ORD_organisation["Status"] == "Active",
-                                    published_at=ORD_organisation["Date"][0]["Start"],
-                                    trust=None,
-                                    local_health_board=parent_local_health_board,
-                                    integrated_care_board=None,
-                                    nhs_england_region=None,
-                                    openuk_network=organisations[0].openuk_network,
-                                    paediatric_diabetes_unit=paediatric_diabetes_unit,
-                                    london_borough=organisations[0].london_borough,
-                                    country=organisations[0].country,
-                                )
-                            except Exception as error:
-                                error_message = f"{ORD_organisation['Name']} not saved due to {error}"
-                                logger.error(error_message)
-
-                        paediatric_diabetes_unit = (
-                            PaediatricDiabetesUnit.objects.create(
-                                pz_code=pdu["npda_code"]
-                            )
                         )
-                        logger.info("{} PDU saved", paediatric_diabetes_unit)
+                    elif LocalHealthBoard.objects.filter(ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"]["extension"]).exists():
+                        parent_trust = LocalHealthBoard.objects.get(ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"]["extension"])
                     else:
-                        error = f"{pdu['ods_code']} not saved as it does not exist or the ORD server is down."
-                        logger.error(error)
+                        print("There is no parent trust for this new organisation matching our database")
+                        parent_trust = None
+                    
+                    if parent_trust is not None:
+                        paediatric_diabetes_unit = PaediatricDiabetesUnit.objects.create(
+                            pz_code=pdu["npda_code"]
+                        )
+
+                        organisations = parent_trust.trust_organisations.all()
+                        county = getattr(
+                            ORD_organisation["GeoLoc"]["Location"], "county", None
+                        )
+                        try:
+                            Organisation.objects.create(
+                                ods_code=pdu["ods_code"],
+                                name=ORD_organisation["Name"],
+                                address1=ORD_organisation["GeoLoc"]["Location"][
+                                    "AddrLn1"
+                                ],
+                                city=ORD_organisation["GeoLoc"]["Location"]["Town"],
+                                county=county,
+                                postcode=ORD_organisation["GeoLoc"]["Location"][
+                                    "PostCode"
+                                ],
+                                active=ORD_organisation["Status"] == "Active",
+                                published_at=ORD_organisation["Date"][0]["Start"],
+                                trust=parent_trust,
+                                local_health_board=None,
+                                integrated_care_board=organisations[0].integrated_care_board,
+                                nhs_england_region=organisations[0].nhs_england_region,
+                                openuk_network=organisations[0].openuk_network,
+                                paediatric_diabetes_unit=paediatric_diabetes_unit,
+                                london_borough=organisations[0].london_borough,
+                                country=organisations[0].country,
+                            )
+                        except Exception as error:
+                            print(
+                                f"{ORD_organisation['Name']} {pdu['ods_code']} not saved due to {error} {parent_trust.name} has count: {organisations.count()} organisations"
+                            )
+                    else:
+                        print("It was not possible to add this PDU as there was no parent organisation in the database")

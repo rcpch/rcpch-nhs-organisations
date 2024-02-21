@@ -14,7 +14,7 @@ from rcpch_nhs_organisations.hospitals.constants import (
     LOCAL_HEALTH_BOARDS,
 )
 
-# Logging setup
+# logger setup
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +27,7 @@ def ods_codes_to_abstraction_levels():
     OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
     LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
 
-    logging.info(
+    logger.info(
         "\033[38;2;17;167;142m Updating Integrated Care Boards with ODS codes \033[38;2;17;167;142m",
     )
 
@@ -46,7 +46,7 @@ def ods_codes_to_abstraction_levels():
                 f"Seeding error. {icb['gss_code']}/{icb['name']} not found in the database to seed."
             )
 
-    logging.info(
+    logger.info(
         "\033[38;2;17;167;142m Updating NHS England Regions with NHS England region codes \033[38;2;17;167;142m",
     )
 
@@ -70,7 +70,7 @@ def ods_codes_to_abstraction_levels():
         else:
             raise Exception("Seeding error. No NHS England region entity to seed.")
 
-    logging.info(
+    logger.info(
         "\033[38;2;17;167;142m Updating Local Health Boards with ODS codes. \033[38;2;17;167;142m",
     )
 
@@ -90,7 +90,7 @@ def ods_codes_to_abstraction_levels():
         else:
             raise Exception("Seeding error. No Local Health Board entity to seed.")
 
-    logging.info(
+    logger.info(
         "\033[38;2;17;167;142m Creating OPEN UK Networks... \033[38;2;17;167;142m",
     )
 
@@ -103,10 +103,14 @@ def ods_codes_to_abstraction_levels():
             )
             pass
         else:
-            OPENUKNetwork.objects.create(
-                name=open_uk_network["OPEN_UK_Network_Name"],
-                boundary_identifier=open_uk_network["OPEN_UK_Network_Code"],
-                country=open_uk_network["country"],
-                publication_date=date(2022, 12, 8),
-            ).save()
-            print(f"Created {open_uk_network['OPEN_UK_Network_Name']}.")
+            try:
+                OPENUKNetwork.objects.create(
+                    name=open_uk_network["OPEN_UK_Network_Name"],
+                    boundary_identifier=open_uk_network["OPEN_UK_Network_Code"],
+                    country=open_uk_network["country"],
+                    publication_date=date(2022, 12, 8),
+                ).save()
+                print(f"Created {open_uk_network['OPEN_UK_Network_Name']}.")
+            except Exception as error:
+                print(f"Could not add {open_uk_network['OPEN_UK_Network_Name']}. {error}")
+
