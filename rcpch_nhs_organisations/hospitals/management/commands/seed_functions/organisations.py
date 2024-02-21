@@ -39,10 +39,10 @@ def seed_organisations():
 
     if Organisation.objects.all().count() >= 330:
         logger.info(
-            "\033[31m 329 RCPCH organisations already seeded. Skipping... \033[31m",
+            "329 RCPCH organisations already seeded. Skipping...",
         )
     else:
-        logger.info("\033[31m Adding new RCPCH organisations... \033[31m")
+        logger.info("Adding new RCPCH organisations...")
 
         for added, rcpch_organisation in enumerate(RCPCH_ORGANISATIONS):
             # Apply longitude and latitude data, if exists
@@ -167,11 +167,11 @@ def seed_organisations():
         except Exception as error:
             error_message = f"Unable to find {icb_trust['ODS Trust Code']} when updating {icb_trust['ODS ICB Code']} ICB and {icb_trust['NHS England Region Code']} NHS England Region!"
             logger.error(error_message)
-    logger_info = f"\033[31m Updated {added+1} RCPCH organisations with ICB, NHS England relationships... \033[31m"
+    logger_info = f"Updated {added+1} RCPCH organisations with ICB, NHS England relationships..."
     logger.info(logger_info)
 
     logger.info(
-        "\033[31m Updating all RCPCH organisations with OPEN UK network relationships... \033[31m"
+        "Updating all RCPCH organisations with OPEN UK network relationships..."
     )
 
     # openuk_network
@@ -199,7 +199,6 @@ def seed_organisations():
         )
         # upoate the OPENUK netowork for all the Organisations in this trust
         Organisation.objects.filter(query_term).update(openuk_network=openuk_network)
-    logger_info = (
-        f"\033[31m Updated {added+1} RCPCH organisations with OPENUK relationships... \033[31m",
-    )
+        info_text=f"Updated {added+1} RCPCH organisations with OPENUK relationships..."
+    logger_info = (info_text)
     logger.info(logger_info)

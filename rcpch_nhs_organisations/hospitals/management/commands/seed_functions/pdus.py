@@ -3,14 +3,14 @@ import logging
 
 # Django imports
 from django.apps import apps
-from django.contrib.gis.db.models import Q
+from django.contrib.gis.geos import Point
 
 from rcpch_nhs_organisations.hospitals.constants import (
     PZ_CODES,
 )
 
 from rcpch_nhs_organisations.hospitals.general_functions import (
-    fetch_organisation_by_ods_code,
+    fetch_organisation_by_ods_code, fetch_by_postcode
 )
 
 # logger setup
@@ -31,24 +31,16 @@ def seed_pdus():
     LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
     PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
 
-    # if Organisation.objects.filter(paediatric_diabetes_unit__isnull=False).count() > 0:
-    #     logger.info(
-    #         "\033[31m Paediatric Diabetes Units already seeded. Skipping... \033[31m"
-    #     )
-    #     print("\033[31m Paediatric Diabetes Units already seeded. Skipping... \033[31m")
-    # else:
-    logger.info("\033[31m Paediatric Diabetes Units being seeded... \033[31m")
-    print("\033[31m Paediatric Diabetes Units being seeded... \033[31m")
+    logger.info("Paediatric Diabetes Units being seeded...")
     for pdu in PZ_CODES:
         if Organisation.objects.filter(ods_code=pdu["ods_code"]).exists():
-            print(f"{pdu['ods_code']} exists as an organistation - update with pz code")
+            # the ods_code provided is for an existing organisation, update to include PDU
             paediatric_diabetes_unit = PaediatricDiabetesUnit.objects.create(
                 pz_code=pdu["npda_code"]
             )
             Organisation.objects.filter(ods_code=pdu["ods_code"]).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
         else:
             if Trust.objects.filter(ods_code=pdu["ods_code"]).exists():
-                print(f"{pdu['ods_code']} exists as a trust")
                 # the ods_code provided is for a Trust, update all the related organisations
                 
                 # create the PDU
@@ -60,7 +52,7 @@ def seed_pdus():
                 # Update trust's child organisations and update their affiliation with the new PDU
                 Organisation.objects.filter(trust=trust).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
             elif LocalHealthBoard.objects.filter(ods_code=pdu["ods_code"]).exists():
-                print(f"{pdu['ods_code']} exists as a Local Health Board")
+                # the ods_code provided is for a Local Health Board, update all the related organisations
                 # create the PDU
                 paediatric_diabetes_unit = PaediatricDiabetesUnit.objects.create(
                     pz_code=pdu["npda_code"]
@@ -68,12 +60,13 @@ def seed_pdus():
                 lhb = LocalHealthBoard.objects.get(ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"]["extension"])
                 Organisation.objects.filter(local_health_board=lhb).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
             else:
-                # this organisation is associate with a pz code but does not exist in the organisation list we have
+                # this organisation is associated with a pz code but does not exist in the organisation list we have
                 # Fetch therefore from the Spine
-                print(f"Does not exist as an organisation or a trust: fetching {pdu['ods_code']} from the spine...")
                 ORD_organisation = fetch_organisation_by_ods_code(pdu["ods_code"])
                 if ORD_organisation is not None:
-                    print("exists!")
+                    # use the retrieved postcode to get the longitude and latitude
+                    postcode_object = fetch_by_postcode(ORD_organisation["GeoLoc"]["Location"]["PostCode"])
+                    # fetch the parent Trust or Local Health Board for this new organisation in order to get relationships from siblings
                     if Trust.objects.filter(ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"]["extension"]).exists():
                         parent_trust = Trust.objects.get(
                             ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"][
@@ -96,6 +89,20 @@ def seed_pdus():
                             ORD_organisation["GeoLoc"]["Location"], "county", None
                         )
                         try:
+                            longitude = float(postcode_object["location"]["lon"])
+                        except:
+                            longitude = None
+                        
+                        try:
+                            latitude = float(postcode_object["location"]["lat"])
+                        except:
+                            latitude = None
+
+                        if longitude and latitude:
+                            new_point = Point(x=longitude, y=latitude)
+                        else:
+                            new_point=None
+                        try:
                             Organisation.objects.create(
                                 ods_code=pdu["ods_code"],
                                 name=ORD_organisation["Name"],
@@ -107,7 +114,9 @@ def seed_pdus():
                                 postcode=ORD_organisation["GeoLoc"]["Location"][
                                     "PostCode"
                                 ],
-                                active=ORD_organisation["Status"] == "Active",
+                                longitude=longitude,
+                                latitude=latitude,
+                                geocode_coordinates = new_point,
                                 published_at=ORD_organisation["Date"][0]["Start"],
                                 trust=parent_trust,
                                 local_health_board=None,

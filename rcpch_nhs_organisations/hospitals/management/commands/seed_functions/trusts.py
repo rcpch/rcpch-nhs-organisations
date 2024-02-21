@@ -23,10 +23,10 @@ def seed_trusts():
     Trust = apps.get_model("hospitals", "Trust")
 
     if Trust.objects.all().count == 242:
-        logging_message = "\033[31m 242 Trusts already seeded. Skipping... \033[31m"
+        logging_message = "242 Trusts already seeded. Skipping..."
         logging.info(logging_message)
     else:
-        logger.info("\033[31m Adding new Trusts... \033[31m")
+        logger.info("Adding new Trusts...")
 
         for added, trust in enumerate(TRUSTS):
             try:

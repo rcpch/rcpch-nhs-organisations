@@ -28,7 +28,7 @@ def ods_codes_to_abstraction_levels():
     LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
 
     logger.info(
-        "\033[38;2;17;167;142m Updating Integrated Care Boards with ODS codes \033[38;2;17;167;142m",
+        "Updating Integrated Care Boards with ODS codes",
     )
 
     for icb in INTEGRATED_CARE_BOARDS:
@@ -47,7 +47,7 @@ def ods_codes_to_abstraction_levels():
             )
 
     logger.info(
-        "\033[38;2;17;167;142m Updating NHS England Regions with NHS England region codes \033[38;2;17;167;142m",
+        "Updating NHS England Regions with NHS England region codes",
     )
 
     for nhs_england_region in NHS_ENGLAND_REGIONS:
@@ -71,7 +71,7 @@ def ods_codes_to_abstraction_levels():
             raise Exception("Seeding error. No NHS England region entity to seed.")
 
     logger.info(
-        "\033[38;2;17;167;142m Updating Local Health Boards with ODS codes. \033[38;2;17;167;142m",
+        "Updating Local Health Boards with ODS codes.",
     )
 
     for local_health_board in LOCAL_HEALTH_BOARDS:
@@ -91,7 +91,7 @@ def ods_codes_to_abstraction_levels():
             raise Exception("Seeding error. No Local Health Board entity to seed.")
 
     logger.info(
-        "\033[38;2;17;167;142m Creating OPEN UK Networks... \033[38;2;17;167;142m",
+        "Creating OPEN UK Networks...",
     )
 
     for open_uk_network in OPEN_UK_NETWORKS:

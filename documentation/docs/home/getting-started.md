@@ -32,4 +32,10 @@ Once all docker containers have been instantiated, django runs through the migra
 1. clone the repo
 2. ```s/up```
 
+This will build the containers and perform the initial migration.
+
+To seed the database:
+
+1. `python manage.py seed --model=all`
+
 If you navigate to [https://rcpch-census-platform.localhost/rcpch-census-platform/api/v1/swagger-ui/#/](https://rcpch-census-platform.localhost/rcpch-census-platform/api/v1/swagger-ui/#/) the Open API Specification and schemas are visible. If only the base url [https://rcpch-census-platform.localhost/rcpch-census-platform/api/v1/](https://rcpch-census-platform.localhost/rcpch-census-platform/api/v1/) is used, the django browsable API can be found.
