@@ -4,3 +4,9 @@
 [2024-02-21 11:49:20,882] WARNING [django.server:212] "GET /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/ HTTP/1.1" 404 23
 [2024-02-21 13:18:55,973] WARNING [django.request:241] Not Found: /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/
 [2024-02-21 13:18:55,975] WARNING [django.server:212] "GET /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/ HTTP/1.1" 404 23
+[2024-02-21 15:38:11,698] WARNING [django.request:241] Not Found: /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/
+[2024-02-21 15:38:11,700] WARNING [django.server:212] "GET /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/ HTTP/1.1" 404 23
+[2024-02-21 16:49:02,057] WARNING [django.request:241] Not Found: /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/
+[2024-02-21 16:49:02,058] WARNING [django.server:212] "GET /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/ HTTP/1.1" 404 23
+[2024-02-21 18:09:39,507] WARNING [django.request:241] Not Found: /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/
+[2024-02-21 18:09:39,508] WARNING [django.server:212] "GET /rcpch-nhs-organisations/api/v1/paediatric_diabetes_units/organisations/ HTTP/1.1" 404 23

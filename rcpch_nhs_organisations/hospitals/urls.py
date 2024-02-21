@@ -79,7 +79,7 @@ router.register(
 
 # RCPCH networks
 router.register(
-    r"paediatric_diabetes_units",
+    r"paediatric_diabetes_units/extended",
     viewset=PaediatricDiabetesUnitViewSet,
     basename="paediatric_diabetes_unit",
 )
