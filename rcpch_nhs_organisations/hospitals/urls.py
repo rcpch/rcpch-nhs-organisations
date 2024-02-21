@@ -10,6 +10,8 @@ from .views import (
     LondonBoroughOrganisationViewSet,
     NHSEnglandRegionViewSet,
     NHSEnglandRegionOrganisationViewSet,
+    PaediatricDiabetesUnitViewSet,
+    PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     TrustViewSet,
 )
 
@@ -73,6 +75,18 @@ router.register(
     r"nhs_england_regions/organisations",
     viewset=NHSEnglandRegionOrganisationViewSet,
     basename="nhs_england_region",
+)
+
+# RCPCH networks
+router.register(
+    r"paediatric_diabetes_units",
+    viewset=PaediatricDiabetesUnitViewSet,
+    basename="paediatric_diabetes_unit",
+)
+router.register(
+    r"paediatric_diabetes_units/organisations",
+    viewset=PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
+    basename="paediatric_diabetes_unit",
 )
 
 

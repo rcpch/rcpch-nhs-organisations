@@ -4,7 +4,12 @@
 from django.core.management.base import BaseCommand
 
 # RCPCH
-from .seed_functions import *
+from .seed_functions import (
+    seed_organisations,
+    seed_trusts,
+    seed_pdus,
+    ods_codes_to_abstraction_levels,
+)
 
 W = "\033[0m"  # white (normal)
 R = "\033[31m"  # red
@@ -75,6 +80,6 @@ def image():
                                 ~YY!           :~!77!!^. .JYJ.    ~YY7
 
 
-                                       RCPCH Census Platform 2022
+                                       RCPCH NHS Organisations 2024
 
                 """

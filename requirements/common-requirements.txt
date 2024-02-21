@@ -40,5 +40,7 @@ mkdocs-with-pdf # PDF export feature
 autopep8
 black
 
+# for colored logs
+colorlog
 
 # RCPCH imports
