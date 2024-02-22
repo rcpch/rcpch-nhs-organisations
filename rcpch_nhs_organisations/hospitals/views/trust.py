@@ -17,7 +17,10 @@ from drf_spectacular.utils import (
 from drf_spectacular.types import OpenApiTypes
 
 from ..models import Trust
-from ..serializers import TrustSerializer, TrustWithNestedOrganisationsSerializer
+from ..serializers import (
+    TrustSerializer,
+    TrustWithNestedOrganisationsSerializer,
+)
 
 
 @extend_schema(

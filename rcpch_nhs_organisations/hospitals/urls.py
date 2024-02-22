@@ -88,6 +88,11 @@ router.register(
     viewset=PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     basename="paediatric_diabetes_unit",
 )
+# router.register(
+#     r"paediatric_diabetes_units/trusts",
+#     viewset=TrustWithNestedPaediatricDiabetesUnitsViewSet,
+#     basename="paediatric_diabetes_unit",
+# )
 
 
 drf_routes = [
