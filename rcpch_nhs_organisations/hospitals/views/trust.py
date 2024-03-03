@@ -18,7 +18,6 @@ from drf_spectacular.types import OpenApiTypes
 
 from ..models import Trust
 from ..serializers import (
-    TrustSerializer,
     TrustWithNestedOrganisationsSerializer,
 )
 
