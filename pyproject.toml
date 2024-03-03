@@ -1,0 +1,76 @@
+# Choosing a build backend:
+[build-system]
+# A list of packages that are needed to build your package:
+requires = ["setuptools"]  
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "rcpchnhsorganisations"
+version = "0.0.1"
+dynamic = ["version"]
+description = "Maintained lists of NHS organisations that care for children, and their organisational relationships."
+
+readme = "README.md"
+
+requires-python = ">=3.8"
+license = {file = "LICENSE.txt"}
+keywords = ["RCPCH", "children", "young people", "NHS", "organisations"]
+authors = [
+  {name = "eatyourpeas", email = "incubator@rcpch.tech" }
+]
+
+maintainers = [
+  {name = "Simon Chapman", email = "simon@eatyourpeas.co.uk" }
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Healthcare Industry",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+# This field lists other packages that your project depends on to run.
+# Any package you put here will be installed by pip when your project is
+# installed, so they must be valid existing projects.
+#
+# For an analysis of this field vs pip's requirements files see:
+# https://packaging.python.org/discussions/install-requires-vs-requirements/
+dependencies = [
+  "python-dateutil",
+    "colorlog"
+]
+
+# List additional groups of dependencies here (e.g. development
+# dependencies). Users will be able to install these using the "extras"
+# syntax, for example:
+#
+#   $ pip install sampleproject[dev]
+#
+# Optional dependencies the project provides. These are commonly 
+# referred to as "extras". For a more extensive definition see:
+# https://packaging.python.org/en/latest/specifications/dependency-specifiers/#extras
+[project.optional-dependencies]
+dev = ["check-manifest"]
+test = ["coverage"]
+
+[project.urls]
+"Homepage" = "https://github.com/rcpch/rcpch-nhs-organisations"
+"Issues" = "https://github.com/rcpch/rcpch-nhs-organisations/issues"
+"Source" = "https://github.com/rcpch/rcpch-nhs-organisations"
+
+[project.scripts]
+sample = "sample:main"
+
+[tool.setuptools]
+# If there are data files included in your packages that need to be
+# installed, specify them here.
+package-data = {"organisations" = ["*.py"]}
