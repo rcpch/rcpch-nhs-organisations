@@ -3,12 +3,11 @@ import logging
 
 # Django imports
 from django.contrib.gis.geos import Point
-from django.db import migrations
 from django.contrib.gis.db.models import Q
 from django.apps import apps
 
 # Logging setup
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("hospitals")
 
 from rcpch_nhs_organisations.hospitals.constants import (
     RCPCH_ORGANISATIONS,
@@ -117,22 +116,22 @@ def seed_organisations():
                         )
                         organisation.london_borough = london_borough
                     except Exception as e:
-                        print(
+                        logger.info(
                             f"Unable to save London Borough {rcpch_organisation['LocalAuthority']}"
                         )
                         pass
 
                 organisation.save()
-                print(f"{added+1}: {rcpch_organisation['OrganisationName']}")
+                logger.info(f"{added+1}: {rcpch_organisation['OrganisationName']}")
             except Exception as error:
-                print(
+                logger.info(
                     f"Unable to save {rcpch_organisation['OrganisationName']}: {error}"
                 )
 
-        print(f"{added+1} organisations added.")
+        logger.info(f"{added+1} organisations added.")
 
     logger.info(
-        "\033[31m Updating RCPCH organisations with ICB, NHS England relationships... \033[31m",
+        "Updating RCPCH organisations with ICB, NHS England relationships...",
     )
     # add integrated care boards and NHS regions to organisations
     for added, icb_trust in enumerate(INTEGRATED_CARE_BOARDS_LOCAL_AUTHORITIES):
@@ -167,7 +166,9 @@ def seed_organisations():
         except Exception as error:
             error_message = f"Unable to find {icb_trust['ODS Trust Code']} when updating {icb_trust['ODS ICB Code']} ICB and {icb_trust['NHS England Region Code']} NHS England Region!"
             logger.error(error_message)
-    logger_info = f"Updated {added+1} RCPCH organisations with ICB, NHS England relationships..."
+    logger_info = (
+        f"Updated {added+1} RCPCH organisations with ICB, NHS England relationships..."
+    )
     logger.info(logger_info)
 
     logger.info(
@@ -199,6 +200,8 @@ def seed_organisations():
         )
         # upoate the OPENUK netowork for all the Organisations in this trust
         Organisation.objects.filter(query_term).update(openuk_network=openuk_network)
-        info_text=f"Updated {added+1} RCPCH organisations with OPENUK relationships..."
-    logger_info = (info_text)
+        info_text = (
+            f"Updated {added+1} RCPCH organisations with OPENUK relationships..."
+        )
+    logger_info = info_text
     logger.info(logger_info)

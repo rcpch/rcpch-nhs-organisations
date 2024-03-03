@@ -50,7 +50,7 @@ LOGGING = {
             "format": "%(log_color)s[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(bold_white)s%(message)s",
             "log_colors": {
                 "DEBUG": "bold_black",
-                "INFO": "white",
+                "INFO": "green",
                 "WARNING": "yellow",
                 "ERROR": "red",
                 "CRITICAL": "bold_red",
@@ -61,7 +61,7 @@ LOGGING = {
             "format": "%(log_color)s%(levelname)s [%(name)s:%(lineno)s] %(bold_white)s%(message)s",
             "log_colors": {
                 "DEBUG": "bold_black",
-                "INFO": "white",
+                "INFO": "green",
                 "WARNING": "yellow",
                 "ERROR": "red",
                 "CRITICAL": "bold_red",
@@ -73,7 +73,7 @@ LOGGING = {
             "format": "%(log_color)s%(levelname)s [%(name)s] %(bold_white)s%(message)s",
             "log_colors": {
                 "DEBUG": "bold_black",
-                "INFO": "white",
+                "INFO": "green",
                 "WARNING": "yellow",
                 "ERROR": "red",
                 "CRITICAL": "bold_red",

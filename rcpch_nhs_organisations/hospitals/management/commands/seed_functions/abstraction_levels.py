@@ -15,7 +15,7 @@ from rcpch_nhs_organisations.hospitals.constants import (
 )
 
 # logger setup
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("hospitals")
 
 
 def ods_codes_to_abstraction_levels():
@@ -40,7 +40,7 @@ def ods_codes_to_abstraction_levels():
             IntegratedCareBoard.objects.filter(
                 boundary_identifier=icb["gss_code"]
             ).update(ods_code=icb["ods_code"], publication_date=date(2023, 3, 15))
-            print(f"Updated {icb['name']} to include ODS code")
+            logger.info(f"Updated {icb['name']} to include ODS code")
         else:
             raise Exception(
                 f"Seeding error. {icb['gss_code']}/{icb['name']} not found in the database to seed."
@@ -64,7 +64,7 @@ def ods_codes_to_abstraction_levels():
             ]
             nhs_england_region_object.publication_date = date(2022, 7, 30)
             nhs_england_region_object.save()
-            print(
+            logger.info(
                 f"Updated {nhs_england_region['NHS_ENGLAND_REGION_NAME']} to include ODS code"
             )
         else:
@@ -86,7 +86,9 @@ def ods_codes_to_abstraction_levels():
                 ods_code=local_health_board["ods_code"],
                 publication_date=date(2022, 4, 14),
             )
-            print(f"Updated {local_health_board['health_board']} to include ODS code")
+            logger.info(
+                f"Updated {local_health_board['health_board']} to include ODS code"
+            )
         else:
             raise Exception("Seeding error. No Local Health Board entity to seed.")
 
@@ -98,7 +100,7 @@ def ods_codes_to_abstraction_levels():
         # iterates through all 42 ICBs and populates table
         if OPENUKNetwork.objects.all().count() == 30:
             # should NOT already exist in the database
-            print(
+            logger.info(
                 f"OPEN UK Networks {open_uk_network['name']} have already been added to the database."
             )
             pass
@@ -110,7 +112,8 @@ def ods_codes_to_abstraction_levels():
                     country=open_uk_network["country"],
                     publication_date=date(2022, 12, 8),
                 ).save()
-                print(f"Created {open_uk_network['OPEN_UK_Network_Name']}.")
+                logger.info(f"Created {open_uk_network['OPEN_UK_Network_Name']}.")
             except Exception as error:
-                print(f"Could not add {open_uk_network['OPEN_UK_Network_Name']}. {error}")
-
+                logger.info(
+                    f"Could not add {open_uk_network['OPEN_UK_Network_Name']}. {error}"
+                )

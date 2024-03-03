@@ -1,7 +1,7 @@
 import logging
 
 # Logging setup
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("hospitals")
 
 # Django imports
 from django.apps import apps
@@ -22,9 +22,9 @@ def seed_trusts():
     # Get models
     Trust = apps.get_model("hospitals", "Trust")
 
-    if Trust.objects.all().count == 242:
+    if Trust.objects.all().count() == 242:
         logging_message = "242 Trusts already seeded. Skipping..."
-        logging.info(logging_message)
+        logger.info(logging_message)
     else:
         logger.info("Adding new Trusts...")
 
@@ -39,10 +39,10 @@ def seed_trusts():
                     postcode=trust["postcode"],
                     country=trust["country"],
                 ).save()
-                print(f"{added+1}: {trust['trust_name']}")
+                logger.info(f"{added+1}: {trust['trust_name']}")
             except Exception as error:
                 error_message = f"Unable to save {trust['trust_name']}: {error}"
-                logging.error(error_message)
+                logger.error(error_message)
 
         logging_message = f"{added+1} trusts added."
-        logging.info(logging_message)
+        logger.info(logging_message)

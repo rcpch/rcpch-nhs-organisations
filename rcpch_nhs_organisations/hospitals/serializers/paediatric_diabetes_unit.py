@@ -1,4 +1,3 @@
-from django.apps import apps
 from rest_framework import serializers
 
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
@@ -18,6 +17,7 @@ from ..models import PaediatricDiabetesUnit
     ]
 )
 class PaediatricDiabetesUnitSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = PaediatricDiabetesUnit
         # depth = 1
