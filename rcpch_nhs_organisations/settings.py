@@ -165,5 +165,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "UK NHS Organisations responsible for children's health, as a service.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_FAVICON_HREF": STATIC_URL
+    + "rcpch-logo.jpg",  # default is swagger favicon
     # OTHER SETTINGS
 }
