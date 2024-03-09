@@ -1,4 +1,5 @@
 from .country_codes import *
+from .credentials import *
 from .integrated_care_boards import *
 from .local_health_boards import *
 from .nhs_england_regions import *
