@@ -1571,3 +1571,124 @@ Original exception text was: 'Trust' object has no attribute 'pz_code'.
 [2024-03-09 20:42:04,438] INFO [hospitals:174] Updating all RCPCH organisations with OPEN UK network relationships...
 [2024-03-09 20:42:04,582] INFO [hospitals:207] Updated 160 RCPCH organisations with OPENUK relationships...
 [2024-03-09 20:42:04,583] INFO [hospitals:35] Paediatric Diabetes Units being seeded...
+[2024-03-09 21:12:21,481] INFO [hospitals:30] Updating Integrated Care Boards with ODS codes
+[2024-03-09 21:12:21,544] INFO [hospitals:43] Updated NHS BATH AND NORTH EAST SOMERSET, SWINDON AND WILTSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,547] INFO [hospitals:43] Updated NHS BEDFORDSHIRE, LUTON AND MILTON KEYNES INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,548] INFO [hospitals:43] Updated NHS BIRMINGHAM AND SOLIHULL INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,549] INFO [hospitals:43] Updated NHS BLACK COUNTRY INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,550] INFO [hospitals:43] Updated NHS BRISTOL, NORTH SOMERSET AND SOUTH GLOUCESTERSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,551] INFO [hospitals:43] Updated NHS BUCKINGHAMSHIRE, OXFORDSHIRE AND BERKSHIRE WEST INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,552] INFO [hospitals:43] Updated NHS CAMBRIDGESHIRE AND PETERBOROUGH INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,553] INFO [hospitals:43] Updated NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,554] INFO [hospitals:43] Updated NHS CORNWALL AND THE ISLES OF SCILLY INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,555] INFO [hospitals:43] Updated NHS COVENTRY AND WARWICKSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,556] INFO [hospitals:43] Updated NHS DERBY AND DERBYSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,557] INFO [hospitals:43] Updated NHS DEVON INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,557] INFO [hospitals:43] Updated NHS DORSET INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,558] INFO [hospitals:43] Updated NHS FRIMLEY INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,559] INFO [hospitals:43] Updated NHS GLOUCESTERSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,560] INFO [hospitals:43] Updated NHS GREATER MANCHESTER INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,561] INFO [hospitals:43] Updated NHS HAMPSHIRE AND ISLE OF WIGHT INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,563] INFO [hospitals:43] Updated NHS HEREFORDSHIRE AND WORCESTERSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,564] INFO [hospitals:43] Updated NHS HERTFORDSHIRE AND WEST ESSEX INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,565] INFO [hospitals:43] Updated NHS HUMBER AND NORTH YORKSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,566] INFO [hospitals:43] Updated NHS KENT AND MEDWAY INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,566] INFO [hospitals:43] Updated NHS LANCASHIRE AND SOUTH CUMBRIA INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,568] INFO [hospitals:43] Updated NHS LEICESTER, LEICESTERSHIRE AND RUTLAND INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,568] INFO [hospitals:43] Updated NHS LINCOLNSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,569] INFO [hospitals:43] Updated NHS MID AND SOUTH ESSEX INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,570] INFO [hospitals:43] Updated NHS NORFOLK AND WAVENEY INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,571] INFO [hospitals:43] Updated NHS NORTHAMPTONSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,572] INFO [hospitals:43] Updated NHS NORTH CENTRAL LONDON INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,573] INFO [hospitals:43] Updated NHS NORTH EAST AND NORTH CUMBRIA INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,574] INFO [hospitals:43] Updated NHS NORTH EAST LONDON INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,575] INFO [hospitals:43] Updated NHS NORTH WEST LONDON INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,576] INFO [hospitals:43] Updated NHS NOTTINGHAM AND NOTTINGHAMSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,577] INFO [hospitals:43] Updated NHS SHROPSHIRE, TELFORD AND WREKIN INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,578] INFO [hospitals:43] Updated NHS SOMERSET INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,579] INFO [hospitals:43] Updated NHS SOUTH EAST LONDON INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,580] INFO [hospitals:43] Updated NHS SOUTH WEST LONDON INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,580] INFO [hospitals:43] Updated NHS SOUTH YORKSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,581] INFO [hospitals:43] Updated NHS STAFFORDSHIRE AND STOKE-ON-TRENT INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,582] INFO [hospitals:43] Updated NHS SUFFOLK AND NORTH EAST ESSEX INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,584] INFO [hospitals:43] Updated NHS SURREY HEARTLANDS INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,584] INFO [hospitals:43] Updated NHS SUSSEX INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,586] INFO [hospitals:43] Updated NHS WEST YORKSHIRE INTEGRATED CARE BOARD to include ODS code
+[2024-03-09 21:12:21,586] INFO [hospitals:49] Updating NHS England Regions with NHS England region codes
+[2024-03-09 21:12:21,596] INFO [hospitals:67] Updated London to include ODS code
+[2024-03-09 21:12:21,599] INFO [hospitals:67] Updated South East to include ODS code
+[2024-03-09 21:12:21,602] INFO [hospitals:67] Updated South West to include ODS code
+[2024-03-09 21:12:21,604] INFO [hospitals:67] Updated East of England to include ODS code
+[2024-03-09 21:12:21,606] INFO [hospitals:67] Updated North West to include ODS code
+[2024-03-09 21:12:21,608] INFO [hospitals:67] Updated Midlands to include ODS code
+[2024-03-09 21:12:21,610] INFO [hospitals:67] Updated North East and Yorkshire to include ODS code
+[2024-03-09 21:12:21,610] INFO [hospitals:73] Updating Local Health Boards with ODS codes.
+[2024-03-09 21:12:21,612] INFO [hospitals:89] Updated ANEURIN BEVAN UNIVERSITY HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,613] INFO [hospitals:89] Updated BETSI CADWALADR UNIVERSITY HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,613] INFO [hospitals:89] Updated CARDIFF AND VALE UNIVERSITY HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,614] INFO [hospitals:89] Updated CWM TAF MORGANNWG UNIVERSITY HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,615] INFO [hospitals:89] Updated HYWEL DDA UNIVERSITY HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,616] INFO [hospitals:89] Updated POWYS TEACHING HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,617] INFO [hospitals:89] Updated SWANSEA BAY UNIVERSITY HEALTH BOARD to include ODS code
+[2024-03-09 21:12:21,617] INFO [hospitals:95] Creating OPEN UK Networks...
+[2024-03-09 21:12:21,629] INFO [hospitals:117] Could not add Birmingham Regional Paediatric Neurology Forum. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(BRPNF) already exists.
+
+[2024-03-09 21:12:21,630] INFO [hospitals:117] Could not add Children's Epilepsy Workstream in Trent. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(CEWT) already exists.
+
+[2024-03-09 21:12:21,631] INFO [hospitals:117] Could not add Eastern Paediatric Epilepsy Network. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(EPEN) already exists.
+
+[2024-03-09 21:12:21,632] INFO [hospitals:117] Could not add Mersey and North Wales network 'Epilepsy In Childhood' interest group. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(EPIC) already exists.
+
+[2024-03-09 21:12:21,632] INFO [hospitals:117] Could not add North Thames Paediatric Epilepsy Network. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(NTPEN) already exists.
+
+[2024-03-09 21:12:21,633] INFO [hospitals:117] Could not add North West Children and Young People's Epilepsy Interest Group. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(NWEIG) already exists.
+
+[2024-03-09 21:12:21,634] INFO [hospitals:117] Could not add Oxford region epilepsy interest group. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(ORENG) already exists.
+
+[2024-03-09 21:12:21,635] INFO [hospitals:117] Could not add Paediatric Epilepsy Network for the North East and Cumbria. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(PENNEC) already exists.
+
+[2024-03-09 21:12:21,636] INFO [hospitals:117] Could not add South East Thames Paediatric Epilepsy Group. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(SETPEG) already exists.
+
+[2024-03-09 21:12:21,637] INFO [hospitals:117] Could not add South Wales Epilepsy Forum. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(SWEP) already exists.
+
+[2024-03-09 21:12:21,638] INFO [hospitals:117] Could not add South West Interest Group Paediatric Epilepsy. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(SWIPE) already exists.
+
+[2024-03-09 21:12:21,639] INFO [hospitals:117] Could not add South West Thames Paediatric Epilepsy Group. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(SWTPEG) already exists.
+
+[2024-03-09 21:12:21,639] INFO [hospitals:117] Could not add Trent Epilepsy Network. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(TEN) already exists.
+
+[2024-03-09 21:12:21,640] INFO [hospitals:117] Could not add Wessex Paediatric Neurosciences Network. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(WPNN) already exists.
+
+[2024-03-09 21:12:21,641] INFO [hospitals:117] Could not add Yorkshire Paediatric Neurology Network. duplicate key value violates unique constraint "hospitals_openuknetwork_boundary_identifier_key"
+DETAIL:  Key (boundary_identifier)=(YPEN) already exists.
+
+[2024-03-09 21:12:21,642] INFO [hospitals:27] 242 Trusts already seeded. Skipping...
+[2024-03-09 21:12:21,647] INFO [hospitals:40] 329 RCPCH organisations already seeded. Skipping...
+[2024-03-09 21:12:21,648] INFO [hospitals:133] Updating RCPCH organisations with ICB, NHS England relationships...
+[2024-03-09 21:12:21,907] INFO [hospitals:172] Updated 271 RCPCH organisations with ICB, NHS England relationships...
+[2024-03-09 21:12:21,907] INFO [hospitals:174] Updating all RCPCH organisations with OPEN UK network relationships...
+[2024-03-09 21:12:22,036] INFO [hospitals:207] Updated 160 RCPCH organisations with OPENUK relationships...
+[2024-03-09 21:12:22,036] INFO [hospitals:35] Paediatric Diabetes Units being seeded...
+[2024-03-09 21:20:09,535] INFO [hospitals:159] EAST SUFFOLK AND NORTH ESSEX NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,597] INFO [hospitals:159] LIVERPOOL UNIVERSITY HOSPITALS NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,671] INFO [hospitals:159] NORTH CUMBRIA INTEGRATED CARE NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,733] INFO [hospitals:159] HEART OF ENGLAND NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,805] INFO [hospitals:159] MIDLANDS PARTNERSHIP NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,871] INFO [hospitals:159] UNIVERSITY HOSPITALS OF DERBY AND BURTON NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,937] INFO [hospitals:159] GLOUCESTERSHIRE HEALTH AND CARE NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:09,997] INFO [hospitals:159] MERSEY CARE NHS FOUNDATION TRUST details have been updated.
+[2024-03-09 21:20:10,604] INFO [hospitals:162] Updates have been made to existing records in the RCPCH database.

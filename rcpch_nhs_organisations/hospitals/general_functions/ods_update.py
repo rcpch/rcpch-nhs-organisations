@@ -9,7 +9,7 @@ from django.conf import settings
 from django.utils import timezone, dateformat
 from django.apps import apps
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("hospitals")
 
 
 def fetch_updated_organisations(time_frame: int = 30):
@@ -101,14 +101,14 @@ def match_trust(ods_code):
 def update_organisation_model_with_ORD_changes():
     """
     Calls ORD API for updates in the last 30 days.
-    Iterates response and searches database for organisation matches
+    Iterates response and searches database for organisation and trust matches against ODS code
     If matches, updates with new details
     """
 
     ord_updated_list = fetch_updated_organisations(time_frame=30)
 
+    updates_exist = False
     for index, org_link in enumerate(ord_updated_list):
-        updates_exist = False
         ods_code = extract_ods_code(org_link=org_link["OrgLink"])
         organisation = match_organisation(ods_code=ods_code)
         if organisation:
@@ -156,9 +156,11 @@ def update_organisation_model_with_ORD_changes():
                         trust.telephone = i["value"]
                 trust.save()
                 logging_text = f"{trust} details have been updated."
-                logging.info(logging_text)
+                logger.info(logging_text)
                 updates_exist = True
-        if not updates_exist:
-            logging.info(
-                "No updates have been made to existing records in the RCPCH database."
-            )
+    if updates_exist:
+        logger.info("Updates have been made to existing records in the RCPCH database.")
+    else:
+        logger.info(
+            "No updates have been made to existing records in the RCPCH database."
+        )
