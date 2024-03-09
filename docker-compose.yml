@@ -27,7 +27,6 @@ services:
     build: .
     depends_on:
       - postgis
-      - redis
     volumes:
       - .:/app/
     command: >
@@ -45,35 +44,6 @@ services:
       - postgis-data:/var/lib/postgresql/data
     restart: always
 
-  # Redis backend for Celery task scheduler
-  redis:
-    image: redis:alpine
-    expose:
-      - 6379
-    restart: always
-
-  # Celery worker
-  celeryworker:
-    <<: *django # this will inherit all the settings from the django service
-    command: celery -A rcpch_nhs_organisations worker -l info
-    restart: always
-
-  # Flower UI for Celery tasks
-  flower:
-    <<: *django # this will inherit all the settings from the django service
-    ports:
-      - 8888:8888
-    volumes:
-      - flower-data:/data
-    command: celery -A rcpch_nhs_organisations flower --persistent=True -url_prefix=flower
-    restart: always
-
-  # Celery scheduled tasks/cron
-  celerybeat:
-    <<: *django # this will inherit all the settings from the django service
-    command: celery -A rcpch_nhs_organisations beat -l info
-    restart: always
-
   mkdocs:
     <<: *django # this will inherit all the settings from the django service
     ports:
@@ -85,5 +55,4 @@ services:
 
 volumes:
   caddy-data:
-  flower-data:
   postgis-data:

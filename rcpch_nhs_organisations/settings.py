@@ -15,7 +15,6 @@ import os
 from pathlib import Path
 
 # third party imports
-from celery.schedules import crontab
 from django.core.management.utils import get_random_secret_key
 
 # RCPCH imports
@@ -88,25 +87,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "rcpch_nhs_organisations.wsgi.application"
-
-# REDIS / Celery
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
-CELERY_ACCEPT_CONTENT = ["application/json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = "Europe/London"
-
-CELERY_BEAT_SCHEDULE = {
-    "update-organisations-daily-at-six-am": {
-        "task": "rcpch_nhs_organisations.tasks.poll_ORD_spineservices_update_organisations_and_trusts",
-        "schedule": crontab(hour="6", minute=0),
-        "options": {
-            "expires": 15.0,
-        },
-    }
-}
-
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
