@@ -1692,3 +1692,5 @@ DETAIL:  Key (boundary_identifier)=(YPEN) already exists.
 [2024-03-09 21:20:09,937] INFO [hospitals:159] GLOUCESTERSHIRE HEALTH AND CARE NHS FOUNDATION TRUST details have been updated.
 [2024-03-09 21:20:09,997] INFO [hospitals:159] MERSEY CARE NHS FOUNDATION TRUST details have been updated.
 [2024-03-09 21:20:10,604] INFO [hospitals:162] Updates have been made to existing records in the RCPCH database.
+[2024-03-09 21:31:05,270] WARNING [django.request:241] Not Found: /favicon.ico
+[2024-03-09 21:31:05,270] WARNING [django.server:212] "GET /favicon.ico HTTP/1.1" 404 2171
