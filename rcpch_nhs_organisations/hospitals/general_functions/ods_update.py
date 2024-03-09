@@ -2,11 +2,14 @@
 import requests
 from requests.exceptions import HTTPError
 import os
+import logging
 
 # django imports
 from django.conf import settings
 from django.utils import timezone, dateformat
 from django.apps import apps
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_updated_organisations(time_frame: int = 30):
@@ -37,7 +40,7 @@ def fetch_updated_organisations(time_frame: int = 30):
         )
         response.raise_for_status()
     except HTTPError as e:
-        print(e.response.text)
+        logger.error(e.response.text)
 
     return response.json()["Organisations"]
 
@@ -105,12 +108,10 @@ def update_organisation_model_with_ORD_changes():
     ord_updated_list = fetch_updated_organisations(time_frame=30)
 
     for index, org_link in enumerate(ord_updated_list):
+        updates_exist = False
         ods_code = extract_ods_code(org_link=org_link["OrgLink"])
         organisation = match_organisation(ods_code=ods_code)
         if organisation:
-            print(
-                f"{index}. {ods_code} has a match with {organisation} in the RCPCH Census Platform database"
-            )
             ord_organisation_update = get_organisation(org_link["OrgLink"])
             organisation.name = ord_organisation_update["Name"]
             organisation.address1 = ord_organisation_update["GeoLoc"]["Location"][
@@ -129,13 +130,13 @@ def update_organisation_model_with_ORD_changes():
             organisation.save(
                 update_fields=["name", "address1", "address2", "city", "postcode"]
             )
+            log_text = f"{organisation} details have been updated."
+            logger.info(log_text)
+            updates_exist = True
         else:
-            print(f"No match with organisation {ods_code}")
+            # there is no match with any organisations needing ODS changes and organisations in RCPCH
             trust = match_trust(ods_code=ods_code)
             if trust:
-                print(
-                    f"{index}. {ods_code} has a match with {trust} in the RCPCH Census Platform database"
-                )
                 ord_trust_update = get_organisation(org_link["OrgLink"])
                 trust.name = ord_trust_update["Name"]
                 trust.address_line_1 = ord_trust_update["GeoLoc"]["Location"]["AddrLn1"]
@@ -145,10 +146,8 @@ def update_organisation_model_with_ORD_changes():
                 except Exception:
                     pass
 
-                trust.town = print(ord_trust_update["GeoLoc"]["Location"]["Town"])
-                trust.postcode = print(
-                    ord_trust_update["GeoLoc"]["Location"]["PostCode"]
-                )
+                trust.town = ord_trust_update["GeoLoc"]["Location"]["Town"]
+                trust.postcode = ord_trust_update["GeoLoc"]["Location"]["PostCode"]
 
                 for i in ord_trust_update["Contacts"]["Contact"]:
                     if i["type"] == "http":
@@ -156,6 +155,10 @@ def update_organisation_model_with_ORD_changes():
                     else:
                         trust.telephone = i["value"]
                 trust.save()
-
-            else:
-                print("No match with Trust either")
+                logging_text = f"{trust} details have been updated."
+                logging.info(logging_text)
+                updates_exist = True
+        if not updates_exist:
+            logging.info(
+                "No updates have been made to existing records in the RCPCH database."
+            )
