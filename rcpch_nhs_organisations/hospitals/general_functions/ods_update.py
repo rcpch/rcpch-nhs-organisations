@@ -26,7 +26,7 @@ def fetch_updated_organisations(time_frame: int = 30):
         timezone.now() - timezone.timedelta(days=time_frame), "Y-m-d"
     )
 
-    url = os.get_env("NHS_ODS_API_URL")
+    url = os.getenv("NHS_ODS_API_URL")
 
     request_url = f"{url}/sync?LastChangeDate={since_date}"
 
@@ -71,7 +71,7 @@ def match_organisation(ods_code):
     If there is a match, the object is returned.
     If no match, None is returned.
     """
-    Organisation = apps.get_model("rcpch_nhs_organisations", "Organisation")
+    Organisation = apps.get_model("hospitals", "Organisation")
     try:
         organisation = Organisation.objects.get(ods_code=ods_code)
     except Organisation.DoesNotExist:
@@ -86,7 +86,7 @@ def match_trust(ods_code):
     If there is a match, the object is returned.
     If no match, None is returned.
     """
-    Trust = apps.get_model("rcpch_nhs_organisations", "Trust")
+    Trust = apps.get_model("hospitals", "Trust")
     try:
         trust = Trust.objects.get(ods_code=ods_code)
     except Trust.DoesNotExist:
