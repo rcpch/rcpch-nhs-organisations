@@ -18,7 +18,7 @@ This service supports all RCPCH applications, in particular the Epilepsy12 and N
 
 They are though open to anyone and do not require authentication.
 
-The project is dockerised, and has containers for [Postgresql](https://www.postgresql.org/), [redis](https://redis.com/), [celery](https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html) and [celery-beat](https://docs.celeryq.dev/en/stable/reference/celery.beat.html) for async and scheduled tasks. This documentation is also in a separate container and built with [MkDocs](https://www.mkdocs.org/)
+The project is dockerised, and has containers for [Postgresql](https://www.postgresql.org/)/postgis and django. This documentation is also in a separate container and built with [MkDocs](https://www.mkdocs.org/)
 
 <p align="center">
     <p align="center">
