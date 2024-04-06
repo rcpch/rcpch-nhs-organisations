@@ -24,6 +24,8 @@ services:
   # Django web application
   django: &django
     <<: *global # this will inherit all the envs from x-global-environment
+    ports:
+      - 8003:8003
     build: .
     depends_on:
       - postgis

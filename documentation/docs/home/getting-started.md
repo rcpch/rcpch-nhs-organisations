@@ -30,6 +30,6 @@ This will build the containers and perform the initial migration.
 
 To seed the database:
 
-1. `python manage.py seed --model=all`
+1. `docker compose exec django python manage.py seed --model=all`
 
 If you navigate to [https://rcpch-nhs-organisations.localhost/rcpch-census-platform/api/v1/swagger-ui/#/](https://rcpch-census-platform.localhost/organisations/api/v1/swagger-ui/#/) the Open API Specification and schemas are visible. If only the base url [https://rcpch-census-platform.localhost/rcpch-census-platform/api/v1/](https://organisations.localhost/organisations/api/v1/) is used, the django browsable API can be found.
