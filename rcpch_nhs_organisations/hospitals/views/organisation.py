@@ -3,17 +3,13 @@ from rest_framework import (
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
 from rest_framework.decorators import api_view
-from rest_framework.views import APIView, Response
-from rest_framework.exceptions import ParseError
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
     extend_schema,
-    extend_schema_view,
     OpenApiParameter,
     OpenApiExample,
     OpenApiResponse,
-    PolymorphicProxySerializer,
 )
 from drf_spectacular.types import OpenApiTypes
 
@@ -140,3 +136,4 @@ class OrganisationViewSet(viewsets.ReadOnlyModelViewSet):
         "published_at",
     ]
     filter_backends = (DjangoFilterBackend,)
+    pagination_class = None
