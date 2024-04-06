@@ -2,17 +2,12 @@ from rest_framework import (
     viewsets,
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
-from rest_framework.decorators import api_view
-from rest_framework.views import APIView, Response
-from rest_framework.exceptions import ParseError
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
     extend_schema,
-    OpenApiParameter,
     OpenApiExample,
     OpenApiResponse,
-    PolymorphicProxySerializer,
 )
 from drf_spectacular.types import OpenApiTypes
 
@@ -62,6 +57,7 @@ class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
         "pz_code",
     ]
     filter_backends = (DjangoFilterBackend,)
+    pagination_class = None
 
 
 @extend_schema(
@@ -106,3 +102,4 @@ class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
         "pz_code",
     ]
     filter_backends = (DjangoFilterBackend,)
+    pagination_class = None
