@@ -11,8 +11,6 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-print("Current directory:", os.getcwd())
-print("Python path:", sys.path)
 
 from django.core.wsgi import get_wsgi_application
 
