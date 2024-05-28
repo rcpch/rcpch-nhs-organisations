@@ -29,6 +29,5 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: "rcpch-nhs-organisations"
-          slot-name: "Production"
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_A76B7421A08D44778EBB49AB30B51B3D }}
           package: "."
