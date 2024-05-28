@@ -5,3 +5,5 @@ staticfiles
 staticdocs
 envs/.env
 logs
+
+.DS_Store

@@ -94,11 +94,11 @@ WSGI_APPLICATION = "rcpch_nhs_organisations.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": os.environ.get("PGDATABASE"),
+        "NAME": os.environ.get("PGDATABASENAME"),
         "USER": os.environ.get("PGUSER"),
         "PASSWORD": os.environ.get("PGPASSWORD"),
-        "HOST": os.environ.get("PGHOST"),
         "PORT": os.environ.get("PGPORT"),
+        "HOST": os.environ.get("PGHOST"),
     }
 }
 
