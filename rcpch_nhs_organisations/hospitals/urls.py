@@ -99,27 +99,12 @@ drf_routes = [
     # rest framework paths
     path("", include(router.urls)),
     # JSON Schema
-    path("schema/", SpectacularJSONAPIView.as_view(), name="schema"),
+    path("schema", SpectacularJSONAPIView.as_view(), name="schema"),
     # Swagger UI
-    path("swagger-ui/", SpectacularSwaggerView.as_view(), name="swagger-ui"),
-]
-
-apim_routes = [
-    path(
-        "nhs-organisations/v1/schema/",
-        SpectacularJSONAPIView.as_view(),
-        name="apim-schema",
-    ),
-    # Swagger UI
-    path(
-        "nhs-organisations/v1/swagger-ui/",
-        SpectacularSwaggerView.as_view(),
-        name="apim-swagger-ui",
-    ),
+    path("swagger-ui", SpectacularSwaggerView.as_view(), name="swagger-ui"),
 ]
 
 urlpatterns = []
 
-drf_routes += apim_routes
 
 urlpatterns += drf_routes
