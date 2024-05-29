@@ -41,6 +41,15 @@ ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") + [
     "0.0.0.0",
 ]
 
+if os.getenv("WEBSITE_SITE_NAME"):
+    ALLOWED_HOSTS = ["*"]
+else:
+    ALLOWED_HOSTS = [
+        "127.0.0.1",
+        "localhost",
+        "0.0.0.0",
+    ]
+
 # Application definition
 
 INSTALLED_APPS = [
