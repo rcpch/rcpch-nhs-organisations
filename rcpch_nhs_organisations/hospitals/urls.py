@@ -109,13 +109,10 @@ drf_routes = [
     # JSON Schema
     path("schema/", SpectacularJSONAPIView.as_view(), name="schema"),
     # Swagger UI
-    path(
-        "swagger-ui/",
-        SpectacularSwaggerView.as_view(),
-        name="swagger-ui",
-    ),
+    path("swagger-ui/", SpectacularSwaggerView.as_view(), name="swagger-ui"),
 ]
 
 urlpatterns = []
+
 
 urlpatterns += drf_routes

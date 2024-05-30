@@ -1,9 +1,9 @@
 # standard imports
-requests==2.31.0
+requests==2.32.0
 python-dateutil==2.9.0.post0
 
 # third party imports
-django==4.2
+django==4.2.11
 djangorestframework==3.14
 djangorestframework-gis==1.0
 drf-spectacular==0.27.1
@@ -13,7 +13,7 @@ psycopg2-binary==2.9.9
 whitenoise==6.6.0
 
 # live application server
-gunicorn==21.2.0
+gunicorn>=22.0.0
 
 
 # DOCUMENTATION - MATERIAL FOR MKDOCS INSIDERS
@@ -33,7 +33,7 @@ mkdocs-with-pdf==0.9.3 # PDF export feature
 
 # code linting and formatting
 autopep8==2.0.4
-black==24.2.0
+black==24.3.0
 
 # for colored logs
 colorlog==6.8.2

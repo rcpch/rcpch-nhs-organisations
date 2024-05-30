@@ -8,9 +8,12 @@ https://docs.djangoproject.com/en/4.1/howto/deployment/wsgi/
 """
 
 import os
+import sys
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'rcpch_nhs_organisations.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rcpch_nhs_organisations.settings")
 
 application = get_wsgi_application()
