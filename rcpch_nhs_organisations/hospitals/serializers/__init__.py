@@ -15,6 +15,7 @@ from .nhs_england_region import (
 from .openuk_network import OPENUKNetworkSerializer
 from .organisation import (
     OrganisationSerializer,
+    OrganisationNoParentsSerializer,
     TrustWithNestedOrganisationsSerializer,
     IntegratedCareBoardWithNestedOrganisationsSerializer,
     LocalHealthBoardOrganisationsSerializer,

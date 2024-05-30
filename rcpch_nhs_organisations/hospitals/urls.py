@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework import routers
 from .views import (
     OrganisationViewSet,
+    OrganisationLimitedViewSet,
     IntegratedCareBoardViewSet,
     IntegratedCareBoardOrganisationViewSet,
     LocalHealthBoardViewSet,
@@ -21,6 +22,13 @@ router = routers.DefaultRouter()
 
 # returns a list of organisations and their nested parent details (without boundary data)
 router.register(r"organisations", viewset=OrganisationViewSet, basename="organisation")
+
+# returns a list of organisations by name and ods code
+router.register(
+    r"organisations/limited",
+    viewset=OrganisationLimitedViewSet,
+    basename="organisation",
+)
 
 # returns a list of trusts and their details with their nested child organisations (ods_code and name only)
 router.register(

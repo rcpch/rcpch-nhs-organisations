@@ -14,7 +14,7 @@ from drf_spectacular.utils import (
 from drf_spectacular.types import OpenApiTypes
 
 from ..models import Organisation
-from ..serializers import OrganisationSerializer
+from ..serializers import OrganisationSerializer, OrganisationNoParentsSerializer
 
 
 @extend_schema(
@@ -134,6 +134,51 @@ class OrganisationViewSet(viewsets.ReadOnlyModelViewSet):
         "postcode",
         "active",
         "published_at",
+    ]
+    filter_backends = (DjangoFilterBackend,)
+    pagination_class = None
+
+
+@extend_schema(
+    request=OrganisationNoParentsSerializer,
+    responses={
+        200: OpenApiResponse(
+            response=OpenApiTypes.OBJECT,
+            description="Valid Response",
+            examples=[
+                OpenApiExample(
+                    "/organisations/limited",
+                    external_value="external value",
+                    value={
+                        "ods_code": "RGT01",
+                        "name": "ADDENBROOKE'S HOSPITAL",
+                    },
+                    response_only="true",
+                ),
+            ],
+        ),
+    },
+    summary="This endpoint returns a list of NHS Organisations (Acute or Community Hospitals), against an ODS code.",
+)
+class OrganisationLimitedViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    This endpoint returns a list of NHS Organisations (Acute or Community Hospitals), with nested parent regions or organisations, from the UK, or a single organisation against an ODS code.
+
+    Filter Parameters:
+
+    `ods_code`
+    `name`
+
+    If none are passed, a list is returned.
+
+    """
+
+    queryset = Organisation.objects.all().order_by("name")
+    serializer_class = OrganisationNoParentsSerializer
+    lookup_field = "ods_code"
+    filterset_fields = [
+        "ods_code",
+        "name",
     ]
     filter_backends = (DjangoFilterBackend,)
     pagination_class = None
