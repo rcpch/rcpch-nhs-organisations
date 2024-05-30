@@ -6,7 +6,7 @@ from django.db.models import CharField
 
 
 class PaediatricDiabetesUnit(models.Model):
-    pz_code = CharField("Paediatric Diabetes Unit PZ Number", max_length=5)
+    pz_code = CharField("Paediatric Diabetes Unit PZ Number", max_length=5, unique=True)
 
     class Meta:
         verbose_name = "Paediatric Diabetes Unit"

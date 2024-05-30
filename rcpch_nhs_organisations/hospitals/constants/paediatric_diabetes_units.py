@@ -9,7 +9,10 @@ PZ_CODES = [
     {"ods_code": "RC971", "npda_code": "PZ010"},
     {"ods_code": "RAL26", "npda_code": "PZ012"},
     {"ods_code": "RALC7", "npda_code": "PZ014"},
-    {"ods_code": "R0A07", "npda_code": "PZ015"},
+    {
+        "ods_code": "R0A07",
+        "npda_code": "PZ015",
+    },  # WYTHENSHAWE HOSPITAL (R0A07 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST) -  has two ODS codes, the other is RM325 parent Northern Care Alliance
     {"ods_code": "RP5BA", "npda_code": "PZ016"},
     {"ods_code": "RBD01", "npda_code": "PZ017"},
     {"ods_code": "RYR18", "npda_code": "PZ018"},
@@ -150,7 +153,10 @@ PZ_CODES = [
     {"ods_code": "RQWG0", "npda_code": "PZ200"},
     {"ods_code": "RYJ01", "npda_code": "PZ202"},
     {"ods_code": "RRV03", "npda_code": "PZ203"},
-    {"ods_code": "RW6", "npda_code": "PZ206"},
+    {
+        "ods_code": "RM3",
+        "npda_code": "PZ206",
+    },  # Pennine Acute Hospitals NHS Trust was RW6 and merged with Salford Royal NHS Foundation Trust, RM3
     {"ods_code": "RTP04", "npda_code": "PZ213"},
     {"ods_code": "RJZ01", "npda_code": "PZ215"},
     {"ods_code": "RWFTW", "npda_code": "PZ216"},
