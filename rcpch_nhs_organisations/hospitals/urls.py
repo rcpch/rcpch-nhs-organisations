@@ -20,15 +20,16 @@ from drf_spectacular.views import SpectacularJSONAPIView, SpectacularSwaggerView
 
 router = routers.DefaultRouter()
 
-# returns a list of organisations and their nested parent details (without boundary data)
-router.register(r"organisations", viewset=OrganisationViewSet, basename="organisation")
-
-# returns a list of organisations by name and ods code
+# returns a limited list of organisations by name and ods code
 router.register(
     r"organisations/limited",
     viewset=OrganisationLimitedViewSet,
-    basename="organisation",
+    basename="organisation-limited",
 )
+
+# returns a list of organisations and their nested parent details (without boundary data)
+router.register(r"organisations", viewset=OrganisationViewSet, basename="organisation")
+
 
 # returns a list of trusts and their details with their nested child organisations (ods_code and name only)
 router.register(

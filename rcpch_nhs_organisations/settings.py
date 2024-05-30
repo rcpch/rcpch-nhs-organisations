@@ -48,6 +48,7 @@ else:
         "127.0.0.1",
         "localhost",
         "0.0.0.0",
+        "rcpch-nhs-organisations.localhost",
     ]
 
 # Application definition

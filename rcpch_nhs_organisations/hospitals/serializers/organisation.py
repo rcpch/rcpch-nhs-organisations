@@ -4586,6 +4586,18 @@ class OrganisationSerializer(serializers.ModelSerializer):
         depth = 1
 
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "/organisation/limited/1/",
+            value={
+                "ods_code": "RGT01",
+                "name": "ADDENBROOKE'S HOSPITAL",
+            },
+            response_only=True,
+        )
+    ]
+)
 class OrganisationNoParentsSerializer(serializers.ModelSerializer):
     # used to serialize all child organisations in the TrustSerializer
     # returns only ods_code and name
