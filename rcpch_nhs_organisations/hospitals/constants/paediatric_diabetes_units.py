@@ -10,9 +10,9 @@ PZ_CODES = [
     {"ods_code": "RAL26", "npda_code": "PZ012"},
     {"ods_code": "RALC7", "npda_code": "PZ014"},
     {
-        "ods_code": "R0A07",
+        "ods_code": "RM325",
         "npda_code": "PZ015",
-    },  # WYTHENSHAWE HOSPITAL (R0A07 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST) -  has two ODS codes, the other is RM325 parent Northern Care Alliance
+    },  # WYTHENSHAWE HOSPITAL (RM325 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST) -  has two ODS codes, R0A07 also on spine, parent Northern Care Alliance
     {"ods_code": "RP5BA", "npda_code": "PZ016"},
     {"ods_code": "RBD01", "npda_code": "PZ017"},
     {"ods_code": "RYR18", "npda_code": "PZ018"},
