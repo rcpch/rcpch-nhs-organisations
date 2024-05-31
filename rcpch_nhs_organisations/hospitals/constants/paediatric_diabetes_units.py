@@ -12,7 +12,9 @@ PZ_CODES = [
     {
         "ods_code": "RM325",
         "npda_code": "PZ015",
-    },  # WYTHENSHAWE HOSPITAL (RM325 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST) -  has two ODS codes, R0A07 also on spine, parent Northern Care Alliance
+    },  # WYTHENSHAWE HOSPITAL (RM325 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST - RA0): this is the correct affiliation
+    #  Note that it  has two ODS codes on the spine: the other is R0A07, parent Northern Care Alliance. This is incorrect. Note that Wythenshawe Hospital has a PZ code of PZ015,
+    # which is different to the parent organisation ROA (whose children have PZ codes of PZ136)
     {"ods_code": "RP5BA", "npda_code": "PZ016"},
     {"ods_code": "RBD01", "npda_code": "PZ017"},
     {"ods_code": "RYR18", "npda_code": "PZ018"},
@@ -102,7 +104,13 @@ PZ_CODES = [
     {"ods_code": "RGN80", "npda_code": "PZ131"},
     {"ods_code": "RTRAT", "npda_code": "PZ133"},
     {"ods_code": "G0W1C", "npda_code": "PZ135"},  # Royal Alexandra
-    {"ods_code": "R0A", "npda_code": "PZ136"},
+    {
+        "ods_code": "R0A",
+        "npda_code": "PZ136",
+    },  # MANCHESTER UNIVERSITY NHS FOUNDATION TRUST is R0A.
+    #  It's child organisations include MANCHESTER LOCAL CARE ORGANISATION (COX3P), NORTH MANCHESTER GENERAL HOSPITAL (R0A66),
+    #  ROYAL MANCHESTER CHILDREN'S HOSPITAL (R0A03), TRAFFORD LOCAL CARE ORGANISATION (Q3K9W), WYTHENSHAWE HOSPITAL (RM325)
+    # Note that Wythenshawe Hospital has a PZ code of PZ015, which is different to the parent organisation
     {
         "ods_code": "RH5A8",
         "npda_code": "PZ137",
