@@ -4606,6 +4606,15 @@ class OrganisationNoParentsSerializer(serializers.ModelSerializer):
         fields = ["ods_code", "name"]
 
 
+class OrganisationTrustLHBParentSerializer(serializers.ModelSerializer):
+    # used to serialize all child organisations and associated parent details
+    # returns only ods_code and name
+    class Meta:
+        model = Organisation
+        fields = ["ods_code", "name", "trust", "local_health_board"]
+        depth = 1
+
+
 class TrustWithNestedOrganisationsSerializer(serializers.ModelSerializer):
     # used to return all Trust fields as well as all related child organisations
     # nested in
@@ -4735,6 +4744,53 @@ class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
     serializers.ModelSerializer
 ):
     organisations = OrganisationNoParentsSerializer(
+        many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
+    )
+
+    class Meta:
+        model = PaediatricDiabetesUnit
+        fields = ["pz_code", "organisations"]
+
+
+# Returns an organisation with its parent LHB or Trust details
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "/paediatric_diabetes_unit/1/organisations",
+            value={"ods_code": "", "parent": "Trust/Local Health Board"},
+            response_only=True,
+        )
+    ]
+)
+class OrganisationWithParentSerializer(serializers.ModelSerializer):
+    parent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Organisation
+        fields = ["ods_code", "name", "parent"]
+
+    def get_parent(self, obj):
+        if obj.trust is not None:
+            return TrustSerializer(obj.trust).data
+        elif obj.local_health_board is not None:
+            return LocalHealthBoardSerializer(obj.local_health_board).data
+        else:
+            return None
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "paediatric_diabetes_units/sibling-organisations/RGT01/",
+            value={"pz_code": "", "organisations": []},
+            response_only=True,
+        )
+    ]
+)
+class PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
+    serializers.ModelSerializer
+):
+    organisations = OrganisationWithParentSerializer(
         many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
     )
 

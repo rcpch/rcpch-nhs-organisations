@@ -22,6 +22,7 @@ from .organisation import (
     LondonBoroughWithNestedOrganisationsSerializer,
     NHSEnglandRegionWithNestedOrganisationsSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
+    PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
 )
 from .paediatric_diabetes_unit import PaediatricDiabetesUnitSerializer
 from .trust import TrustSerializer
