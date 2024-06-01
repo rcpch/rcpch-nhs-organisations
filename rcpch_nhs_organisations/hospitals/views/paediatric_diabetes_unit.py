@@ -2,6 +2,7 @@ from rest_framework import (
     viewsets,
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
@@ -9,12 +10,16 @@ from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiResponse,
 )
-from drf_spectacular.types import OpenApiTypes
+
+# from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+
 
 from ..models import PaediatricDiabetesUnit
 from ..serializers import (
     PaediatricDiabetesUnitSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
+    PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
 )
 
 
@@ -103,3 +108,45 @@ class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
     ]
     filter_backends = (DjangoFilterBackend,)
     pagination_class = None
+
+
+@extend_schema(
+    request=PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
+    responses={
+        200: OpenApiResponse(
+            response=OpenApiTypes.OBJECT,
+            description="Valid Response",
+            examples=[
+                OpenApiExample(
+                    "paediatric_diabetes_units/sibling-organisations/RGT01/",
+                    external_value="external value",
+                    value={
+                        "ods_code": "RGT01",
+                    },
+                    response_only="true",
+                ),
+            ],
+        ),
+    },
+    parameters=[
+        OpenApiParameter(
+            name="ods_code",
+            description="ODS Code of the Organisation",
+            required=True,
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.PATH,
+        ),
+    ],
+    summary="This endpoint returns a list of sibling NHS Organisations (Acute or Community Hospitals) within a Paediatric Diabetes Unit (with their parent), against an ODS code.",
+)
+class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
+
+    def list(self, request, ods_code=None):
+        print(f"Hello {ods_code}")
+        queryset = PaediatricDiabetesUnit.objects.filter(
+            paediatric_diabetes_unit_organisations__ods_code=ods_code
+        )
+        serializer = PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
+            queryset, many=True
+        )
+        return Response(serializer.data)
