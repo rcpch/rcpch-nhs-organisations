@@ -28,6 +28,6 @@ jobs:
       - name: "Deploy to Azure Web App"
         uses: azure/webapps-deploy@v2 # Update the version to v2
         with:
-          app-name: "rcpch-nhs-organisations"
+          app-name: "RCPCH-NHS-organisations"
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_A76B7421A08D44778EBB49AB30B51B3D }}
           package: "."
