@@ -183,4 +183,8 @@ PZ_CODES = [
     {"ods_code": "RHU03", "npda_code": "PZ238"},
     {"ods_code": "RNA01", "npda_code": "PZ240"},
     {"ods_code": "RTE01", "npda_code": "PZ242"},
+    {
+        "ods_code": "RGT1W",
+        "npda_code": "PZ248",
+    },  # Jersey General Hospital added 22/6/24
 ]

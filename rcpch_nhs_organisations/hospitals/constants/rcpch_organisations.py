@@ -8427,6 +8427,31 @@ RCPCH_ORGANISATIONS = [
         "Fax": "",
         "LocalAuthority": "E08000028",
     },  # 01/04/2023 QHL NHS BIRMINGHAM AND SOLIHULL INTEGRATED CARE BOARD, MIDLANDS, Birmingham Regional Paediatric Neurology Forum
+    {
+        "OrganisationID": "",
+        "OrganisationCode": "RGT1W",
+        "OrganisationType": "",
+        "SubType": "",
+        "Sector": "",
+        "OrganisationStatus": "",
+        "IsPimsManaged": "",
+        "OrganisationName": "JERSEY GENERAL HOSPITAL",
+        "Address1": "The Parade",
+        "Address2": "",
+        "Address3": "",
+        "City": "St Helier",
+        "County": "",
+        "Postcode": "JE1 3QS",
+        "Latitude": "49.1877254",
+        "Longitude": "-2.112157",
+        "ParentODSCode": "RGT",
+        "ParentName": "CAMBRIDGE UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+        "Phone": "01534 442000",
+        "Email": "",
+        "Website": "https://www.gov.je/Health/Hospitals/HospitalDepartments/pages/index.aspx",
+        "Fax": "",
+        "LocalAuthority": "",
+    },  # Addition 22.6.2024 - Jersey is not part of the UK and is not included in the NHS Digital data. It is included here as is now a PDU
 ]
 
 """
@@ -8439,3 +8464,4 @@ o.save()
 from epilepsy12.common_view_functions import _seed_all_aggregation_models
 _seed_all_aggregation_models()
 """
+# Organisation.objects.create(ods_code="RGT1W",name="JERSEY GENERAL HOSPITAL",website=,address1="The Parade",address2="",address3="",telephone="",city="St Helier",county="",latitude=49.1877254,longitude=-2.112157,postcode="JE1 3QS",geocode_coordinates=Point(x=-2.112157,y=49.1877254),active=True,published_at=Date(1993,4,1),paediatric_diabetes_unit="PZ248",trust=,local_health_board,integrated_care_board,nhs_england_region,openuk_network,london_borough,country,)
