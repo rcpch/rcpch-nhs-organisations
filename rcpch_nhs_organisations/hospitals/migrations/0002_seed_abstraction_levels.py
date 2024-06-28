@@ -74,6 +74,17 @@ countryboundaries_mapping = {
     "geom": "MULTIPOLYGON",
 }
 
+jerseyboundaries_mapping = {
+    "objectid": "OBJECTID",
+    "id": "ID",
+    "area_ha": "Area_Ha",
+    "remark": "Remark",
+    "code_06": "CODE_06",
+    "shape_leng": "Shape_Leng",
+    "shape_area": "Shape_Area",
+    "geom": "MULTIPOLYGON",
+}
+
 
 # Boundary files
 
@@ -111,6 +122,8 @@ NHS_England_Regions_July_2022_EN_BUC_2022 = os.path.join(
     "NHS_England_Regions_July_2022_EN_BUC_2022",
     "NHSER_JUL_2022_EN_BUC.shp",
 )
+
+Jersey_Boundary_File = os.path.join(app_path, "shape_files", "Jersey", "CLC06_UK.shp")
 
 
 def load(apps, schema_editor, verbose=True):
@@ -163,6 +176,15 @@ def load(apps, schema_editor, verbose=True):
         encoding="utf-8",
     )
     lm.save(strict=True, verbose=verbose)
+
+    JerseryBoundaries = apps.get_model("hospitals", "JerseyBoundies")
+    lm = LayerMapping(
+        JerseryBoundaries,
+        Jersey_Boundary_File,
+        jerseyboundaries_mapping,
+        transform=False,
+        encoding="utf-8",
+    )
 
 
 class Migration(migrations.Migration):
