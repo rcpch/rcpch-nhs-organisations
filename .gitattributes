@@ -1,1 +1,2 @@
 CLC06_UK.shp filter=lfs diff=lfs merge=lfs -text
+*.shp filter=lfs diff=lfs merge=lfs -text
