@@ -4,10 +4,10 @@ from django.contrib.gis.db import models
 
 class JerseyBoundaries(models.Model):
     objectid = models.IntegerField()
-    id = models.CharField(max_length=18)
+    shape_id = models.CharField(max_length=18)
     area_ha = models.FloatField()
-    remark = models.CharField(max_length=20)
-    code_06 = models.CharField(max_length=3)
+    remark = models.CharField(max_length=20, blank=True, null=True)
+    code_06 = models.CharField(max_length=3, blank=True, null=True)
     shape_leng = models.FloatField()
     shape_area = models.FloatField()
     geom = models.MultiPolygonField(srid=4326)

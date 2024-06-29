@@ -177,15 +177,6 @@ def load(apps, schema_editor, verbose=True):
     )
     lm.save(strict=True, verbose=verbose)
 
-    JerseryBoundaries = apps.get_model("hospitals", "JerseyBoundies")
-    lm = LayerMapping(
-        JerseryBoundaries,
-        Jersey_Boundary_File,
-        jerseyboundaries_mapping,
-        transform=False,
-        encoding="utf-8",
-    )
-
 
 class Migration(migrations.Migration):
     dependencies = [
