@@ -1,4 +1,3 @@
-from django.db import migrations
 from django.apps import apps as django_apps
 
 import os
@@ -10,8 +9,8 @@ app_path = app_config.path
 Jersey_Boundary_File = os.path.join(app_path, "shape_files", "Jersey", "CLC06_UK.shp")
 
 
-def load_jersey_boundaries(apps, schema_editor, verbose=True):
-    JerseyBoundaries = apps.get_model("hospitals", "JerseyBoundaries")
+def load_jersey_boundaries():
+    JerseyBoundaries = django_apps.get_model("hospitals", "JerseyBoundaries")
     jerseyboundaries_mapping = {
         "objectid": "OBJECTID",
         "shape_id": "ID",
@@ -30,12 +29,3 @@ def load_jersey_boundaries(apps, schema_editor, verbose=True):
         encoding="iso-8859-1",
     )
     lm.save(strict=True, verbose=True)
-
-
-class Migration(migrations.Migration):
-
-    dependencies = [
-        ("hospitals", "0004_jerseyboundaries"),
-    ]
-
-    operations = [migrations.RunPython(load_jersey_boundaries)]
