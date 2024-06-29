@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true # ensures large files are downloaded using Git LFS
 
       - name: Set up Python version
         uses: actions/setup-python@v1
