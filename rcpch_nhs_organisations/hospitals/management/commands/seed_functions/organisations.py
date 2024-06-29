@@ -130,6 +130,20 @@ def seed_organisations():
 
         logger.info(f"{added+1} organisations added.")
 
+        # Add RCPCH
+        rcpch = Organisation.objects.create(
+            ods_code="8HV48",
+            name="Royal College of Paediatrics and Child Health",
+            website="https://www.rcpch.ac.uk/",
+            address1="5-11 Theobalds Road",
+            city="London",
+            postcode="WC1X 8SH",
+            latitude=51.521,
+            longitude=-0.1184349,
+            geocode_coordinates=Point(x=-0.1184349, y=51.521),
+            telephone="020 7092 6000",
+        )
+
     logger.info(
         "Updating RCPCH organisations with ICB, NHS England relationships...",
     )
