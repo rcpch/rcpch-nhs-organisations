@@ -9,6 +9,7 @@ from .seed_functions import (
     seed_trusts,
     seed_pdus,
     ods_codes_to_abstraction_levels,
+    load_jersey_boundaries,
 )
 
 from .image import rcpch_ascii_art
@@ -46,6 +47,10 @@ class Command(BaseCommand):
             self.stdout.write(B + "Adding paediatric diabetes units..." + W)
             seed_pdus()
             rcpch_ascii_art()
+        elif options["model"] == "jersey":
+            self.stdout.write(B + "Adding Jersey boundaries..." + W)
+            load_jersey_boundaries()
+            rcpch_ascii_art()
         elif options["model"] == "all":
             self.stdout.write(
                 B + "Adding all organisations and levels of abstraction..." + W
@@ -54,6 +59,7 @@ class Command(BaseCommand):
             seed_trusts()
             seed_organisations()
             seed_pdus()
+            load_jersey_boundaries()
             rcpch_ascii_art()
 
         else:
