@@ -35,6 +35,7 @@ def seed_organisations():
     Country = apps.get_model("hospitals", "Country")
     england = Country.objects.get(boundary_identifier="E92000001")
     wales = Country.objects.get(boundary_identifier="W92000004")
+    jersey = Country.objects.get(boundary_identifier="E92000003")
 
     if Organisation.objects.all().count() >= 330:
         logger.info(
@@ -101,7 +102,12 @@ def seed_organisations():
                         ods_code=rcpch_organisation["ParentODSCode"]
                     )
                     organisation.trust = trust
+
                     organisation.country = england
+
+                    # Jersey is a special case
+                    if rcpch_organisation["OrganisationCode"] == "RGT1W":
+                        organisation.country = jersey
 
                 else:
                     raise Exception(
@@ -129,20 +135,6 @@ def seed_organisations():
                 )
 
         logger.info(f"{added+1} organisations added.")
-
-        # Add RCPCH
-        rcpch = Organisation.objects.create(
-            ods_code="8HV48",
-            name="Royal College of Paediatrics and Child Health",
-            website="https://www.rcpch.ac.uk/",
-            address1="5-11 Theobalds Road",
-            city="London",
-            postcode="WC1X 8SH",
-            latitude=51.521,
-            longitude=-0.1184349,
-            geocode_coordinates=Point(x=-0.1184349, y=51.521),
-            telephone="020 7092 6000",
-        )
 
     logger.info(
         "Updating RCPCH organisations with ICB, NHS England relationships...",
