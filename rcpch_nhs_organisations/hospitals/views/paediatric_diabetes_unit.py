@@ -15,11 +15,12 @@ from drf_spectacular.utils import (
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 
-from ..models import PaediatricDiabetesUnit
+from ..models import PaediatricDiabetesUnit, Organisation
 from ..serializers import (
     PaediatricDiabetesUnitSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
+    OrganisationsAssociatedWithPaediatricDiabetesUnitSerializer,
 )
 
 
@@ -142,7 +143,6 @@ class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
 class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
 
     def list(self, request, ods_code=None):
-        print(f"Hello {ods_code}")
         queryset = PaediatricDiabetesUnit.objects.filter(
             paediatric_diabetes_unit_organisations__ods_code=ods_code
         )

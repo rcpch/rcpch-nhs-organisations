@@ -4797,3 +4797,24 @@ class PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
     class Meta:
         model = PaediatricDiabetesUnit
         fields = ["pz_code", "organisations"]
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "paediatric_diabetes_units/organisations/extended",
+            value={"pz_code": "", "organisations": []},
+            response_only=True,
+        )
+    ]
+)
+class OrganisationsAssociatedWithPaediatricDiabetesUnitSerializer(
+    serializers.ModelSerializer
+):
+    organisations = OrganisationNoParentsSerializer(
+        many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
+    )
+
+    class Meta:
+        model = PaediatricDiabetesUnit
+        fields = ["pz_code", "organisations"]
