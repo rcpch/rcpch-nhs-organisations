@@ -1,6 +1,8 @@
 from rest_framework import (
     viewsets,
     serializers,  # serializers here required for drf-spectacular @extend_schema
+    generics,
+    filters,
 )
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,7 +19,6 @@ from ..models import Organisation
 from ..serializers import (
     OrganisationSerializer,
     OrganisationNoParentsSerializer,
-    OrganisationsAssociatedWithPaediatricDiabetesUnitSerializer,
 )
 
 
@@ -189,38 +190,26 @@ class OrganisationLimitedViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema(
-    request=OrganisationsAssociatedWithPaediatricDiabetesUnitSerializer,
+    request=None,  # No request body expected
     responses={
         200: OpenApiResponse(
             response=OpenApiTypes.OBJECT,
             description="Valid Response",
             examples=[
                 OpenApiExample(
-                    "paediatric_diabetes_units/organisations/extended/",
-                    external_value="external value",
-                    value={
-                        "ods_code": "RGT01",
-                    },
+                    "all-organisations-associated-with-paediatric-diabetes-units",
                     response_only="true",
                 ),
             ],
         ),
     },
-    parameters=[
-        OpenApiParameter(
-            name="ods_code",
-            description="ODS Code of the Organisation",
-            required=True,
-            type=OpenApiTypes.STR,
-            location=OpenApiParameter.PATH,
-        ),
-    ],
-    summary="This endpoint returns a list of all NHS Organisations (Acute or Community Hospitals) associated with Paediatric Diabetes Unit (with their parent), against an ODS code.",
+    summary="This endpoint returns a list of all NHS Organisations (Acute or Community Hospitals) associated with a Paediatric Diabetes Unit (with their parent).",
 )
-class OrganisationsAssociatedWithPaediatricDiabetesUnitsViewSet(viewsets.ViewSet):
-    def list(self, request):
-        queryset = Organisation.objects.filter(paediatric_diabetes_unit__isnull=False)
-        serializer = OrganisationsAssociatedWithPaediatricDiabetesUnitSerializer(
-            queryset, many=True
-        )
-        return Response(serializer.data)
+class OrganisationsAssociatedWithPaediatricDiabetesUnitsList(
+    viewsets.ReadOnlyModelViewSet
+):
+    queryset = Organisation.objects.filter(paediatric_diabetes_unit__isnull=False)
+    serializer_class = OrganisationSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["ods_code", "name"]
+    ordering_fields = ["name", "ods_code"]

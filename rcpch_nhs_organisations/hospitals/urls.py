@@ -11,7 +11,7 @@ from .views import (
     LondonBoroughOrganisationViewSet,
     NHSEnglandRegionViewSet,
     NHSEnglandRegionOrganisationViewSet,
-    OrganisationsAssociatedWithPaediatricDiabetesViewSet,
+    OrganisationsAssociatedWithPaediatricDiabetesUnitsList,
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
@@ -100,9 +100,9 @@ router.register(
     basename="paediatric_diabetes_unit",
 )
 router.register(
-    r"paediatric_diabetes_units/organisations/extended",
-    viewset=OrganisationsAssociatedWithPaediatricDiabetesViewSet,
-    basename="paediatric_diabetes_unit/organisations",
+    r"all-organisations-associated-with-paediatric-diabetes-units",
+    OrganisationsAssociatedWithPaediatricDiabetesUnitsList,
+    basename="organisation",
 )
 
 

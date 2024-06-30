@@ -20,7 +20,6 @@ from ..serializers import (
     PaediatricDiabetesUnitSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
-    OrganisationsAssociatedWithPaediatricDiabetesUnitSerializer,
 )
 
 
