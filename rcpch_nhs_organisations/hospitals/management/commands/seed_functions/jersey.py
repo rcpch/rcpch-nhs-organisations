@@ -29,3 +29,24 @@ def load_jersey_boundaries():
         encoding="iso-8859-1",
     )
     lm.save(strict=True, verbose=True)
+
+
+def create_jersey_country():
+    """
+    Create Jersey country object
+    Note that the geom field is not populated
+    """
+    Country = django_apps.get_model("hospitals", "Country")
+    jersey = Country(
+        boundary_identifier="E92000003",
+        name="Jersey",
+        welsh_name="",
+        bng_e=None,
+        bng_n=None,
+        long=2.1313,
+        lat=49.2144,
+        globalid="",
+        geom=None,
+    )
+    jersey.save()
+    return jersey

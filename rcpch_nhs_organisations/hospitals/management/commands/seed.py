@@ -10,6 +10,7 @@ from .seed_functions import (
     seed_pdus,
     ods_codes_to_abstraction_levels,
     load_jersey_boundaries,
+    create_jersey_country,
 )
 
 from .image import rcpch_ascii_art
@@ -55,6 +56,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 B + "Adding all organisations and levels of abstraction..." + W
             )
+            create_jersey_country()
             ods_codes_to_abstraction_levels()
             seed_trusts()
             seed_organisations()
