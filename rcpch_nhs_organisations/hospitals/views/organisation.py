@@ -1,8 +1,10 @@
 from rest_framework import (
     viewsets,
     serializers,  # serializers here required for drf-spectacular @extend_schema
+    filters,
+    generics,
 )
-from rest_framework.decorators import api_view
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
@@ -14,7 +16,10 @@ from drf_spectacular.utils import (
 from drf_spectacular.types import OpenApiTypes
 
 from ..models import Organisation
-from ..serializers import OrganisationSerializer, OrganisationNoParentsSerializer
+from ..serializers import (
+    OrganisationSerializer,
+    OrganisationNoParentsSerializer,
+)
 
 
 @extend_schema(
@@ -182,3 +187,109 @@ class OrganisationLimitedViewSet(viewsets.ReadOnlyModelViewSet):
     ]
     filter_backends = (DjangoFilterBackend,)
     pagination_class = None
+
+
+@extend_schema(
+    request=None,  # No request body expected
+    responses={
+        200: OpenApiResponse(
+            response=OpenApiTypes.OBJECT,
+            description="Valid Response",
+            examples=[
+                OpenApiExample(
+                    "organisations/paediatric-diabetes-units/",
+                    response_only="true",
+                    value=[
+                        {
+                            "ods_code": "RGT01",
+                            "name": "ADDENBROOKE'S HOSPITAL",
+                            "website": "https://www.cuh.nhs.uk/",
+                            "address1": "HILLS ROAD",
+                            "address2": "",
+                            "address3": "",
+                            "telephone": "01223 245151",
+                            "city": "CAMBRIDGE",
+                            "county": "CAMBRIDGESHIRE",
+                            "latitude": 52.17513275,
+                            "longitude": 0.140753239,
+                            "postcode": "CB2 0QQ",
+                            "geocode_coordinates": "SRID=27700;POINT (0.140753239 52.17513275)",
+                            "active": True,
+                            "published_at": None,
+                            "paediatric_diabetes_unit": {"pz_code": "PZ041"},
+                            "trust": {
+                                "ods_code": "RGT",
+                                "name": "CAMBRIDGE UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+                                "address_line_1": "CAMBRIDGE BIOMEDICAL CAMPUS",
+                                "address_line_2": "HILLS ROAD",
+                                "town": "CAMBRIDGE",
+                                "postcode": "CB2 0QQ",
+                                "country": "ENGLAND",
+                                "telephone": None,
+                                "website": None,
+                                "active": True,
+                                "published_at": None,
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": None,
+                            "nhs_england_region": None,
+                            "openuk_network": None,
+                            "london_borough": None,
+                            "country": {
+                                "boundary_identifier": "E92000001",
+                                "name": "England",
+                            },
+                        },
+                        {
+                            "ods_code": "RCF22",
+                            "name": "AIREDALE GENERAL HOSPITAL",
+                            "website": "https://www.airedaletrust.nhs.uk/",
+                            "address1": "SKIPTON ROAD",
+                            "address2": "STEETON",
+                            "address3": "",
+                            "telephone": "",
+                            "city": "KEIGHLEY",
+                            "county": "WEST YORKSHIRE",
+                            "latitude": 53.8979454,
+                            "longitude": -1.962710142,
+                            "postcode": "BD20 6TD",
+                            "geocode_coordinates": "SRID=27700;POINT (-1.962710142 53.8979454)",
+                            "active": True,
+                            "published_at": None,
+                            "paediatric_diabetes_unit": {"pz_code": "PZ047"},
+                            "trust": {
+                                "ods_code": "RCF",
+                                "name": "AIREDALE NHS FOUNDATION TRUST",
+                                "address_line_1": "AIREDALE GENERAL HOSPITAL",
+                                "address_line_2": "SKIPTON ROAD",
+                                "town": "KEIGHLEY",
+                                "postcode": "BD20 6TD",
+                                "country": "ENGLAND",
+                                "telephone": None,
+                                "website": None,
+                                "active": True,
+                                "published_at": None,
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": None,
+                            "nhs_england_region": None,
+                            "openuk_network": None,
+                            "london_borough": None,
+                            "country": {
+                                "boundary_identifier": "E92000001",
+                                "name": "England",
+                            },
+                        },
+                    ],
+                ),
+            ],
+        ),
+    },
+    summary="This endpoint returns a list of all NHS Organisations (Acute or Community Hospitals) associated with a parent Paediatric Diabetes Unit.",
+)
+class OrganisationsAssociatedWithPaediatricDiabetesUnitsList(generics.ListAPIView):
+    queryset = Organisation.objects.filter(paediatric_diabetes_unit__isnull=False)
+    serializer_class = OrganisationSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["ods_code", "name"]
+    ordering_fields = ["name", "ods_code"]

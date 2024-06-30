@@ -8452,6 +8452,31 @@ RCPCH_ORGANISATIONS = [
         "Fax": "",
         "LocalAuthority": "",
     },  # Addition 22.6.2024 - Jersey is not part of the UK and is not included in the NHS Digital data. It is included here as is now a PDU
+    {
+        "OrganisationID": "",
+        "OrganisationCode": "8HV48",
+        "OrganisationType": "",
+        "SubType": "",
+        "Sector": "",
+        "OrganisationStatus": "",
+        "IsPimsManaged": "",
+        "OrganisationName": "ROYAL COLLEGE OF PAEDIATRICS AND CHILD HEALTH",
+        "Address1": "5-11 Theobalds Road",
+        "Address2": "",
+        "Address3": "",
+        "City": "London",
+        "County": "",
+        "Postcode": "WC1X 8SH",
+        "Latitude": "51.521",
+        "Longitude": "-0.118",
+        "ParentODSCode": "",
+        "ParentName": "",
+        "Phone": "020 7092 6000",
+        "Email": "",
+        "Website": "https://www.rcpch.ac.uk/",
+        "Fax": "",
+        "LocalAuthority": "",
+    },  # Addition 29.6.2024 - Add RCPCH!
 ]
 
 """
