@@ -99,12 +99,6 @@ router.register(
     viewset=PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     basename="paediatric_diabetes_unit",
 )
-router.register(
-    r"all-organisations-associated-with-paediatric-diabetes-units",
-    OrganisationsAssociatedWithPaediatricDiabetesUnitsList,
-    basename="organisation",
-)
-
 
 drf_routes = [
     # rest framework paths
@@ -114,6 +108,11 @@ drf_routes = [
         "paediatric_diabetes_units/sibling-organisations/<str:ods_code>/",
         PaediatricDiabetesUnitForOrganisationWithParentViewSet.as_view({"get": "list"}),
         name="paediatric_diabetes_unit_organisation_with_parent",
+    ),
+    path(
+        "organisations/paediatric-diabetes-units",
+        OrganisationsAssociatedWithPaediatricDiabetesUnitsList.as_view(),
+        name="organisations-associated-with-paediatric-diabetes-units",
     ),
     path("schema/", SpectacularJSONAPIView.as_view(), name="schema"),
     # Swagger UI
