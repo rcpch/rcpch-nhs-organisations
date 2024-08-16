@@ -179,9 +179,9 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
             location=OpenApiParameter.QUERY,
         ),
     ],
-    summary="This endpoint returns a list of NHS Trusts within a Paediatric Diabetes Unit (with their parent), against an ODS code.",
+    summary="This endpoint returns the parent NHS Trust for a given Paediatric Diabetes Unit (with their primary organisation), against a PZ code. If no code is provide, a list is returned.",
 )
-class PaediatricDiabetesUnitForTrustViewSet(viewsets.ModelViewSet):
+class PaediatricDiabetesUnitForTrustViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PaediatricDiabetesUnit.objects.all()
     serializer_class = PaediatricDiabetesUnitWithNestedTrustSerializer
 
