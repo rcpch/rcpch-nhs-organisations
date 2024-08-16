@@ -25,4 +25,4 @@ from .organisation import (
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
 )
 from .paediatric_diabetes_unit import PaediatricDiabetesUnitSerializer
-from .trust import TrustSerializer
+from .trust import TrustSerializer, PaediatricDiabetesUnitWithNestedTrustSerializer

@@ -15,12 +15,15 @@ from .views import (
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
+    PaediatricDiabetesUnitForTrustViewSet,
     TrustViewSet,
 )
 
 from drf_spectacular.views import SpectacularJSONAPIView, SpectacularSwaggerView
 
 router = routers.DefaultRouter()
+
+from django.contrib import admin
 
 # returns a limited list of organisations by name and ods code
 router.register(
@@ -99,6 +102,12 @@ router.register(
     viewset=PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     basename="paediatric_diabetes_unit",
 )
+# returns a list of Paediatric Diabetes Units with nested trusts
+router.register(
+    r"paediatric_diabetes_units/trust",
+    viewset=PaediatricDiabetesUnitForTrustViewSet,
+    basename="paediatric_diabetes_unit",
+)
 
 drf_routes = [
     # rest framework paths
@@ -120,6 +129,8 @@ drf_routes = [
 ]
 
 urlpatterns = []
+
+urlpatterns += (path("admin/", admin.site.urls),)
 
 
 urlpatterns += drf_routes
