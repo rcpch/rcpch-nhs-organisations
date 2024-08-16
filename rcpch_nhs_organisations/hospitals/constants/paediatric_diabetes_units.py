@@ -170,8 +170,8 @@ PZ_CODES = [
     {"ods_code": "RWFTW", "npda_code": "PZ216"},
     {"ods_code": "RDU01", "npda_code": "PZ218"},
     {"ods_code": "RCUEF", "npda_code": "PZ219"},
-    {"ods_code": "RC979", "npda_code": "PZ220"},  # RC112 Bedford Hospital
-    {"ods_code": "RGT2X", "npda_code": "PZ220"},  # RC112 Luton and Dunstable Hospital
+    {"ods_code": "RC979", "npda_code": "PZ220"},  # Bedford Hospital
+    {"ods_code": "RGT2X", "npda_code": "PZ010"},  # Luton and Dunstable Hospital
     {"ods_code": "RN325", "npda_code": "PZ221"},
     {"ods_code": "RL403", "npda_code": "PZ222"},
     {"ods_code": "RXK01", "npda_code": "PZ223"},
