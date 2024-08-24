@@ -20,6 +20,7 @@ from ..serializers import (
     PaediatricDiabetesUnitSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
+    PaediatricDiabetesUnitWithNestedTrustSerializer,
 )
 
 
@@ -149,3 +150,44 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
             queryset, many=True
         )
         return Response(serializer.data)
+
+
+@extend_schema(
+    request=PaediatricDiabetesUnitWithNestedTrustSerializer,
+    responses={
+        200: OpenApiResponse(
+            response=OpenApiTypes.OBJECT,
+            description="Valid Response",
+            examples=[
+                OpenApiExample(
+                    "paediatric_diabetes_units/trust/RGT/",
+                    external_value="external value",
+                    value={
+                        "pz_code": "PZ215",
+                    },
+                    response_only="true",
+                ),
+            ],
+        ),
+    },
+    parameters=[
+        OpenApiParameter(
+            name="pz_code",
+            description="PZ Code of the Paediatric Diabetes Unit",
+            required=False,
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+        ),
+    ],
+    summary="This endpoint returns the parent NHS Trust for a given Paediatric Diabetes Unit (with their primary organisation), against a PZ code. If no code is provide, a list is returned.",
+)
+class PaediatricDiabetesUnitForTrustViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = PaediatricDiabetesUnit.objects.all()
+    serializer_class = PaediatricDiabetesUnitWithNestedTrustSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        pz_code = self.request.query_params.get("pz_code", None)
+        if pz_code is not None:
+            queryset = queryset.filter(pz_code=pz_code)
+        return queryset
