@@ -187,5 +187,17 @@ PZ_CODES = [
         "ods_code": "RGT1W",
         "npda_code": "PZ248",
     },  # Jersey General Hospital added 22/6/24
+    # Welsh PDUs
+    {"ods_code": "7A3C7", "npda_code": "PZ001"},  # Morriston Hospital Swansea
+    {"ods_code": "7A1A1", "npda_code": "PZ011"},  # Glan Clwyd District General Hospital
+    {"ods_code": "7A3B7", "npda_code": "PZ092"},  # Princess of Wales Hospital, Bridgend
+    {"ods_code": "7A4H1", "npda_code": "PZ113"},  # University Hospital of Wales
+    {"ods_code": "7A1AU", "npda_code": "PZ132"},  # Ysbyty Gwynedd Hospital
+    {"ods_code": "7A1A4", "npda_code": "PZ187"},  # Wrexham Maelor Hospital
+    {"ods_code": "7A5B1", "npda_code": "PZ189"},  # Royal Glamorgan Hospital
+    {"ods_code": "7A3CJ", "npda_code": "PZ193"},  # Neath Port Talbot Hospital
+    {"ods_code": "7A5B3", "npda_code": "PZ228"},  # Prince Charles Hospital
+    {"ods_code": "7A2", "npda_code": "PZ244"},  # Hywel Dda University Health Board
+    {"ods_code": "7A6G9", "npda_code": "PZ245"},  # The Grange University Hospital
     {"ods_code": "8HV48", "npda_code": "PZ999"},  # RCPCH
 ]
