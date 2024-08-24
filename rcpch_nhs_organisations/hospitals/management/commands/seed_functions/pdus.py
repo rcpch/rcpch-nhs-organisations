@@ -21,11 +21,11 @@ logger = logging.getLogger("hospitals")
 def seed_pdus():
     """
     Seed function which populates the PaediatricDiabetesUnit table from constants.py
-    PDU codes are associated with ODS codes, which are used to identify the organisations or trusts that have a PDU
-    Some trusts have multiple PDUs
+    PDU codes are associated with ODS codes, which are used to identify the organisations or trusts or local health boards that have a PDU
+    Some trusts or health boards have multiple PDUs
     This function will update the existing organisations with the PDU code, where the ODS code matches the Organisation ODS code
-    If the ODS code is not found in the Organisation table, the function will search the Trust table for the ODS code. The assumption is made here
-    that where a PZ code is associated with a Trust, all the organisations under that Trust will be updated with the PDU code.
+    If the ODS code is not found in the Organisation table, the function will search the Trust and Local Health Boards table for the ODS code. The assumption is made here
+    that where a PZ code is associated with a Trust or Local Health Board, all the organisations under that Trust will be updated with the PDU code.
 
     """
 
@@ -83,14 +83,11 @@ def seed_pdus():
                         pz_code=pdu["npda_code"]
                     )
                 )
-                lhb = LocalHealthBoard.objects.get(
-                    ods_code=ORD_organisation["Rels"]["Rel"][0]["Target"]["OrgId"][
-                        "extension"
-                    ]
-                )
+                # get the local health board
+                lhb = LocalHealthBoard.objects.get(ods_code=pdu["ods_code"])
                 # update all child organisations in Local Health Board - exclude any organisations that already have a PDU
                 Organisation.objects.filter(local_health_board=lhb).exclude(
-                    pz_code__isnull=False
+                    paediatric_diabetes_unit__isnull=False
                 ).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
             else:
                 # this organisation is associated with a pz code but does not exist in the organisation list we have
