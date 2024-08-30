@@ -9,7 +9,12 @@ PZ_CODES = [
     {"ods_code": "RC971", "npda_code": "PZ010"},
     {"ods_code": "RAL26", "npda_code": "PZ012"},
     {"ods_code": "RALC7", "npda_code": "PZ014"},
-    {"ods_code": "R0A07", "npda_code": "PZ015"},
+    {
+        "ods_code": "RM325",
+        "npda_code": "PZ015",
+    },  # WYTHENSHAWE HOSPITAL (RM325 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST - RA0): this is the correct affiliation
+    #  Note that it  has two ODS codes on the spine: the other is R0A07, parent Northern Care Alliance. This is incorrect. Note that Wythenshawe Hospital has a PZ code of PZ015,
+    # which is different to the parent organisation ROA (whose children have PZ codes of PZ136)
     {"ods_code": "RP5BA", "npda_code": "PZ016"},
     {"ods_code": "RBD01", "npda_code": "PZ017"},
     {"ods_code": "RYR18", "npda_code": "PZ018"},
@@ -99,7 +104,13 @@ PZ_CODES = [
     {"ods_code": "RGN80", "npda_code": "PZ131"},
     {"ods_code": "RTRAT", "npda_code": "PZ133"},
     {"ods_code": "G0W1C", "npda_code": "PZ135"},  # Royal Alexandra
-    {"ods_code": "R0A", "npda_code": "PZ136"},
+    {
+        "ods_code": "R0A",
+        "npda_code": "PZ136",
+    },  # MANCHESTER UNIVERSITY NHS FOUNDATION TRUST is R0A.
+    #  It's child organisations include MANCHESTER LOCAL CARE ORGANISATION (COX3P), NORTH MANCHESTER GENERAL HOSPITAL (R0A66),
+    #  ROYAL MANCHESTER CHILDREN'S HOSPITAL (R0A03), TRAFFORD LOCAL CARE ORGANISATION (Q3K9W), WYTHENSHAWE HOSPITAL (RM325)
+    # Note that Wythenshawe Hospital has a PZ code of PZ015, which is different to the parent organisation
     {
         "ods_code": "RH5A8",
         "npda_code": "PZ137",
@@ -150,14 +161,17 @@ PZ_CODES = [
     {"ods_code": "RQWG0", "npda_code": "PZ200"},
     {"ods_code": "RYJ01", "npda_code": "PZ202"},
     {"ods_code": "RRV03", "npda_code": "PZ203"},
-    {"ods_code": "RW6", "npda_code": "PZ206"},
+    {
+        "ods_code": "RM3",
+        "npda_code": "PZ206",
+    },  # Pennine Acute Hospitals NHS Trust was RW6 and merged with Salford Royal NHS Foundation Trust, RM3
     {"ods_code": "RTP04", "npda_code": "PZ213"},
     {"ods_code": "RJZ01", "npda_code": "PZ215"},
     {"ods_code": "RWFTW", "npda_code": "PZ216"},
     {"ods_code": "RDU01", "npda_code": "PZ218"},
     {"ods_code": "RCUEF", "npda_code": "PZ219"},
-    {"ods_code": "RC979", "npda_code": "PZ220"},  # RC112 Bedford Hospital
-    {"ods_code": "RGT2X", "npda_code": "PZ220"},  # RC112 Luton and Dunstable Hospital
+    {"ods_code": "RC979", "npda_code": "PZ220"},  # Bedford Hospital
+    {"ods_code": "RGT2X", "npda_code": "PZ010"},  # Luton and Dunstable Hospital
     {"ods_code": "RN325", "npda_code": "PZ221"},
     {"ods_code": "RL403", "npda_code": "PZ222"},
     {"ods_code": "RXK01", "npda_code": "PZ223"},
@@ -169,4 +183,21 @@ PZ_CODES = [
     {"ods_code": "RHU03", "npda_code": "PZ238"},
     {"ods_code": "RNA01", "npda_code": "PZ240"},
     {"ods_code": "RTE01", "npda_code": "PZ242"},
+    {
+        "ods_code": "RGT1W",
+        "npda_code": "PZ248",
+    },  # Jersey General Hospital added 22/6/24
+    # Welsh PDUs
+    {"ods_code": "7A3C7", "npda_code": "PZ001"},  # Morriston Hospital Swansea
+    {"ods_code": "7A1A1", "npda_code": "PZ011"},  # Glan Clwyd District General Hospital
+    {"ods_code": "7A3B7", "npda_code": "PZ092"},  # Princess of Wales Hospital, Bridgend
+    {"ods_code": "7A4H1", "npda_code": "PZ113"},  # University Hospital of Wales
+    {"ods_code": "7A1AU", "npda_code": "PZ132"},  # Ysbyty Gwynedd Hospital
+    {"ods_code": "7A1A4", "npda_code": "PZ187"},  # Wrexham Maelor Hospital
+    {"ods_code": "7A5B1", "npda_code": "PZ189"},  # Royal Glamorgan Hospital
+    {"ods_code": "7A3CJ", "npda_code": "PZ193"},  # Neath Port Talbot Hospital
+    {"ods_code": "7A5B3", "npda_code": "PZ228"},  # Prince Charles Hospital
+    {"ods_code": "7A2", "npda_code": "PZ244"},  # Hywel Dda University Health Board
+    {"ods_code": "7A6G9", "npda_code": "PZ245"},  # The Grange University Hospital
+    {"ods_code": "8HV48", "npda_code": "PZ999"},  # RCPCH
 ]

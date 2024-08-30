@@ -130,11 +130,15 @@ nav:
   - Home:
     - 'index.md'
     - 'home/nhs-organisations.md'
-    - 'home/getting-started.md'
     - 'home/routes.md'
     - 'home/citation.md'
   - Researchers:
     - 'api.md'
+  - Developers:
+    - 'developer/getting-started.md'
+    - 'developer/models.md'
+    - 'developer/seeding.md'
+    - 'developer/database_maintenance.md'
   - Contact:
     - 'contact/contact-rcpch.md'
   - Legal:

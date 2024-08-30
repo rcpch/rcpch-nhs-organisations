@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework import routers
 from .views import (
     OrganisationViewSet,
+    OrganisationLimitedViewSet,
     IntegratedCareBoardViewSet,
     IntegratedCareBoardOrganisationViewSet,
     LocalHealthBoardViewSet,
@@ -10,8 +11,11 @@ from .views import (
     LondonBoroughOrganisationViewSet,
     NHSEnglandRegionViewSet,
     NHSEnglandRegionOrganisationViewSet,
+    OrganisationsAssociatedWithPaediatricDiabetesUnitsList,
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
+    PaediatricDiabetesUnitForOrganisationWithParentViewSet,
+    PaediatricDiabetesUnitForTrustViewSet,
     TrustViewSet,
 )
 
@@ -19,7 +23,16 @@ from drf_spectacular.views import SpectacularJSONAPIView, SpectacularSwaggerView
 
 router = routers.DefaultRouter()
 
-# returns a list of organisations and their nested parent details (without boundary data)
+from django.contrib import admin
+
+# returns a limited list of organisations by name and ods code
+router.register(
+    r"organisations/limited",
+    viewset=OrganisationLimitedViewSet,
+    basename="organisation-limited",
+)
+
+# returns a list of organisations and their nested parent details (without boundary data) - this runs to 18,000 records so is possibly going to need pagination
 router.register(r"organisations", viewset=OrganisationViewSet, basename="organisation")
 
 # returns a list of trusts and their details with their nested child organisations (ods_code and name only)
@@ -83,28 +96,41 @@ router.register(
     viewset=PaediatricDiabetesUnitViewSet,
     basename="paediatric_diabetes_unit",
 )
+# returns a list of Paediatric Diabetes Units with nested child organisations
 router.register(
     r"paediatric_diabetes_units/organisations",
     viewset=PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     basename="paediatric_diabetes_unit",
 )
-# router.register(
-#     r"paediatric_diabetes_units/trusts",
-#     viewset=TrustWithNestedPaediatricDiabetesUnitsViewSet,
-#     basename="paediatric_diabetes_unit",
-# )
-
+# returns a list of Paediatric Diabetes Units with nested trusts
+router.register(
+    r"paediatric_diabetes_units/trust",
+    viewset=PaediatricDiabetesUnitForTrustViewSet,
+    basename="paediatric_diabetes_unit",
+)
 
 drf_routes = [
     # rest framework paths
     path("", include(router.urls)),
     # JSON Schema
+    path(
+        "paediatric_diabetes_units/sibling-organisations/<str:ods_code>/",
+        PaediatricDiabetesUnitForOrganisationWithParentViewSet.as_view({"get": "list"}),
+        name="paediatric_diabetes_unit_organisation_with_parent",
+    ),
+    path(
+        "organisations/paediatric-diabetes-units",
+        OrganisationsAssociatedWithPaediatricDiabetesUnitsList.as_view(),
+        name="organisations-associated-with-paediatric-diabetes-units",
+    ),
     path("schema/", SpectacularJSONAPIView.as_view(), name="schema"),
     # Swagger UI
     path("swagger-ui/", SpectacularSwaggerView.as_view(), name="swagger-ui"),
 ]
 
 urlpatterns = []
+
+urlpatterns += (path("admin/", admin.site.urls),)
 
 
 urlpatterns += drf_routes

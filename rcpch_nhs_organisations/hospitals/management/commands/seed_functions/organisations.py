@@ -35,6 +35,7 @@ def seed_organisations():
     Country = apps.get_model("hospitals", "Country")
     england = Country.objects.get(boundary_identifier="E92000001")
     wales = Country.objects.get(boundary_identifier="W92000004")
+    jersey = Country.objects.get(boundary_identifier="E92000003")
 
     if Organisation.objects.all().count() >= 330:
         logger.info(
@@ -101,7 +102,12 @@ def seed_organisations():
                         ods_code=rcpch_organisation["ParentODSCode"]
                     )
                     organisation.trust = trust
+
                     organisation.country = england
+
+                    # Jersey is a special case
+                    if rcpch_organisation["OrganisationCode"] == "RGT1W":
+                        organisation.country = jersey
 
                 else:
                     raise Exception(

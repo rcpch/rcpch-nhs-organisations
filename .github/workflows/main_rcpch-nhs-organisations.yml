@@ -7,7 +7,7 @@ name: Build and deploy Python app to Azure Web App - rcpch-nhs-organisations
 on:
   push:
     branches:
-      - main
+      - live
   workflow_dispatch:
 
 jobs:
@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true # ensures large files are downloaded using Git LFS
 
       - name: Set up Python version
         uses: actions/setup-python@v1
@@ -26,8 +28,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: "Deploy to Azure Web App"
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v2 # Update the version to v2
         with:
-          app-name: "rcpch-nhs-organisations"
+          app-name: "RCPCH-NHS-organisations"
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_A76B7421A08D44778EBB49AB30B51B3D }}
           package: "."
