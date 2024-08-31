@@ -53,8 +53,31 @@ class TrustSerializer(serializers.ModelSerializer):
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            "paediatric_diabetes_units/trust/",
-            value={"pz_code": "", "trust": []},
+            "paediatric_diabetes_units/parent/",
+            value={
+                "pz_code": "PZ002",
+                "paediatric_diabetes_network": {
+                    "pn_code": "PN06",
+                    "name": "East of England",
+                },
+                "parent": {
+                    "ods_code": "RM1",
+                    "name": "NORFOLK AND NORWICH UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+                    "address_line_1": "COLNEY LANE",
+                    "address_line_2": "COLNEY",
+                    "town": "NORWICH",
+                    "postcode": "NR4 7UY",
+                    "country": "ENGLAND",
+                    "telephone": None,
+                    "website": None,
+                    "active": True,
+                    "published_at": None,
+                },
+                "primary_organisation": {
+                    "ods_code": "RM102",
+                    "name": "NORFOLK & NORWICH UNIVERSITY HOSPITAL",
+                },
+            },
             response_only=True,
         )
     ]

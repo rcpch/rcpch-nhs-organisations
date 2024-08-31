@@ -121,9 +121,30 @@ class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
                 OpenApiExample(
                     "paediatric_diabetes_units/sibling-organisations/RGT01/",
                     external_value="external value",
-                    value={
-                        "ods_code": "RGT01",
-                    },
+                    value=[
+                        {
+                            "pz_code": "PZ215",
+                            "organisations": [
+                                {
+                                    "ods_code": "RJZ01",
+                                    "name": "KING'S COLLEGE HOSPITAL (DENMARK HILL)",
+                                    "parent": {
+                                        "ods_code": "RJZ",
+                                        "name": "KING'S COLLEGE HOSPITAL NHS FOUNDATION TRUST",
+                                        "address_line_1": "DENMARK HILL",
+                                        "address_line_2": "",
+                                        "town": "LONDON",
+                                        "postcode": "SE5 9RS",
+                                        "country": "ENGLAND",
+                                        "telephone": None,
+                                        "website": None,
+                                        "active": True,
+                                        "published_at": None,
+                                    },
+                                }
+                            ],
+                        }
+                    ],
                     response_only="true",
                 ),
             ],
@@ -163,7 +184,28 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
                     "paediatric_diabetes_units/trust/RGT/",
                     external_value="external value",
                     value={
-                        "pz_code": "PZ215",
+                        "pz_code": "PZ002",
+                        "paediatric_diabetes_network": {
+                            "pn_code": "PN06",
+                            "name": "East of England",
+                        },
+                        "parent": {
+                            "ods_code": "RM1",
+                            "name": "NORFOLK AND NORWICH UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+                            "address_line_1": "COLNEY LANE",
+                            "address_line_2": "COLNEY",
+                            "town": "NORWICH",
+                            "postcode": "NR4 7UY",
+                            "country": "ENGLAND",
+                            "telephone": None,
+                            "website": None,
+                            "active": True,
+                            "published_at": None,
+                        },
+                        "primary_organisation": {
+                            "ods_code": "RM102",
+                            "name": "NORFOLK & NORWICH UNIVERSITY HOSPITAL",
+                        },
                     },
                     response_only="true",
                 ),
