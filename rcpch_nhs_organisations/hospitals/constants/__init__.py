@@ -4,6 +4,7 @@ from .local_health_boards import *
 from .nhs_england_regions import *
 from .northern_ireland_postcodes import *
 from .open_uk_networks import *
+from .paediatric_diabetes_networks import *
 from .paediatric_diabetes_units import *
 from .rcpch_organisations import *
 from .scottish_postcodes import *

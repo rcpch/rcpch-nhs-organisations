@@ -4,6 +4,7 @@ from django.contrib import admin
 from .models import (
     LocalHealthBoard,
     Organisation,
+    PaediatricDiabetesNetwork,
     PaediatricDiabetesUnit,
     Trust,
 )
@@ -12,4 +13,5 @@ from .models import (
 admin.site.register(LocalHealthBoard)
 admin.site.register(Organisation)
 admin.site.register(PaediatricDiabetesUnit)
+admin.site.register(PaediatricDiabetesNetwork)
 admin.site.register(Trust)
