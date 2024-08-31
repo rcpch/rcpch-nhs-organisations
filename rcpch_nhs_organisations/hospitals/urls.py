@@ -15,7 +15,7 @@ from .views import (
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
-    PaediatricDiabetesUnitForTrustViewSet,
+    PaediatricDiabetesUnitForParentViewSet,
     TrustViewSet,
 )
 
@@ -104,8 +104,8 @@ router.register(
 )
 # returns a list of Paediatric Diabetes Units with nested trusts
 router.register(
-    r"paediatric_diabetes_units/trust",
-    viewset=PaediatricDiabetesUnitForTrustViewSet,
+    r"paediatric_diabetes_units/parent",
+    viewset=PaediatricDiabetesUnitForParentViewSet,
     basename="paediatric_diabetes_unit",
 )
 

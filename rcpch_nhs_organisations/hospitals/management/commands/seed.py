@@ -7,6 +7,8 @@ from django.core.management.base import BaseCommand
 from .seed_functions import (
     seed_organisations,
     seed_trusts,
+    seed_paediatric_diabetes_networks,
+    update_pdu_networks,
     seed_pdus,
     ods_codes_to_abstraction_levels,
     load_jersey_boundaries,
@@ -44,9 +46,22 @@ class Command(BaseCommand):
             self.stdout.write(B + "Adding organisations..." + W)
             seed_organisations()
             rcpch_ascii_art()
+        elif options["model"] == "paediatric_diabetes_networks":
+            self.stdout.write(B + "Adding paediatric diabetes networks..." + W)
+            seed_paediatric_diabetes_networks()
+            rcpch_ascii_art()
         elif options["model"] == "pdus":
-            self.stdout.write(B + "Adding paediatric diabetes units..." + W)
+            self.stdout.write(
+                B + "Adding paediatric diabetes units and networks..." + W
+            )
+            seed_paediatric_diabetes_networks()
             seed_pdus()
+            rcpch_ascii_art()
+        elif options["model"] == "update_pdus_with_networks":
+            self.stdout.write(
+                B + "Adding paediatric diabetes units and networks..." + W
+            )
+            update_pdu_networks()
             rcpch_ascii_art()
         elif options["model"] == "jersey":
             self.stdout.write(B + "Adding Jersey boundaries..." + W)
@@ -60,6 +75,7 @@ class Command(BaseCommand):
             ods_codes_to_abstraction_levels()
             seed_trusts()
             seed_organisations()
+
             seed_pdus()
             load_jersey_boundaries()
             rcpch_ascii_art()
