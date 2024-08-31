@@ -46,6 +46,10 @@ class Command(BaseCommand):
             self.stdout.write(B + "Adding organisations..." + W)
             seed_organisations()
             rcpch_ascii_art()
+        elif options["model"] == "paediatric_diabetes_networks":
+            self.stdout.write(B + "Adding paediatric diabetes networks..." + W)
+            seed_paediatric_diabetes_networks()
+            rcpch_ascii_art()
         elif options["model"] == "pdus":
             self.stdout.write(
                 B + "Adding paediatric diabetes units and networks..." + W
