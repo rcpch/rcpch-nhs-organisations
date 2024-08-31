@@ -59,13 +59,19 @@ class TrustSerializer(serializers.ModelSerializer):
         )
     ]
 )
-class PaediatricDiabetesUnitWithNestedTrustSerializer(serializers.ModelSerializer):
+class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializer):
     parent = serializers.SerializerMethodField()
     primary_organisation = serializers.SerializerMethodField()
+    paediatric_diabetes_network = serializers.SerializerMethodField()
 
     class Meta:
         model = PaediatricDiabetesUnit
-        fields = ["pz_code", "parent", "primary_organisation"]
+        fields = [
+            "pz_code",
+            "paediatric_diabetes_network",
+            "parent",
+            "primary_organisation",
+        ]
 
     def get_parent(self, obj):
         try:
@@ -83,6 +89,17 @@ class PaediatricDiabetesUnitWithNestedTrustSerializer(serializers.ModelSerialize
             return LocalHealthBoardLimitedSerializer(
                 organisation.local_health_board
             ).data
+        return None
+
+    def get_paediatric_diabetes_network(self, obj):
+        # prevents circular import
+        from rcpch_nhs_organisations.hospitals.serializers.paediatric_diabetes_network import (
+            PaediatricDiabetesNetworkSerializer,
+        )
+
+        network = obj.paediatric_diabetes_network
+        if network:
+            return PaediatricDiabetesNetworkSerializer(network).data
         return None
 
     def get_primary_organisation(self, obj):

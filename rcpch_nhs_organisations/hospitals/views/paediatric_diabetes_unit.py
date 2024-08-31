@@ -20,7 +20,7 @@ from ..serializers import (
     PaediatricDiabetesUnitSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
-    PaediatricDiabetesUnitWithNestedTrustSerializer,
+    PaediatricDiabetesUnitWithNestedParentSerializer,
 )
 
 
@@ -153,7 +153,7 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
 
 
 @extend_schema(
-    request=PaediatricDiabetesUnitWithNestedTrustSerializer,
+    request=PaediatricDiabetesUnitWithNestedParentSerializer,
     responses={
         200: OpenApiResponse(
             response=OpenApiTypes.OBJECT,
@@ -179,11 +179,11 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
             location=OpenApiParameter.QUERY,
         ),
     ],
-    summary="This endpoint returns the parent NHS Trust for a given Paediatric Diabetes Unit (with their primary organisation), against a PZ code. If no code is provide, a list is returned.",
+    summary="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
 )
-class PaediatricDiabetesUnitForTrustViewSet(viewsets.ReadOnlyModelViewSet):
+class PaediatricDiabetesUnitForParentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PaediatricDiabetesUnit.objects.all()
-    serializer_class = PaediatricDiabetesUnitWithNestedTrustSerializer
+    serializer_class = PaediatricDiabetesUnitWithNestedParentSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()

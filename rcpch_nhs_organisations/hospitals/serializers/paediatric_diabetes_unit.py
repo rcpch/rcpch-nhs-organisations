@@ -20,6 +20,30 @@ from .paediatric_diabetes_network import PaediatricDiabetesNetworkSerializer
     ]
 )
 class PaediatricDiabetesUnitSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PaediatricDiabetesUnit
+        # depth = 1
+        fields = [
+            "pz_code",
+        ]
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "/paediatric_diabetes_unit/1/",
+            value={
+                "pz_code": "",
+                "paediatric_diabetes_network": {"pn_code": "", "name": ""},
+            },
+            response_only=True,
+        )
+    ]
+)
+class PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer(
+    serializers.ModelSerializer
+):
     paediatric_diabetes_network = serializers.SerializerMethodField()
 
     class Meta:

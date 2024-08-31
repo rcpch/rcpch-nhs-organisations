@@ -34,7 +34,9 @@ from .nhs_england_region import (
     NHSEnglandRegionLimitedSerializer,
 )
 from .openuk_network import OPENUKNetworkSerializer
-from .paediatric_diabetes_unit import PaediatricDiabetesUnitSerializer
+from .paediatric_diabetes_unit import (
+    PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer,
+)
 from .trust import TrustSerializer
 
 
@@ -4552,7 +4554,9 @@ class OrganisationSerializer(serializers.ModelSerializer):
     integrated_care_board = IntegratedCareBoardLimitedSerializer()
     nhs_england_region = NHSEnglandRegionLimitedSerializer()
     openuk_network = OPENUKNetworkSerializer()
-    paediatric_diabetes_unit = PaediatricDiabetesUnitSerializer()
+    paediatric_diabetes_unit = (
+        PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer()
+    )
     london_borough = LondonBoroughLimitedSerializer()
     country = CountryLimitedSerializer()
 
