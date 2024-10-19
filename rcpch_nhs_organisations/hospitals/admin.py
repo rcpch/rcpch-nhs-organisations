@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models_folder import (
+from .models import (
     LocalHealthBoard,
     Organisation,
     PaediatricDiabetesNetwork,
