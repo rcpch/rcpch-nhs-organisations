@@ -51,6 +51,19 @@ else:
         "rcpch-nhs-organisations.localhost",
     ]
 
+CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") + [
+    "https://rcpch-nhs-organisations.localhost",
+    "https://127.0.0.1",
+    "https://localhost",
+    "https://0.0.0.0",
+]
+
+# Enables Django to use the X-Forwarded-Host header in preference to the Host header.
+# Fixes CSRF errors when using Caddy to forward requests to Django.
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+
 # Application definition
 
 INSTALLED_APPS = [
