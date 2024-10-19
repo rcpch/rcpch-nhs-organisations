@@ -15,3 +15,8 @@ admin.site.register(Organisation)
 admin.site.register(PaediatricDiabetesUnit)
 admin.site.register(PaediatricDiabetesNetwork)
 admin.site.register(Trust)
+
+admin.site.site_header = "RCPCH NHS Organisations"
+admin.site.site_title = "RCPCH NHS Organisations admin"
+admin.site.index_title = "RCPCH NHS Organisations"
+admin.site.site_url = "/"
