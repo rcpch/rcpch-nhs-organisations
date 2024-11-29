@@ -31,43 +31,47 @@ class Command(BaseCommand):
     help = "seed database with census and IMD data for England, Wales, Scotland and Northern Ireland."
 
     def add_arguments(self, parser):
-        parser.add_argument("--model", type=str, help="Mode")
+        parser.add_argument(
+            "--level",
+            type=str,
+            help="Level. e.g. Trust, Network, PDU. Enter 'all' to seed all. Enter --help for more information.",
+        )
 
     def handle(self, *args, **options):
-        if options["model"] == "abstraction_levels":
+        if options["level"] == "abstraction_levels":
             self.stdout.write(B + "Adding abstraction levels..." + W)
             ods_codes_to_abstraction_levels()
             rcpch_ascii_art()
-        elif options["model"] == "trusts":
+        elif options["level"] == "trusts":
             self.stdout.write(B + "Adding trusts..." + W)
             seed_trusts()
             rcpch_ascii_art()
-        elif options["model"] == "organisations":
+        elif options["level"] == "organisations":
             self.stdout.write(B + "Adding organisations..." + W)
             seed_organisations()
             rcpch_ascii_art()
-        elif options["model"] == "paediatric_diabetes_networks":
+        elif options["level"] == "paediatric_diabetes_networks":
             self.stdout.write(B + "Adding paediatric diabetes networks..." + W)
             seed_paediatric_diabetes_networks()
             rcpch_ascii_art()
-        elif options["model"] == "pdus":
+        elif options["level"] == "pdus":
             self.stdout.write(
                 B + "Adding paediatric diabetes units and networks..." + W
             )
             seed_paediatric_diabetes_networks()
             seed_pdus()
             rcpch_ascii_art()
-        elif options["model"] == "update_pdus_with_networks":
+        elif options["level"] == "update_pdus_with_networks":
             self.stdout.write(
                 B + "Adding paediatric diabetes units and networks..." + W
             )
             update_pdu_networks()
             rcpch_ascii_art()
-        elif options["model"] == "jersey":
+        elif options["level"] == "jersey":
             self.stdout.write(B + "Adding Jersey boundaries..." + W)
             load_jersey_boundaries()
             rcpch_ascii_art()
-        elif options["model"] == "all":
+        elif options["level"] == "all":
             self.stdout.write(
                 B + "Adding all organisations and levels of abstraction..." + W
             )
