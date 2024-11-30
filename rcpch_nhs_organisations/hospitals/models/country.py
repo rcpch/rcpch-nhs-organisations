@@ -22,8 +22,8 @@ class CountryBoundaries(models.Model):
     welsh_name = models.CharField(max_length=17, blank=True, null=True)
     bng_e = models.BigIntegerField(blank=True, null=True)
     bng_n = models.BigIntegerField(blank=True, null=True)
-    long = models.FloatField()
-    lat = models.FloatField()
+    long = models.FloatField(blank=True, null=True)
+    lat = models.FloatField(blank=True, null=True)
     globalid = models.CharField(max_length=38, blank=True, null=True)
     geom = models.MultiPolygonField(srid=27700, blank=True, null=True)
 

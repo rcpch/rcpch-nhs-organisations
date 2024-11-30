@@ -1,52 +1,87 @@
-from django.apps import apps as django_apps
+# python imports
+from datetime import date
+import logging
 
-import os
-from django.contrib.gis.utils import LayerMapping
+# Django imports
+from django.apps import apps
+from django.contrib.gis.geos import Point
 
-app_config = django_apps.get_app_config("hospitals")
-app_path = app_config.path
+# Local imports
+from rcpch_nhs_organisations.hospitals.constants import (
+    JERSEY_ORGANISATION,
+    JERSEY_NHS_TRUST,
+)
 
-Jersey_Boundary_File = os.path.join(app_path, "shape_files", "Jersey", "CLC06_UK.shp")
-
-
-def load_jersey_boundaries():
-    JerseyBoundaries = django_apps.get_model("hospitals", "JerseyBoundaries")
-    jerseyboundaries_mapping = {
-        "objectid": "OBJECTID",
-        "shape_id": "ID",
-        "area_ha": "Area_Ha",
-        "remark": "Remark",
-        "code_06": "CODE_06",
-        "shape_leng": "Shape_Leng",
-        "shape_area": "Shape_Area",
-        "geom": "MULTIPOLYGON",
-    }
-    lm = LayerMapping(
-        JerseyBoundaries,
-        Jersey_Boundary_File,
-        jerseyboundaries_mapping,
-        transform=False,
-        encoding="iso-8859-1",
-    )
-    lm.save(strict=True, verbose=True)
+logger = logging.getLogger(__name__)
 
 
-def create_jersey_country():
+def create_jersey_general_hospital():
     """
-    Create Jersey country object
-    Note that the geom field is not populated
+    Create the Jersey General Hospital
     """
-    Country = django_apps.get_model("hospitals", "Country")
-    jersey = Country(
-        boundary_identifier="E92000003",
-        name="Jersey",
-        welsh_name="",
-        bng_e=None,
-        bng_n=None,
-        long=2.1313,
-        lat=49.2144,
-        globalid="",
-        geom=None,
-    )
-    jersey.save()
-    return jersey
+    Organisation = apps.get_model("hospitals", "Organisation")
+    Trust = apps.get_model("hospitals", "Trust")
+    Country = apps.get_model("hospitals", "Country")
+    OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
+
+    jersey = Country.objects.get(boundary_identifier="E92000003")
+    swipe = OPENUKNetwork.objects.get(boundary_identifier="SWIPE")
+
+    if Organisation.objects.filter(
+        ods_code=JERSEY_ORGANISATION["OrganisationCode"]
+    ).exists():
+        logger.info("Jersey General Hospital already exists. Skipping creation.")
+        return
+
+    # Create the Jersey General Hospital trust and assign it to Jersey, the country
+    try:
+        jersey_trust = Trust.objects.create(
+            ods_code=JERSEY_NHS_TRUST["ods_code"],
+            name=JERSEY_NHS_TRUST["trust_name"],
+            address_line_1=JERSEY_NHS_TRUST["address_line_1"],
+            address_line_2=JERSEY_NHS_TRUST["address_line_2"],
+            town=JERSEY_NHS_TRUST["town"],
+            postcode=JERSEY_NHS_TRUST["postcode"],
+            country=jersey.name,
+            telephone=None,
+            website=None,
+            active=True,
+            published_at=date(2015, 4, 1),
+        )
+    except Exception as e:
+        logger.error(f"Error creating Jersey General Hospital trust: {e}")
+
+    try:
+        #  Create the Jersey General Hospital organisation and assign it to Jersey, the country and the Jersey General Hospital trust and the OPENUK Network
+        Organisation.objects.create(
+            ods_code=JERSEY_ORGANISATION["OrganisationCode"],
+            name=JERSEY_ORGANISATION["OrganisationName"],
+            website=JERSEY_ORGANISATION["Website"],
+            address1=JERSEY_ORGANISATION["Address1"],
+            address2=JERSEY_ORGANISATION["Address2"],
+            address3=JERSEY_ORGANISATION["Address3"],
+            city=JERSEY_ORGANISATION["City"],
+            county=JERSEY_ORGANISATION["County"],
+            latitude=float(JERSEY_ORGANISATION["Latitude"]),
+            longitude=float(JERSEY_ORGANISATION["Longitude"]),
+            postcode=JERSEY_ORGANISATION["Postcode"],
+            geocode_coordinates=Point(
+                x=float(JERSEY_ORGANISATION["Longitude"]),
+                y=float(JERSEY_ORGANISATION["Latitude"]),
+            ),
+            telephone=JERSEY_ORGANISATION["Phone"],
+            active=True,
+            published_at=date(2015, 4, 1),
+            country=jersey,
+            trust=jersey_trust,
+            local_health_board=None,
+            openuk_network=swipe,
+            nhs_england_region=None,
+            integrated_care_board=None,
+            london_borough=None,
+        )
+
+        logger.info("Jersey General Hospital created and all relationships added....")
+    except Exception as e:
+        logger.error(f"Error creating Jersey General Hospital: {e}")
+        pass

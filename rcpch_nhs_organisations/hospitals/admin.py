@@ -2,6 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 from .models import (
+    Country,
     LocalHealthBoard,
     Organisation,
     PaediatricDiabetesNetwork,
@@ -15,6 +16,8 @@ admin.site.register(Organisation)
 admin.site.register(PaediatricDiabetesUnit)
 admin.site.register(PaediatricDiabetesNetwork)
 admin.site.register(Trust)
+
+admin.site.register(Country)
 
 admin.site.site_header = "RCPCH NHS Organisations"
 admin.site.site_title = "RCPCH NHS Organisations admin"
