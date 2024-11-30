@@ -8477,7 +8477,58 @@ RCPCH_ORGANISATIONS = [
         "Fax": "",
         "LocalAuthority": "",
     },  # 01/04/1994 Region: Y60 MIDLANDS COMMISSIONING REGION, ICB: QOC NHS SHROPSHIRE, TELFORD AND WREKIN INTEGRATED CARE BOARD, OPENUK: BRPNF - Birmingham Regional Paediatric Neurology Form
+    {
+        "OrganisationID": "",
+        "OrganisationCode": "8HV48",
+        "OrganisationType": "",
+        "SubType": "",
+        "Sector": "",
+        "OrganisationStatus": "",
+        "IsPimsManaged": "",
+        "OrganisationName": "ROYAL COLLEGE OF PAEDIATRICS AND CHILD HEALTH",
+        "Address1": "5-11 Theobalds Road",
+        "Address2": "",
+        "Address3": "",
+        "City": "London",
+        "County": "",
+        "Postcode": "WC1X 8SH",
+        "Latitude": "51.521",
+        "Longitude": "-0.118",
+        "ParentODSCode": "",
+        "ParentName": "",
+        "Phone": "020 7092 6000",
+        "Email": "",
+        "Website": "https://www.rcpch.ac.uk/",
+        "Fax": "",
+        "LocalAuthority": "",
+    },  # Addition 29.6.2024 - Add RCPCH!
 ]
+
+JERSEY_ORGANISATION = {
+    "OrganisationID": "",
+    "OrganisationCode": "RGT1W",
+    "OrganisationType": "",
+    "SubType": "",
+    "Sector": "",
+    "OrganisationStatus": "",
+    "IsPimsManaged": "",
+    "OrganisationName": "JERSEY GENERAL HOSPITAL",
+    "Address1": "THE PARADE",
+    "Address2": "",
+    "Address3": "",
+    "City": "ST HELIER",
+    "County": "JERSEY",
+    "Postcode": "JE1 3Q",
+    "Latitude": "49.18841258908002",
+    "Longitude": "-2.1122213730166157",
+    "ParentODSCode": "RGT1W",  # This is a special case as it is both an organisation and a trust so the parent trust ODS code is the same as the organisation code and exists in both models.
+    "ParentName": "JERSEY GENERAL HOSPITAL",
+    "Phone": "01534 442000",
+    "Email": "",
+    "Website": "https://www.gov.je/Health/Hospitals/HospitalDepartments/pages/index.aspx",
+    "Fax": "",
+    "LocalAuthority": "",
+}  # 01/04/2015 - Jersey General Hospital, Jersey, Channel Islands is a special case as it is both an organisation and a trust. It is member of the South West Interest Group Paediatric Epilepsy. It has no other organisational hierarchies
 
 """
 Steps to update organisation in the console once created in the admin

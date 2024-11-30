@@ -11,8 +11,7 @@ from .seed_functions import (
     update_pdu_networks,
     seed_pdus,
     ods_codes_to_abstraction_levels,
-    load_jersey_boundaries,
-    create_jersey_country,
+    create_jersey_general_hospital,
 )
 
 from .image import rcpch_ascii_art
@@ -67,21 +66,15 @@ class Command(BaseCommand):
             )
             update_pdu_networks()
             rcpch_ascii_art()
-        elif options["level"] == "jersey":
-            self.stdout.write(B + "Adding Jersey boundaries..." + W)
-            load_jersey_boundaries()
-            rcpch_ascii_art()
         elif options["level"] == "all":
             self.stdout.write(
                 B + "Adding all organisations and levels of abstraction..." + W
             )
-            create_jersey_country()
             ods_codes_to_abstraction_levels()
             seed_trusts()
             seed_organisations()
-
+            create_jersey_general_hospital()
             seed_pdus()
-            load_jersey_boundaries()
             rcpch_ascii_art()
 
         else:
