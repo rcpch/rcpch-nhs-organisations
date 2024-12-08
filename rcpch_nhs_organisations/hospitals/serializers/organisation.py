@@ -24,11 +24,13 @@ from .integrated_care_board import (
     IntegratedCareBoardSerializer,
     IntegratedCareBoardLimitedSerializer,
 )
+from .local_authority_district import LocalAuthorityDistrictSerializer
 from .local_health_board import (
     LocalHealthBoardSerializer,
     LocalHealthBoardLimitedSerializer,
 )
 from .london_borough import LondonBoroughSerializer, LondonBoroughLimitedSerializer
+from .lower_layer_super_output_area import LowerLayerSuperOutputAreaSerializer
 from .nhs_england_region import (
     NHSEnglandRegionSerializer,
     NHSEnglandRegionLimitedSerializer,
@@ -4559,6 +4561,8 @@ class OrganisationSerializer(serializers.ModelSerializer):
     )
     london_borough = LondonBoroughLimitedSerializer()
     country = CountryLimitedSerializer()
+    lower_layer_super_output_area = LowerLayerSuperOutputAreaSerializer()
+    local_authority_district = LocalAuthorityDistrictSerializer()
 
     class Meta:
         model = Organisation
@@ -4578,6 +4582,8 @@ class OrganisationSerializer(serializers.ModelSerializer):
             "geocode_coordinates",
             "active",
             "published_at",
+            "local_authority_district",
+            "lower_layer_super_output_area",
             "paediatric_diabetes_unit",
             "trust",
             "local_health_board",
@@ -4607,7 +4613,10 @@ class OrganisationNoParentsSerializer(serializers.ModelSerializer):
     # returns only ods_code and name
     class Meta:
         model = Organisation
-        fields = ["ods_code", "name"]
+        fields = [
+            "ods_code",
+            "name",
+        ]
 
 
 class OrganisationTrustLHBParentSerializer(serializers.ModelSerializer):
@@ -4735,6 +4744,36 @@ class LocalHealthBoardOrganisationsSerializer(serializers.ModelSerializer):
         ]
 
 
+class OrganisationWithLSOAAndLADSerializer(serializers.ModelSerializer):
+    # serializes an organisation with its LSOA and LAD
+
+    lower_layer_super_output_area = serializers.SerializerMethodField()
+    local_authority_district = serializers.SerializerMethodField()
+
+    def get_lower_layer_super_output_area(self, obj):
+        if obj.lower_layer_super_output_area is not None:
+            return LowerLayerSuperOutputAreaSerializer(
+                obj.lower_layer_super_output_area
+            ).data
+        else:
+            return None
+
+    def get_local_authority_district(self, obj):
+        if obj.local_authority_district is not None:
+            return LocalAuthorityDistrictSerializer(obj.local_authority_district).data
+        else:
+            return None
+
+    class Meta:
+        model = Organisation
+        fields = [
+            "ods_code",
+            "name",
+            "lower_layer_super_output_area",
+            "local_authority_district",
+        ]
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -4747,7 +4786,7 @@ class LocalHealthBoardOrganisationsSerializer(serializers.ModelSerializer):
 class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
     serializers.ModelSerializer
 ):
-    organisations = OrganisationNoParentsSerializer(
+    organisations = OrganisationWithLSOAAndLADSerializer(
         many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
     )
 
