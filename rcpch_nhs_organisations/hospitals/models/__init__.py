@@ -3,6 +3,10 @@ from .general_practice import GeneralPractice
 from .integrated_care_board import IntegratedCareBoard, IntegratedCareBoardBoundaries
 from .local_health_board import LocalHealthBoard, LocalHealthBoardBoundaries
 from .local_authority import LocalAuthorityDistrict, LocalAuthorityDistrictBoundaries
+from .lower_layer_super_output_area import (
+    LowerLayerSuperOutputArea,
+    LowerLayerSuperOutputArea2011Boundaries,
+)
 from .london_borough import LondonBorough, LondonBoroughBoundaries
 from .nhs_england_region import NHSEnglandRegion, NHSEnglandRegionBoundaries
 from .open_uk_network import OPENUKNetwork

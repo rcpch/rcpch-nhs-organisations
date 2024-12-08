@@ -118,6 +118,15 @@ class Organisation(TimeStampAbstractBaseClass):
         related_name="local_authority_district_organisations",
     )
 
+    lower_layer_super_output_area = models.ForeignKey(
+        to="LowerLayerSuperOutputArea",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        default=None,
+        related_name="lower_layer_super_output_area_organisations",
+    )
+
     country = models.ForeignKey(
         to=Country,
         on_delete=models.PROTECT,
