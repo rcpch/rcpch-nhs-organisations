@@ -139,6 +139,8 @@ nav:
     - 'developer/models.md'
     - 'developer/seeding.md'
     - 'developer/database_maintenance.md'
+    - 'developer/shapes.md'
+    - 'developer/boundaries.md'
   - Contact:
     - 'contact/contact-rcpch.md'
   - Legal:

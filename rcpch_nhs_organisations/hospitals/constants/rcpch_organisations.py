@@ -517,7 +517,7 @@ RCPCH_ORGANISATIONS = [
         "Address3": "",
         "City": "BRADFORD",
         "County": "WEST YORKSHIRE",
-        "Postcode": "BD9 6RH",
+        "Postcode": "BD9 6RJ",
         "Latitude": "53.80683265969457",
         "Longitude": "-1.7966404739876927",
         "ParentODSCode": "RAE",
@@ -1117,7 +1117,7 @@ RCPCH_ORGANISATIONS = [
         "Address3": "",
         "City": "STANLEY",
         "County": "COUNTY DURHAM",
-        "Postcode": "DH9 7TG",
+        "Postcode": "DL3 6HX",  # "DH9 7TG" deprecated
         "Latitude": "54.857744",
         "Longitude": "-1.736403",
         "ParentODSCode": "RXP",
@@ -6942,7 +6942,7 @@ RCPCH_ORGANISATIONS = [
         "Address3": "",
         "City": "SWINDON",
         "County": "WILTSHIRE",
-        "Postcode": "SN1 1ED",
+        "Postcode": "SN1 2DL",  # "SN1 1ED" does not exist - not also clear if this is a GP surgery or whether paediatric services are provided here
         "Latitude": "51.563553146767845",
         "Longitude": "-1.7808641421440663",
         "ParentODSCode": "RN3",
@@ -8518,7 +8518,7 @@ JERSEY_ORGANISATION = {
     "Address3": "",
     "City": "ST HELIER",
     "County": "JERSEY",
-    "Postcode": "JE1 3Q",
+    "Postcode": "JE1 3QS",
     "Latitude": "49.18841258908002",
     "Longitude": "-2.1122213730166157",
     "ParentODSCode": "RGT1W",  # This is a special case as it is both an organisation and a trust so the parent trust ODS code is the same as the organisation code and exists in both models.

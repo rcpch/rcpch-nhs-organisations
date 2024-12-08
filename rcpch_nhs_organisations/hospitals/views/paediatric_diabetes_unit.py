@@ -21,6 +21,7 @@ from ..serializers import (
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
     PaediatricDiabetesUnitWithNestedParentSerializer,
+    OrganisationWithLSOAAndLADSerializer,
 )
 
 

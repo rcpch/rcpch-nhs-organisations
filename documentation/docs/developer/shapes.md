@@ -31,3 +31,117 @@ RCPCH in the main uses the most generalised views - this is because more detail 
 ### Boundary to IMD
 
 2011 LSOAs mapped to 2019 IMD data is a service fortunately already provided by [Consumer Data Research Centre](https://data.cdrc.ac.uk/dataset/index-multiple-deprivation-imd)
+
+## Importing a .shp file
+
+1. Download the file from whichever source (using the LocalAuthorityDistrict model as an example)
+2. On the command line:
+    `python manage.py ogrinspect rcpch_nhs_organisations/hospitals/shape_files/Local_Authority_Districts_May_2024_Boundaries_UK_BUC/LAD_MAY_2024_UK_BUC.shp LocalAuthorityDistrict --srid 27700 --mapping --multi`
+    This will generate the code for the model (don't forget to import in `__init__.py` and add to admin):
+
+    ```python
+    class LocalAuthorityDistrict(models.Model):
+        lad24cd = models.CharField(max_length=9)
+        lad24nm = models.CharField(max_length=36)
+        lad24nmw = models.CharField(max_length=24)
+        bng_e = models.BigIntegerField()
+        bng_n = models.BigIntegerField()
+        long = models.FloatField()
+        lat = models.FloatField()
+        globalid = models.CharField(max_length=38)
+        geom = models.MultiPolygonField(srid=27700)
+    
+
+    # Auto-generated `LayerMapping` dictionary for LocalAuthorityDistrict model
+    localauthoritydistrict_mapping = {
+        'lad24cd': 'LAD24CD',
+        'lad24nm': 'LAD24NM',
+        'lad24nmw': 'LAD24NMW',
+        'bng_e': 'BNG_E',
+        'bng_n': 'BNG_N',
+        'long': 'LONG',
+        'lat': 'LAT',
+        'globalid': 'GlobalID',
+        'geom': 'MULTIPOLYGON',
+    }
+    ```
+
+3. Create a migration for the new model (check previous examples, as RCPCH tend to add this as an abstract model, so this example diverges from actual practice for simplicity)
+    `python manage.py makemigrations`
+
+4. Create an empty migration
+    `python manage.py makemigrations hospitals --name seed_local_authority_districts_boundaries --empty`
+
+5. Create a custom function in the empty migration to import the .shp file geometry data using the layer map created earlier.
+
+    ```python
+    from django.db import migrations
+    from django.apps import apps as django_apps
+
+    import os
+    from django.contrib.gis.utils import LayerMapping
+
+    """
+    Local Authority Districts May 2024 Boundaries UK BUC
+    https://geoportal.statistics.gov.uk/search?q=BDY_LAD%202024&sort=Title%7Ctitle%7Casc
+    """
+
+    # Auto-generated `LayerMapping` dictionary for LocalAuthorityDistrict model
+    localauthoritydistrict_mapping = {
+        "lad24cd": "LAD24CD",
+        "lad24nm": "LAD24NM",
+        "lad24nmw": "LAD24NMW",
+        "bng_e": "BNG_E",
+        "bng_n": "BNG_N",
+        "long": "LONG",
+        "lat": "LAT",
+        "globalid": "GlobalID",
+        "geom": "MULTIPOLYGON",
+    }
+
+
+    # Boundary files
+
+    app_config = django_apps.get_app_config("hospitals")
+    app_path = app_config.path
+
+    Local_Authority_Districts_May_2024_Boundaries_UK_BUC = os.path.join(
+        app_path,
+        "shape_files",
+        "Local_Authority_Districts_May_2024_Boundaries_UK_BUC",
+        "LAD_MAY_2024_UK_BUC.shp",
+    )
+
+
+    def load(apps, schema_editor, verbose=True):
+        LocalAuthorityDistrict = apps.get_model("hospitals", "LocalAuthorityDistrict")
+        lm = LayerMapping(
+            LocalAuthorityDistrict,
+            Local_Authority_Districts_May_2024_Boundaries_UK_BUC,
+            localauthoritydistrict_mapping,
+            transform=False,
+            encoding="utf-8",
+        )
+        lm.save(strict=True, verbose=verbose)
+
+
+    class Migration(migrations.Migration):
+        dependencies = [
+            ("hospitals", "0012_localauthoritydistrict"),
+        ]
+
+        operations = [migrations.RunPython(load)]
+    ```
+
+6. Migrate the changes
+    `python manage.py migrate`
+7. If successful you should see:
+
+    ```console
+    ....
+    Saved: LocalAuthorityDistrict object (360)
+    Saved: LocalAuthorityDistrict object (361)
+    OK
+    ```
+
+8. This populates the model with the geometry files for mapping all the local authority boundaries, the names and codes. The next step is to hook this up to the other models.

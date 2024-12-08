@@ -291,5 +291,10 @@ class OrganisationsAssociatedWithPaediatricDiabetesUnitsList(generics.ListAPIVie
     queryset = Organisation.objects.filter(paediatric_diabetes_unit__isnull=False)
     serializer_class = OrganisationSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["ods_code", "name"]
+    filterset_fields = [
+        "ods_code",
+        "name",
+        "local_authority_district",
+        "lower_layer_super_output_area",
+    ]
     ordering_fields = ["name", "ods_code"]

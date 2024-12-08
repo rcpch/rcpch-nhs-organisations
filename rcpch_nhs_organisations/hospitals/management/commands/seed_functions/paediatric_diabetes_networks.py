@@ -26,11 +26,14 @@ def seed_paediatric_diabetes_networks():
             "PaediatricDiabetesNetworks already seeded. Updating existing records."
         )
     for network in PAEDIATRIC_DIABETES_NETWORKS:
-        PaediatricDiabetesNetwork.objects.update_or_create(
+        created, _ = PaediatricDiabetesNetwork.objects.update_or_create(
             pn_code=network["id"],
             defaults={"name": network["name"]},
         )
-        logger.info(f"Seeded PaediatricDiabetesNetwork: {network['name']}")
+        if created:
+            logger.info(f"Seeded PaediatricDiabetesNetwork: {network['name']}")
+        else:
+            logger.info(f"Updated PaediatricDiabetesNetwork: {network['name']}")
 
 
 def update_pdu_networks():

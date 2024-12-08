@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 
 # RCPCH
 from .seed_functions import (
+    seed_local_authorities_and_lsoas,
     seed_organisations,
     seed_trusts,
     seed_paediatric_diabetes_networks,
@@ -66,6 +67,10 @@ class Command(BaseCommand):
             )
             update_pdu_networks()
             rcpch_ascii_art()
+        elif options["level"] == "local_authorities":
+            self.stdout.write(B + "Adding local authorities and LSOAs..." + W)
+            seed_local_authorities_and_lsoas()
+            rcpch_ascii_art()
         elif options["level"] == "all":
             self.stdout.write(
                 B + "Adding all organisations and levels of abstraction..." + W
@@ -75,6 +80,8 @@ class Command(BaseCommand):
             seed_organisations()
             create_jersey_general_hospital()
             seed_pdus()
+            seed_paediatric_diabetes_networks()
+            seed_local_authorities_and_lsoas()
             rcpch_ascii_art()
 
         else:
