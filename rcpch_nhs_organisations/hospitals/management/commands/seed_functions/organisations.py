@@ -204,7 +204,7 @@ def seed_organisations():
         openuk_network = OPENUKNetwork.objects.get(
             boundary_identifier=trust_openuk_network["OPEN UK Network Code"]
         )
-        # upoate the OPENUK netowork for all the Organisations in this trust
+        # upoate the OPENUK network for all the Organisations in this trust
         Organisation.objects.filter(query_term).update(openuk_network=openuk_network)
         info_text = (
             f"Updated {added+1} RCPCH organisations with OPENUK relationships..."

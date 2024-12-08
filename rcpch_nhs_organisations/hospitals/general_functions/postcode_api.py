@@ -16,6 +16,7 @@ def fetch_by_postcode(postcode: str):
     """
 
     url = os.getenv("POSTCODES_IO_API_URL")
+    api_key = os.getenv("POSTCODES_IO_API_KEY")
 
     request_url = f"{url}/postcodes/{postcode}"
 
@@ -23,6 +24,7 @@ def fetch_by_postcode(postcode: str):
         response = requests.get(
             url=request_url,
             timeout=10,  # times out after 10 seconds
+            headers={"Ocp-Apim-Subscription-Key": api_key},
         )
         response.raise_for_status()
     except HTTPError as e:

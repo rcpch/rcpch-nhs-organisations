@@ -98,10 +98,12 @@ def ods_codes_to_abstraction_levels():
 
     for open_uk_network in OPEN_UK_NETWORKS:
         # iterates through all 42 ICBs and populates table
-        if OPENUKNetwork.objects.all().count() == 30:
+        if OPENUKNetwork.objects.filter(
+            boundary_identifier=open_uk_network["OPEN_UK_Network_Code"]
+        ).exists():
             # should NOT already exist in the database
             logger.info(
-                f"OPEN UK Networks {open_uk_network['name']} have already been added to the database."
+                f"OPEN UK Networks {open_uk_network['OPEN_UK_Network_Name']} has already been added to the database."
             )
             pass
         else:
