@@ -1117,7 +1117,7 @@ RCPCH_ORGANISATIONS = [
         "Address3": "",
         "City": "STANLEY",
         "County": "COUNTY DURHAM",
-        "Postcode":  "DL3 6HX" #"DH9 7TG" deprecated
+        "Postcode": "DL3 6HX",  # "DH9 7TG" deprecated
         "Latitude": "54.857744",
         "Longitude": "-1.736403",
         "ParentODSCode": "RXP",
@@ -6942,7 +6942,7 @@ RCPCH_ORGANISATIONS = [
         "Address3": "",
         "City": "SWINDON",
         "County": "WILTSHIRE",
-        "Postcode": "SN1 2DL", # "SN1 1ED" does not exist - not also clear if this is a GP surgery or whether paediatric services are provided here
+        "Postcode": "SN1 2DL",  # "SN1 1ED" does not exist - not also clear if this is a GP surgery or whether paediatric services are provided here
         "Latitude": "51.563553146767845",
         "Longitude": "-1.7808641421440663",
         "ParentODSCode": "RN3",

@@ -43,7 +43,7 @@ class LocalAuthorityDistrict(LocalAuthorityDistrictBoundaries):
         ordering = ("lad24nm",)
 
     def __str__(self) -> str:
-        return self.name
+        return self.lad24nm
 
     def get_publication_date(self) -> str:
         return self.publication_date
