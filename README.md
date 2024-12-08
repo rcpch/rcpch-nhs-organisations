@@ -12,7 +12,10 @@ This is a Django 4.0 (django rest framework) project written in python 3.11.0, w
 
 ### Getting started
 
-1. clone the repository
+> [!WARNING]  
+> This repo stores geo-data using [GitLFS]([url](https://git-lfs.com/)). You must install GitLFS before cloning the repo.
+
+1. Clone the repository
 2. ``` s/up ```
 
 This will create a dockerised running API accessible at localhost on port 8003.
