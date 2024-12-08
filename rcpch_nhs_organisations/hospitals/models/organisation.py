@@ -109,6 +109,15 @@ class Organisation(TimeStampAbstractBaseClass):
         related_name="london_borough_organisations",
     )
 
+    local_authority_district = models.ForeignKey(
+        to="LocalAuthorityDistrict",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        default=None,
+        related_name="local_authority_district_organisations",
+    )
+
     country = models.ForeignKey(
         to=Country,
         on_delete=models.PROTECT,

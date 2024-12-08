@@ -1,6 +1,14 @@
+"""
+Functions to interact with the RCPCH instance of the Postcodes API
+"""
+
+# Python imports
 import requests
 from requests.exceptions import HTTPError
 import os
+
+# Django imports
+from django.apps import apps
 
 
 def fetch_by_postcode(postcode: str):
@@ -33,3 +41,45 @@ def fetch_by_postcode(postcode: str):
         return None
 
     return response.json()["result"]
+
+
+def generate_lsoa_lad_for_all_organisations():
+    """
+    Generates a dictionary of LSOA and LAD codes for all organisations
+    """
+    Organisation = apps.get_model("hospitals", "Organisation")
+    LocalAuthorityDistrict = apps.get_model("hospitals", "LocalAuthorityDistrict")
+    all_codes = []
+    for organisation in Organisation.objects.all()[:10]:
+        if organisation.postcode:
+            new_code = {
+                "lsoa_code": None,
+                "lad_code": None,
+                "ods_code": organisation.ods_code,
+            }
+            postcode_data = fetch_by_postcode(organisation.postcode)
+            if postcode_data:
+                new_code["lsoa_code"] = postcode_data["codes"]["lsoa"]
+                new_code["lad_code"] = postcode_data["codes"]["admin_district"]
+                new_code["ods_code"] = organisation.ods_code
+                all_codes.append(new_code)
+                if LocalAuthorityDistrict.objects.filter(
+                    lad24cd=new_code["lad_code"]
+                ).exists():
+                    organisation.local_authority_district = (
+                        LocalAuthorityDistrict.objects.get(lad24cd=new_code["lad_code"])
+                    )
+                    organisation.save()
+
+                print(
+                    f"{organisation.name} updated with LSOA {new_code['lsoa_code']} and LAD {new_code['lad_code']} codes"
+                )
+            else:
+                print(f"{organisation.name} not updated")
+        else:
+            print(f"{organisation.name} has no postcode")
+
+    # save the codes to a file
+    with open("lsoa_lad_codes.txt", "w") as f:
+        f.write(str(all_codes))
+    print("Codes saved to file")
