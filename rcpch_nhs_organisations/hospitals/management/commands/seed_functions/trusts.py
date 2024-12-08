@@ -22,27 +22,35 @@ def seed_trusts():
     # Get models
     Trust = apps.get_model("hospitals", "Trust")
 
-    if Trust.objects.all().count() == 242:
-        logging_message = "242 Trusts already seeded. Skipping..."
+    if Trust.objects.all().count() == 243:
+        logging_message = "243 Trusts already seeded (including Jersey). Skipping..."
         logger.info(logging_message)
     else:
         logger.info("Adding new Trusts...")
 
-        for added, trust in enumerate(TRUSTS):
-            try:
-                Trust.objects.create(
-                    ods_code=trust["ods_code"],
-                    name=trust["trust_name"],
-                    address_line_1=trust["address_line_1"],
-                    address_line_2=trust.get("address_line_2"),
-                    town=trust["town"],
-                    postcode=trust["postcode"],
-                    country=trust["country"],
-                ).save()
-                logger.info(f"{added+1}: {trust['trust_name']}")
-            except Exception as error:
-                error_message = f"Unable to save {trust['trust_name']}: {error}"
-                logger.error(error_message)
+        counter = 0
+        for _, trust in enumerate(TRUSTS):
+            if Trust.objects.filter(ods_code=trust["ods_code"]).exists():
+                logger.info(
+                    f"{trust['trust_name']} already exists in the database. Skipping..."
+                )
+                continue
+            else:
+                try:
+                    Trust.objects.create(
+                        ods_code=trust["ods_code"],
+                        name=trust["trust_name"],
+                        address_line_1=trust["address_line_1"],
+                        address_line_2=trust.get("address_line_2"),
+                        town=trust["town"],
+                        postcode=trust["postcode"],
+                        country=trust["country"],
+                    ).save()
+                    counter += 1
+                    logger.info(f"Added: {trust['trust_name']}")
+                except Exception as error:
+                    error_message = f"Unable to save {trust['trust_name']}: {error}"
+                    logger.error(error_message)
 
-        logging_message = f"{added+1} trusts added."
+        logging_message = f"{counter} trusts added."
         logger.info(logging_message)

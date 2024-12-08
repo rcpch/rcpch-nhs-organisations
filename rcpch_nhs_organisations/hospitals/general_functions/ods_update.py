@@ -164,3 +164,19 @@ def update_organisation_model_with_ORD_changes():
         logger.info(
             "No updates have been made to existing records in the RCPCH database."
         )
+
+
+def check_organisation_has_location_data():
+    """
+    Checks if the organisation has location data
+    """
+    index = 0
+    Organisation = apps.get_model("hospitals", "Organisation")
+    for organisation in Organisation.objects.all():
+        if organisation.postcode is None:
+            index += 1
+            if organisation.longitude is None:
+                print(f"{organisation.name} has not location data")
+    print(
+        f"{index} organisations have no postcode of a total {Organisation.objects.all().count()} organisations."
+    )

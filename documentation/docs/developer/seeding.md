@@ -10,7 +10,7 @@ Seeding the database happens on initial migration (`002_seed_abstraction_levels`
 - NHS England Regions
 - Countries
 
-Each one of these is associated with GIS shapes data loaded in from .csv in the `shape_files` folder. This goes through a LayerMapping step beforehand.
+Each one of these is associated with GIS shapes data loaded in from .csv in the `shape_files` folder. This goes through a LayerMapping step beforehand. Countries included are England, Wales, Scotland, Northern Ireland and Jersey.
 
 Subsequent seeding happens then from the command line and adds:
 
@@ -23,7 +23,7 @@ Subsequent seeding happens then from the command line and adds:
 To run this after initial migration therefore from the command line within the docker instance it is necessary to:
 
 ```console
-python manage.py seed --model all
+python manage.py seed --level all
 ```
 
 If only individual models need seeding the `--model` attribute accepts these parameters:
@@ -31,4 +31,4 @@ If only individual models need seeding the `--model` attribute accepts these par
 `trusts`
 `organisations`
 `pdus`
-`all`
+`all`  - Adds all the above as well as Jersey General Hosptial
