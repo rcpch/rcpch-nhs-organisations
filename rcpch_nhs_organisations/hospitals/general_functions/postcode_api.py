@@ -5,12 +5,19 @@ import os
 
 def fetch_by_postcode(postcode: str):
     """
-    Returns GP Practice/hospital for ODS Code
+    Returns data object from the Postcode API for a given postcode
+    Includes:
+    - longitude, latitude
+    - northings, eastings
+    - country, nhs_ha, european_electoral_region, primary_care_trust
+    - region, lsoa, msoa, incode, outcode
+    - parliamentary_constituency, admin_district, parish, admin_county, admin_ward
+    codes for all of the above
     """
 
-    url = os.getenv("POSTCODE_API_BASE_URL")
+    url = os.getenv("POSTCODES_IO_API_URL")
 
-    request_url = f"{url}/postcodes/{postcode}.json"
+    request_url = f"{url}/postcodes/{postcode}"
 
     try:
         response = requests.get(
@@ -23,4 +30,4 @@ def fetch_by_postcode(postcode: str):
         print(f"{postcode} not found")
         return None
 
-    return response.json()["data"]["attributes"]
+    return response.json()["result"]
