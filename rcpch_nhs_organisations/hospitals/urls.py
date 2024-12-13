@@ -5,6 +5,7 @@ from .views import (
     OrganisationLimitedViewSet,
     IntegratedCareBoardViewSet,
     IntegratedCareBoardOrganisationViewSet,
+    LocalAuthorityDistrictViewSet,
     LocalHealthBoardViewSet,
     LocalHealthBoardOrganisationViewSet,
     LondonBoroughViewSet,
@@ -107,6 +108,12 @@ router.register(
     r"paediatric_diabetes_units/parent",
     viewset=PaediatricDiabetesUnitForParentViewSet,
     basename="paediatric_diabetes_unit",
+)
+
+router.register(
+    r"local_authority_districts",
+    viewset=LocalAuthorityDistrictViewSet,
+    basename="local_authority_district",
 )
 
 drf_routes = [
