@@ -4546,7 +4546,7 @@ from .trust import TrustSerializer
         )
     ]
 )
-class OrganisationSerializer(serializers.ModelSerializer):
+class OrganisationSerializer(GeoFeatureModelSerializer):
     # Serializes an organisation, nest in all related parent details (without boundaries)
     trust = TrustSerializer()
     local_health_board = LocalHealthBoardLimitedSerializer()
@@ -4563,6 +4563,7 @@ class OrganisationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organisation
+        geo_field = "geocode_coordinates"
         fields = [
             "ods_code",
             "name",
