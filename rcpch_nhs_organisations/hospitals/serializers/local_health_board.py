@@ -1,6 +1,6 @@
 from django.apps import apps
 from rest_framework import serializers
-
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 
@@ -28,10 +28,11 @@ from ..models import LocalHealthBoard
         )
     ]
 )
-class LocalHealthBoardSerializer(serializers.ModelSerializer):
+class LocalHealthBoardSerializer(GeoFeatureModelSerializer):
     # returns local health boards and boundary data
     class Meta:
         model = LocalHealthBoard
+        geo_field = "geom"
         fields = [
             "ods_code",
             "publication_date",
