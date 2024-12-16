@@ -1,4 +1,5 @@
 from django.apps import apps
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from rest_framework import serializers
 
 from drf_spectacular.utils import (
@@ -8,20 +9,17 @@ from drf_spectacular.utils import (
 )
 
 from ..models import (
-    Country,
     Organisation,
     IntegratedCareBoard,
     LocalHealthBoard,
     LondonBorough,
     NHSEnglandRegion,
     Trust,
-    OPENUKNetwork,
     PaediatricDiabetesUnit,
 )
 
-from .country import CountrySerializer, CountryLimitedSerializer
+from .country import CountryLimitedSerializer
 from .integrated_care_board import (
-    IntegratedCareBoardSerializer,
     IntegratedCareBoardLimitedSerializer,
 )
 from .local_authority_district import LocalAuthorityDistrictSerializer
@@ -29,10 +27,9 @@ from .local_health_board import (
     LocalHealthBoardSerializer,
     LocalHealthBoardLimitedSerializer,
 )
-from .london_borough import LondonBoroughSerializer, LondonBoroughLimitedSerializer
+from .london_borough import LondonBoroughLimitedSerializer
 from .lower_layer_super_output_area import LowerLayerSuperOutputAreaSerializer
 from .nhs_england_region import (
-    NHSEnglandRegionSerializer,
     NHSEnglandRegionLimitedSerializer,
 )
 from .openuk_network import OPENUKNetworkSerializer
@@ -4549,7 +4546,7 @@ from .trust import TrustSerializer
         )
     ]
 )
-class OrganisationSerializer(serializers.ModelSerializer):
+class OrganisationSerializer(GeoFeatureModelSerializer):
     # Serializes an organisation, nest in all related parent details (without boundaries)
     trust = TrustSerializer()
     local_health_board = LocalHealthBoardLimitedSerializer()
@@ -4566,6 +4563,7 @@ class OrganisationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organisation
+        geo_field = "geocode_coordinates"
         fields = [
             "ods_code",
             "name",
@@ -4805,10 +4803,11 @@ class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
         )
     ]
 )
-class OrganisationWithParentSerializer(serializers.ModelSerializer):
+class OrganisationWithParentSerializer(GeoFeatureModelSerializer):
     parent = serializers.SerializerMethodField()
 
     class Meta:
+        geo_field = "geom"
         model = Organisation
         fields = ["ods_code", "name", "parent"]
 
@@ -4831,12 +4830,13 @@ class OrganisationWithParentSerializer(serializers.ModelSerializer):
     ]
 )
 class PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
-    serializers.ModelSerializer
+    GeoFeatureModelSerializer
 ):
     organisations = OrganisationWithParentSerializer(
         many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
     )
 
     class Meta:
+        geo_field = "geom"
         model = PaediatricDiabetesUnit
         fields = ["pz_code", "organisations"]
