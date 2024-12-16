@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.gis",
     "rest_framework",
+    "rest_framework_gis",
     "django_filters",
     "drf_spectacular",
     "rcpch_nhs_organisations.hospitals",

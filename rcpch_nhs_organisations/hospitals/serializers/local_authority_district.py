@@ -1,4 +1,5 @@
 from django.apps import apps
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from rest_framework import serializers
 
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
@@ -25,10 +26,10 @@ from ..models import LocalAuthorityDistrict
         )
     ]
 )
-class LocalAuthorityDistrictSerializer(serializers.ModelSerializer):
+class LocalAuthorityDistrictSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = LocalAuthorityDistrict
-        # depth = 1
+        geo_field = "geom"
         fields = [
             "lad24cd",
             "lad24nm",

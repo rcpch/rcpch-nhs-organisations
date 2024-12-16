@@ -104,8 +104,8 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
             ),
         ],
         responses={200: LocalAuthorityDistrictSerializer(many=True)},
-        summary="Get a list of Local Authority Districts within a given radius of a point.",
-        description="This endpoint returns a list of Local Authority Districts within a given radius of a point.",
+        summary="Get Local Authority Districts within a radius",
+        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude.",
     )
     @action(detail=False, methods=["get"])
     def within_radius(self, request):
