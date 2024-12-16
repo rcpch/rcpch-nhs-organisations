@@ -1,6 +1,6 @@
 from django.apps import apps
 from rest_framework import serializers
-
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 from ..models import LondonBorough
@@ -27,7 +27,7 @@ from ..models import LondonBorough
 class LondonBoroughSerializer(serializers.ModelSerializer):
     class Meta:
         model = LondonBorough
-        # depth = 1
+        geo_field = "geom"
         fields = [
             "name",
             "gss_code",

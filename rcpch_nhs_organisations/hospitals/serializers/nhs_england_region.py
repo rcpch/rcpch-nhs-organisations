@@ -1,6 +1,6 @@
 from django.apps import apps
 from rest_framework import serializers
-
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 from ..models import NHSEnglandRegion
@@ -28,11 +28,11 @@ from ..models import NHSEnglandRegion
         )
     ]
 )
-class NHSEnglandRegionSerializer(serializers.ModelSerializer):
+class NHSEnglandRegionSerializer(GeoFeatureModelSerializer):
     # returns NHS England regions and boundaries
     class Meta:
         model = NHSEnglandRegion
-        # depth = 1
+        geo_field = "geom"
         fields = [
             "region_code",
             "publication_date",
