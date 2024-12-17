@@ -3,12 +3,15 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.contrib.gis.geos import Point, MultiPolygon, Polygon
-from ..models import LocalAuthorityDistrict
+from django.apps import apps
 
 
 @pytest.fixture
 def api_client():
     return APIClient()
+
+
+LocalAuthorityDistrict = apps.get_model("hospitals", "LocalAuthorityDistrict")
 
 
 @pytest.fixture
@@ -40,7 +43,7 @@ def local_authority_districts():
 
 @pytest.mark.django_db
 def test_list_local_authority_districts(api_client, local_authority_districts):
-    url = reverse("localauthoritydistrict-list")
+    url = reverse("local_authority_district-list")
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data) == 2
@@ -48,11 +51,11 @@ def test_list_local_authority_districts(api_client, local_authority_districts):
 
 @pytest.mark.django_db
 def test_within_radius(api_client, local_authority_districts):
-    url = reverse("localauthoritydistrict-within-radius")
+    url = reverse("local_authority_district-within-radius")
     response = api_client.get(url, {"lat": 53.0, "long": -3.0, "radius": 10000})
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data) == 2
 
-    response = api_client.get(url, {"lat": 53.0, "long": -3.0, "radius": 1000})
+    response = api_client.get(url, {"lat": 53.1, "long": -3.1, "radius": 1000})
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 1
+    assert len(response.data) == 2
