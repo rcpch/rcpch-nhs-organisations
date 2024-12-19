@@ -1,6 +1,7 @@
 from rest_framework.response import Response
 from django.contrib.gis.geos import Point
-from django.contrib.gis.db.models.functions import Distance
+from django.contrib.gis.db.models.functions import Distance, Transform
+from django.contrib.gis.measure import D
 from rest_framework.decorators import action
 from rest_framework import (
     viewsets,
@@ -116,8 +117,18 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"error": "Invalid parameters"}, status=400)
 
         user_location = Point(long, lat, srid=4326)
-        queryset = self.queryset.annotate(
-            distance=Distance("geom", user_location)
-        ).filter(distance__lte=radius)
+        print(
+            self.queryset.annotate(geom_4326=Transform("geom", 4326)).annotate(
+                distance=Distance("geom_4326", user_location)
+            ),
+            D(m=radius),
+        )
+        # the reference system of the geom field is 27700 - transform to 4326 before calculating distance
+        queryset = (
+            self.queryset.annotate(geom_4326=Transform("geom", 4326))
+            .annotate(distance=Distance("geom_4326", user_location))
+            .filter(distance__lte=D(m=radius))  # distance is in meters
+        )
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

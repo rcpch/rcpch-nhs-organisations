@@ -34,8 +34,8 @@ def local_authority_districts():
         lad24nmw="Test District 2 Welsh",
         bng_e=123457,
         bng_n=654322,
-        long=-3.1,
-        lat=53.1,
+        long=-2.0,
+        lat=52,
         globalid="globalid2",
         geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
     )
@@ -45,8 +45,8 @@ def local_authority_districts():
         lad24nmw="Test District 3 Welsh",
         bng_e=123458,
         bng_n=654323,
-        long=-3.2,
-        lat=53.2,
+        long=-1.0,
+        lat=54,
         globalid="globalid3",
         geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
     )
@@ -59,19 +59,20 @@ def test_list_local_authority_districts(api_client, local_authority_districts):
     response = api_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    # Print a summary of the response structure
-
-    # Check the number of features in the response
     assert len(response.data["features"]) == 3
 
 
 @pytest.mark.django_db
 def test_within_radius(api_client, local_authority_districts):
     url = reverse("local_authority_district-within-radius")
-    response = api_client.get(url, {"lat": 53.0, "long": -3.0, "radius": 10000})
+    response = api_client.get(
+        url, {"lat": 53.0, "long": -3.0, "radius": 500000}
+    )  # within 500km
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data["features"]) == 2
+    assert len(response.data["features"]) == 3
 
-    response = api_client.get(url, {"lat": 53.1, "long": -3.1, "radius": 1000})
+    response = api_client.get(
+        url, {"lat": 53.0, "long": -3.0, "radius": 5}
+    )  # within 5 km
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data["features"]) == 1
