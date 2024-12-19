@@ -42,7 +42,7 @@ from ..serializers import LocalAuthorityDistrictSerializer
                             "long": -1.270225,
                             "lat": 54.676159,
                             "globalid": "{F1D3D2A4-1D4D-4D3D-8D3D-3D1D4D3D1D4D}",
-                            "geom": [],
+                            "geom": [...],
                         }
                     ],
                     response_only=True,
@@ -50,11 +50,11 @@ from ..serializers import LocalAuthorityDistrictSerializer
             ],
         ),
     },
-    summary="This endpoint returns a list of Local Authority Districts with their boundaries, or an individual authority districts.",
+    summary="This endpoint returns a list of Local Authority Districts with their boundaries, or an individual local authority district.",
 )
 class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    This endpoint returns a list of Local Health Boards (Wales) with their boundaries, or an individual local health authority by LAD24CD.
+    This endpoint returns a list of Local Authority Districts (2024 publication) with their boundaries, or an individual local health authority by LAD24CD.
 
     Filter Parameters:
 
@@ -66,7 +66,6 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
     `long`
     `lat`
     `globalid`
-    `geom`
 
     If none are passed, a list is returned.
 
@@ -105,7 +104,7 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
         ],
         responses={200: LocalAuthorityDistrictSerializer(many=True)},
         summary="Get Local Authority Districts within a radius",
-        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude.",
+        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude. It also returns geojson boundaries for each district.",
     )
     @action(detail=False, methods=["get"])
     def within_radius(self, request):

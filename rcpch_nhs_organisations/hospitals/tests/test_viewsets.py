@@ -16,6 +16,7 @@ LocalAuthorityDistrict = apps.get_model("hospitals", "LocalAuthorityDistrict")
 
 @pytest.fixture
 def local_authority_districts():
+    LocalAuthorityDistrict.objects.all().delete()  # Clear the table
     lad1 = LocalAuthorityDistrict.objects.create(
         lad24cd="LAD001",
         lad24nm="Test District 1",
@@ -38,15 +39,30 @@ def local_authority_districts():
         globalid="globalid2",
         geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
     )
-    return [lad1, lad2]
+    lad3 = LocalAuthorityDistrict.objects.create(
+        lad24cd="LAD003",
+        lad24nm="Test District 3",
+        lad24nmw="Test District 3 Welsh",
+        bng_e=123458,
+        bng_n=654323,
+        long=-3.2,
+        lat=53.2,
+        globalid="globalid3",
+        geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
+    )
+    return [lad1, lad2, lad3]
 
 
 @pytest.mark.django_db
 def test_list_local_authority_districts(api_client, local_authority_districts):
     url = reverse("local_authority_district-list")
     response = api_client.get(url)
+
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 2
+    # Print a summary of the response structure
+
+    # Check the number of features in the response
+    assert len(response.data["features"]) == 3
 
 
 @pytest.mark.django_db
@@ -54,8 +70,8 @@ def test_within_radius(api_client, local_authority_districts):
     url = reverse("local_authority_district-within-radius")
     response = api_client.get(url, {"lat": 53.0, "long": -3.0, "radius": 10000})
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 2
+    assert len(response.data["features"]) == 2
 
     response = api_client.get(url, {"lat": 53.1, "long": -3.1, "radius": 1000})
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 2
+    assert len(response.data["features"]) == 1
