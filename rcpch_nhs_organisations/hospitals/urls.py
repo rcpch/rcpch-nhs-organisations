@@ -6,7 +6,6 @@ from .views import (
     IntegratedCareBoardViewSet,
     LocalAuthorityDistrictViewSet,
     LocalHealthBoardViewSet,
-    LocalHealthBoardOrganisationViewSet,
     LondonBoroughViewSet,
     LondonBoroughOrganisationViewSet,
     NHSEnglandRegionViewSet,
@@ -45,12 +44,6 @@ router.register(
 router.register(
     r"local_health_boards",
     viewset=LocalHealthBoardViewSet,
-    basename="local_health_board",
-)
-# returns a list of local health boards with their nested child organisations (ods_code and name only)
-router.register(
-    r"local_health_boards/organisations",
-    viewset=LocalHealthBoardOrganisationViewSet,
     basename="local_health_board",
 )
 # ICB endpoints

@@ -70,6 +70,7 @@ class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         summary="This endpoint returns GeoJSON boundaries of all Local Health Board.",
+        operation_id="list_local_health_boards_geojson",
     )
     @action(detail=False, url_path="geojson", url_name="geojson")
     def list_geojson(self, request, ods_code=None):
@@ -82,6 +83,7 @@ class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         summary="This endpoint returns GeoJSON boundary of a Local Health Board by ods_code.",
+        operation_id="retrieve_local_health_board_geojson",
     )
     @action(detail=True, url_path="geojson", url_name="geojson")
     def retrieve_geojson(self, request, *args, **kwargs):
@@ -89,57 +91,71 @@ class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = LocalHealthBoardGeoJSONSerializer(instance)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="This endpoint returns a list of Local Health Boards with all child organisations nested within.",
+        examples=[
+            OpenApiExample(
+                "Local Health Board with organisations",
+                value={
+                    "ods_code": "7A3",
+                    "boundary_identifier": "W11000031",
+                    "name": "Swansea Bay University Health Board",
+                    "organisations": [
+                        {"ods_code": "7A3LW", "name": "CHILD DEVELOPMENT UNIT"},
+                        {"ods_code": "7A3C7", "name": "MORRISTON HOSPITAL"},
+                        {"ods_code": "7A3CJ", "name": "NEATH PORT TALBOT HOSPITAL"},
+                        {"ods_code": "7A3B7", "name": "PRINCESS OF WALES HOSPITAL"},
+                        {"ods_code": "7A3C4", "name": "SINGLETON HOSPITAL"},
+                        {"ods_code": "7A3LE", "name": "THE MOUNT SURGERY"},
+                    ],
+                },
+                response_only=True,
+            ),
+        ],
+        operation_id="list_local_health_boards_with_organisations",
+    )
+    @action(detail=False, url_path="organisations", url_name="organisations")
+    def list_organisations(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = LocalHealthBoardOrganisationsSerializer(queryset, many=True)
+        return Response(serializer.data)
 
-@extend_schema(
-    request=LocalHealthBoard,
-    responses={
-        200: OpenApiResponse(
-            response=OpenApiTypes.OBJECT,
-            description="Valid Response",
-            examples=[
-                OpenApiExample(
-                    "/local_health_boards/1/organisations",
-                    external_value="external value",
-                    value={
-                        "ods_code": "7A3",
-                        "boundary_identifier": "W11000031",
-                        "name": "Swansea Bay University Health Board",
-                        "organisations": [
-                            {"ods_code": "7A3LW", "name": "CHILD DEVELOPMENT UNIT"},
-                            {"ods_code": "7A3C7", "name": "MORRISTON HOSPITAL"},
-                            {"ods_code": "7A3CJ", "name": "NEATH PORT TALBOT HOSPITAL"},
-                            {"ods_code": "7A3B7", "name": "PRINCESS OF WALES HOSPITAL"},
-                            {"ods_code": "7A3C4", "name": "SINGLETON HOSPITAL"},
-                            {"ods_code": "7A3LE", "name": "THE MOUNT SURGERY"},
-                        ],
-                    },
-                    response_only=True,
-                ),
-            ],
-        ),
-    },
-    summary="This endpoint returns a list of Local Health Boards, or an individual LHB by ods_code, with all child organisations nested within.",
-)
-class LocalHealthBoardOrganisationViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    This endpoint returns a list of Local Health Boards, or an individual LHB by ods_code, with all child organisations nested within.
-
-    Filter Parameters:
-
-    `ods_code`
-    `boundary_identifier`
-    `name`
-
-    If none are passed, a list is returned.
-
-    """
-
-    queryset = LocalHealthBoard.objects.all().order_by("-name")
-    serializer_class = LocalHealthBoardOrganisationsSerializer
-    lookup_field = "ods_code"
-    filterset_fields = [
-        "ods_code",
-        "boundary_identifier",
-        "name",
-    ]
-    filter_backends = (DjangoFilterBackend,)
+    @extend_schema(
+        summary="This endpoint returns an individual Local Health Board by ODS code with all child organisations nested within.",
+        examples=[
+            OpenApiExample(
+                "Local Health Board with organisations",
+                value={
+                    "ods_code": "7A1",
+                    "name": "Aneurin Bevan University Health Board",
+                    "welsh_name": "Bwrdd Iechyd Prifysgol Aneurin Bevan",
+                    "bng_e": "328000",
+                    "bng_n": "188000",
+                    "long": "-3.051",
+                    "lat": "51.656",
+                    "boundary_identifier": "LHB",
+                    "organisations": [
+                        {
+                            "ods_code": "7A1AA",
+                            "name": "Aneurin Bevan University Health Board",
+                            "type": "Local Health Board",
+                            "parent": "7A1",
+                        },
+                        {
+                            "ods_code": "7A1AA",
+                            "name": "Aneurin Bevan University Health Board",
+                            "type": "Local Health Board",
+                            "parent": "7A1",
+                        },
+                    ],
+                },
+                response_only=True,
+            )
+        ],
+        operation_id="retrieve_local_health_board_with_organisations",
+    )
+    @action(detail=True, url_path="organisations", url_name="organisations")
+    def retrieve_organisations(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = LocalHealthBoardOrganisationsSerializer(instance)
+        return Response(serializer.data)
