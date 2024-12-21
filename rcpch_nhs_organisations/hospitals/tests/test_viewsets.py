@@ -21,34 +21,64 @@ def local_authority_districts():
         lad24cd="LAD001",
         lad24nm="Test District 1",
         lad24nmw="Test District 1 Welsh",
-        bng_e=123456,
-        bng_n=654321,
+        bng_e=350000,
+        bng_n=400000,
         long=-3.0,
         lat=53.0,
         globalid="globalid1",
-        geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (349900, 400100),
+                    (349900, 399900),
+                    (350100, 399900),
+                    (350100, 400100),
+                    (349900, 400100),
+                )
+            )
+        ),
     )
     lad2 = LocalAuthorityDistrict.objects.create(
         lad24cd="LAD002",
         lad24nm="Test District 2",
         lad24nmw="Test District 2 Welsh",
-        bng_e=123457,
-        bng_n=654322,
-        long=-2.0,
-        lat=52,
+        bng_e=350100,
+        bng_n=400100,
+        long=-3.0,
+        lat=53.0,
         globalid="globalid2",
-        geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (350000, 400200),
+                    (350000, 400000),
+                    (350200, 400000),
+                    (350200, 400200),
+                    (350000, 400200),
+                )
+            )
+        ),
     )
     lad3 = LocalAuthorityDistrict.objects.create(
         lad24cd="LAD003",
         lad24nm="Test District 3",
         lad24nmw="Test District 3 Welsh",
-        bng_e=123458,
-        bng_n=654323,
-        long=-1.0,
-        lat=54,
+        bng_e=350200,
+        bng_n=400200,
+        long=-3.0,
+        lat=53.0,
         globalid="globalid3",
-        geom=MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 0)))),
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (350100, 400300),
+                    (350100, 400100),
+                    (350300, 400100),
+                    (350300, 400300),
+                    (350100, 400300),
+                )
+            )
+        ),
     )
     return [lad1, lad2, lad3]
 

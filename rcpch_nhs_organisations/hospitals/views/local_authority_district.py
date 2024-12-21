@@ -117,13 +117,17 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"error": "Invalid parameters"}, status=400)
 
         user_location = Point(long, lat, srid=4326)
-        print(
-            self.queryset.annotate(geom_4326=Transform("geom", 4326)).annotate(
-                distance=Distance("geom_4326", user_location)
-            ),
-            D(m=radius),
-        )
         # the reference system of the geom field is 27700 - transform to 4326 before calculating distance
+        queryset = self.queryset.annotate(geom_4326=Transform("geom", 4326)).annotate(
+            distance=Distance("geom_4326", user_location)
+        )
+
+        # Print debug information
+        for q in queryset:
+            print(
+                f"ID: {q.lad24cd}, Distance: {q.distance.m}, radius: {radius} m: {D(m=radius)} Coordinates: {q.geom_4326}"
+            )
+
         queryset = (
             self.queryset.annotate(geom_4326=Transform("geom", 4326))
             .annotate(distance=Distance("geom_4326", user_location))
