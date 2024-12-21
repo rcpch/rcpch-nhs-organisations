@@ -5,6 +5,7 @@ from .integrated_care_board import (
 )
 from .local_authority_district import (
     LocalAuthorityDistrictSerializer,
+    LocalAuthorityDistrictGeoJSONSerializer,
 )
 from .local_health_board import (
     LocalHealthBoardSerializer,

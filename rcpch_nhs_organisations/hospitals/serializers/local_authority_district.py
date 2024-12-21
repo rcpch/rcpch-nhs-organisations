@@ -26,7 +26,7 @@ from ..models import LocalAuthorityDistrict
         )
     ]
 )
-class LocalAuthorityDistrictSerializer(GeoFeatureModelSerializer):
+class LocalAuthorityDistrictGeoJSONSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = LocalAuthorityDistrict
         geo_field = "geom"
@@ -41,3 +41,26 @@ class LocalAuthorityDistrictSerializer(GeoFeatureModelSerializer):
             "globalid",
             "geom",
         ]
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "/local_authority_district/2024/1/extended",
+            value={
+                "lad24cd": "",
+                "lad24nm": "",
+                "lad24nmw": "",
+                "bng_e": "",
+                "bng_n": "",
+                "long": "",
+                "lat": "",
+            },
+            response_only=True,
+        )
+    ]
+)
+class LocalAuthorityDistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LocalAuthorityDistrict
+        fields = ["lad24cd", "lad24nm", "lad24nmw", "bng_e", "bng_n", "long", "lat"]

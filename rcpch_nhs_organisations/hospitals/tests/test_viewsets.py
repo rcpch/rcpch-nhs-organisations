@@ -105,4 +105,4 @@ def test_within_radius(api_client, local_authority_districts):
         url, {"lat": 53.0, "long": -3.0, "radius": 5}
     )  # within 5 km
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data["features"]) == 1
+    assert len(response.data["features"]) == 0

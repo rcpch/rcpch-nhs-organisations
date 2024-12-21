@@ -20,7 +20,10 @@ from drf_spectacular.utils import (
 from drf_spectacular.types import OpenApiTypes
 
 from ..models import LocalAuthorityDistrict
-from ..serializers import LocalAuthorityDistrictSerializer
+from ..serializers import (
+    LocalAuthorityDistrictSerializer,
+    LocalAuthorityDistrictGeoJSONSerializer,
+)
 
 
 @extend_schema(
@@ -43,7 +46,20 @@ from ..serializers import LocalAuthorityDistrictSerializer
                             "long": -1.270225,
                             "lat": 54.676159,
                             "globalid": "{F1D3D2A4-1D4D-4D3D-8D3D-3D1D4D3D1D4D}",
-                            "geom": [...],
+                            "geom": {
+                                "type": "MultiPolygon",
+                                "coordinates": [
+                                    [
+                                        [
+                                            [-1.270225, 54.676159],
+                                            [-1.270225, 54.676159],
+                                            [-1.270225, 54.676159],
+                                            [-1.270225, 54.676159],
+                                            [-1.270225, 54.676159],
+                                        ]
+                                    ]
+                                ],
+                            },
                         }
                     ],
                     response_only=True,
@@ -73,7 +89,7 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     queryset = LocalAuthorityDistrict.objects.all().order_by("-lad24nm")
-    serializer_class = LocalAuthorityDistrictSerializer
+    serializer_class = LocalAuthorityDistrictGeoJSONSerializer
     lookup_field = "lad24cd"
     filterset_fields = [
         "lad24cd",
@@ -86,6 +102,52 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
         "globalid",
     ]
     filter_backends = (DjangoFilterBackend,)
+
+    def get_serializer_class(self):
+        if self.action == "within_radius":
+            return LocalAuthorityDistrictSerializer
+        return super().get_serializer_class()
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="lat",
+                type=OpenApiTypes.NUMBER,
+                description="Latitude of the center point",
+            ),
+            OpenApiParameter(
+                name="long",
+                type=OpenApiTypes.NUMBER,
+                description="Longitude of the center point",
+            ),
+            OpenApiParameter(
+                name="radius", type=OpenApiTypes.NUMBER, description="Radius in meters"
+            ),
+        ],
+        responses={200: LocalAuthorityDistrictGeoJSONSerializer(many=True)},
+        summary="Get Local Authority Districtsand boundaries within a radius",
+        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude. It also returns geojson boundaries for each district.",
+    )
+    @action(detail=False, methods=["get"])
+    def within_radius_with_geography(self, request):
+        try:
+            lat = float(request.query_params.get("lat"))
+            long = float(request.query_params.get("long"))
+            radius = float(request.query_params.get("radius"))
+        except (TypeError, ValueError):
+            return Response({"error": "Invalid parameters"}, status=400)
+
+        user_location = Point(long, lat, srid=4326)
+        # the reference system of the geom field is 27700 - transform to 4326 before calculating distance
+
+        queryset = (
+            self.queryset.annotate(geom_4326=Transform("geom", 4326))
+            .annotate(distance=Distance("geom_4326", user_location))
+            .filter(distance__lte=D(m=radius))  # distance is in meters
+        )
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     @extend_schema(
         parameters=[
@@ -105,7 +167,7 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
         ],
         responses={200: LocalAuthorityDistrictSerializer(many=True)},
         summary="Get Local Authority Districts within a radius",
-        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude. It also returns geojson boundaries for each district.",
+        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude.",
     )
     @action(detail=False, methods=["get"])
     def within_radius(self, request):
@@ -118,15 +180,9 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
 
         user_location = Point(long, lat, srid=4326)
         # the reference system of the geom field is 27700 - transform to 4326 before calculating distance
-        queryset = self.queryset.annotate(geom_4326=Transform("geom", 4326)).annotate(
-            distance=Distance("geom_4326", user_location)
-        )
-
-        # Print debug information
-        for q in queryset:
-            print(
-                f"ID: {q.lad24cd}, Distance: {q.distance.m}, radius: {radius} m: {D(m=radius)} Coordinates: {q.geom_4326}"
-            )
+        log_queryset = self.queryset.annotate(
+            geom_4326=Transform("geom", 4326)
+        ).annotate(distance=Distance("geom_4326", user_location))
 
         queryset = (
             self.queryset.annotate(geom_4326=Transform("geom", 4326))
