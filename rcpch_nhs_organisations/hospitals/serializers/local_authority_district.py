@@ -38,23 +38,23 @@ class LocalAuthorityDistrictGeoJSONSerializer(GeoFeatureModelSerializer):
             "bng_n",
             "long",
             "lat",
-            "globalid",
-            "geom",
+            # "globalid",
+            # "geom",
         ]
 
 
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            "/local_authority_district/2024/1/extended",
+            "/local_authority_districts/",
             value={
-                "lad24cd": "",
-                "lad24nm": "",
+                "lad24cd": "E06000014",
+                "lad24nm": "York",
                 "lad24nmw": "",
-                "bng_e": "",
-                "bng_n": "",
-                "long": "",
-                "lat": "",
+                "bng_e": 460863,
+                "bng_n": 452590,
+                "long": -1.07376,
+                "lat": 53.9658,
             },
             response_only=True,
         )
