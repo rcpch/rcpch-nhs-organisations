@@ -4,7 +4,6 @@ from .views import (
     OrganisationViewSet,
     OrganisationLimitedViewSet,
     IntegratedCareBoardViewSet,
-    IntegratedCareBoardOrganisationViewSet,
     LocalAuthorityDistrictViewSet,
     LocalHealthBoardViewSet,
     LocalHealthBoardOrganisationViewSet,
@@ -54,16 +53,10 @@ router.register(
     viewset=LocalHealthBoardOrganisationViewSet,
     basename="local_health_board",
 )
-# returns a list of ICBS and their boundary data
+# ICB endpoints
 router.register(
     r"integrated_care_boards",
     viewset=IntegratedCareBoardViewSet,
-    basename="integrated_care_board",
-)
-# returns a list of ICBS with name, ods_code and nested organisations
-router.register(
-    r"integrated_care_boards/organisations",
-    viewset=IntegratedCareBoardOrganisationViewSet,
     basename="integrated_care_board",
 )
 # returns a list of London Boroughs and their boundary data

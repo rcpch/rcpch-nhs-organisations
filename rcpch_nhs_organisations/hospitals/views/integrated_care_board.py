@@ -87,10 +87,13 @@ class IntegratedCareBoardViewSet(viewsets.ReadOnlyModelViewSet):
         "publication_date",
     ]
     filter_backends = (DjangoFilterBackend,)
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.action in ["list_geojson", "retrieve_geojson"]:
             return IntegratedCareBoardGeoJSONSerializer
+        elif self.action in ["list_organisations", "retrieve_organisations"]:
+            return IntegratedCareBoardWithNestedOrganisationsSerializer
         return IntegratedCareBoardSerializer
 
     @extend_schema(
@@ -214,53 +217,26 @@ class IntegratedCareBoardViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = IntegratedCareBoardGeoJSONSerializer(instance)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="This endpoint returns a list of Integrated Care Boards from England and Wales, with their organisations nested in.",
+        responses={
+            200: IntegratedCareBoardWithNestedOrganisationsSerializer(many=True)
+        },
+    )
+    @action(detail=False, methods=["get"], url_path="organisations")
+    def list_organisations(self, request):
+        queryset = self.get_queryset()
+        serializer = IntegratedCareBoardWithNestedOrganisationsSerializer(
+            queryset, many=True
+        )
+        return Response(serializer.data)
 
-@extend_schema(
-    request=IntegratedCareBoardWithNestedOrganisationsSerializer,
-    responses={
-        200: OpenApiResponse(
-            response=OpenApiTypes.OBJECT,
-            description="Valid Response",
-            examples=[
-                OpenApiExample(
-                    "/integrated_care_boards/1/",
-                    external_value="external value",
-                    value={
-                        "boundary_identifier": "E54000054",
-                        "name": "NHS West Yorkshire Integrated Care Board",
-                        "ods_code": "QWO",
-                        "publication_date": "2023-03-15",
-                    },
-                    response_only=True,
-                ),
-            ],
-        ),
-    },
-    summary="This endpoint returns a simple list of Integrated Care Boards from England and Wales, or an individual ICB by ODS code, with associated organisations nested in.",
-)
-class IntegratedCareBoardOrganisationViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    This endpoint returns a simple list of Integrated Care Boards from England and Wales, or an individual ICB by ODS code, with associated organisations nested in.
-
-    Filter Parameters:
-
-    `boundary_identifier, `
-    `name, `
-    `ods_code, `
-    `publication_date, `
-
-    If none are passed, a list is returned.
-
-    """
-
-    queryset = IntegratedCareBoard.objects.all().order_by("name")
-    serializer_class = IntegratedCareBoardWithNestedOrganisationsSerializer
-    lookup_field = "ods_code"
-    filterset_fields = [
-        "boundary_identifier",
-        "name",
-        "ods_code",
-        "publication_date",
-    ]
-    filter_backends = (DjangoFilterBackend,)
-    pagination_class = None
+    @extend_schema(
+        summary="This endpoint returns an individual Integrated Care Board by ODS code, with their organisations nested in.",
+        responses={200: IntegratedCareBoardWithNestedOrganisationsSerializer},
+    )
+    @action(detail=True, methods=["get"], url_path="organisations")
+    def retrieve_organisations(self, request, ods_code=None):
+        instance = self.get_object()
+        serializer = IntegratedCareBoardWithNestedOrganisationsSerializer(instance)
+        return Response(serializer.data)
