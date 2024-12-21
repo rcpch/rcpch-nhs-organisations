@@ -21,18 +21,15 @@ from ..models import LocalHealthBoard
                 "bng_n": "",
                 "long": "",
                 "lat": "",
-                "globalid": "",
-                "geom": "",
             },
             response_only=True,
         )
     ]
 )
-class LocalHealthBoardSerializer(GeoFeatureModelSerializer):
+class LocalHealthBoardSerializer(serializers.ModelSerializer):
     # returns local health boards and boundary data
     class Meta:
         model = LocalHealthBoard
-        geo_field = "geom"
         fields = [
             "ods_code",
             "publication_date",
@@ -43,7 +40,23 @@ class LocalHealthBoardSerializer(GeoFeatureModelSerializer):
             "bng_n",
             "long",
             "lat",
-            "globalid",
+        ]
+
+
+class LocalHealthBoardGeoJSONSerializer(GeoFeatureModelSerializer):
+    # returns local health boards with only ods_code and boundary data
+    class Meta:
+        model = LocalHealthBoard
+        geo_field = "geom"
+        fields = [
+            "ods_code",
+            "name",
+            "welsh_name",
+            "bng_e",
+            "bng_n",
+            "long",
+            "lat",
+            "boundary_identifier",
             "geom",
         ]
 

@@ -10,6 +10,7 @@ from .local_authority_district import (
 )
 from .local_health_board import (
     LocalHealthBoardSerializer,
+    LocalHealthBoardGeoJSONSerializer,
     LocalHealthBoardLimitedSerializer,
 )
 from .london_borough import LondonBoroughSerializer, LondonBoroughLimitedSerializer

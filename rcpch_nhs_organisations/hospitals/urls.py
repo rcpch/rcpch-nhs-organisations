@@ -43,7 +43,7 @@ router.register(
 )
 # returns a list of local health boards and their boundary details
 router.register(
-    r"local_health_boards/extended",
+    r"local_health_boards",
     viewset=LocalHealthBoardViewSet,
     basename="local_health_board",
 )
