@@ -56,7 +56,7 @@ router.register(
 )
 # returns a list of ICBS and their boundary data
 router.register(
-    r"integrated_care_boards/extended",
+    r"integrated_care_boards",
     viewset=IntegratedCareBoardViewSet,
     basename="integrated_care_board",
 )

@@ -1,6 +1,7 @@
 from .country import CountrySerializer, CountryLimitedSerializer
 from .integrated_care_board import (
     IntegratedCareBoardSerializer,
+    IntegratedCareBoardGeoJSONSerializer,
     IntegratedCareBoardLimitedSerializer,
 )
 from .local_authority_district import (

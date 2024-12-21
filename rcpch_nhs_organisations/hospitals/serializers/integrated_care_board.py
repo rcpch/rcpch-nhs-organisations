@@ -10,7 +10,7 @@ from ..models import IntegratedCareBoard
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            "/integrated_care_board/1/",
+            "/integrated_care_board/1/geojson/",
             value={
                 "boundary_identifier": "E54000030",
                 "name": "NHS South East London Integrated Care Board",
@@ -27,7 +27,7 @@ from ..models import IntegratedCareBoard
         )
     ]
 )
-class IntegratedCareBoardSerializer(GeoFeatureModelSerializer):
+class IntegratedCareBoardGeoJSONSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = IntegratedCareBoard
         geo_field = "geom"
@@ -40,6 +40,39 @@ class IntegratedCareBoardSerializer(GeoFeatureModelSerializer):
             "lat",
             "globalid",
             "geom",
+            "ods_code",
+            "publication_date",
+        ]
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "/integrated_care_board/1/",
+            value={
+                "boundary_identifier": "E54000030",
+                "name": "NHS South East London Integrated Care Board",
+                "bng_e": "541305",
+                "bng_n": "168583",
+                "long": "0.029892",
+                "lat": "51.3987",
+                "ods_code": "QKK",
+                "publication_date": "15/03/2023",
+            },
+            response_only=True,
+        )
+    ]
+)
+class IntegratedCareBoardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IntegratedCareBoard
+        fields = [
+            "boundary_identifier",
+            "name",
+            "bng_e",
+            "bng_n",
+            "long",
+            "lat",
             "ods_code",
             "publication_date",
         ]
