@@ -3,13 +3,11 @@ from rest_framework import routers
 from .views import (
     OrganisationViewSet,
     IntegratedCareBoardViewSet,
-    LocalAuthorityDistrictViewSet,
     LocalHealthBoardViewSet,
     LondonBoroughViewSet,
     NHSEnglandRegionViewSet,
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
-    # PaediatricDiabetesUnitForParentViewSet,
     TrustViewSet,
 )
 
@@ -59,13 +57,6 @@ router.register(
     viewset=PaediatricDiabetesUnitViewSet,
     basename="paediatric_diabetes_unit",
 )
-
-# router.register(
-#     r"local_authority_districts",
-#     viewset=LocalAuthorityDistrictViewSet,
-#     basename="local_authority_district",
-# )
-
 drf_routes = [
     # rest framework paths
     path("", include(router.urls)),
