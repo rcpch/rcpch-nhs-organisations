@@ -133,7 +133,7 @@ nav:
     - 'home/routes.md'
     - 'home/citation.md'
   - Researchers:
-    - 'api.md'
+    - 'researchers/api.md'
   - Developers:
     - 'developer/models.md'
     - 'developer/seeding.md'
