@@ -57,18 +57,65 @@ class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         summary="This endpoint returns a list of Local Health Boards (Wales).",
+        examples=[
+            OpenApiExample(
+                "/local_health_boards/",
+                value=[
+                    {
+                        "ods_code": "7A3",
+                        "publication_date": "2022-04-14",
+                        "boundary_identifier": "W11000031",
+                        "name": "Swansea Bay University Health Board",
+                        "welsh_name": "Bwrdd Iechyd Prifysgol Bae Abertawe",
+                        "bng_e": 266283,
+                        "bng_n": 198175,
+                        "long": -3.93489,
+                        "lat": 51.6664,
+                    },
+                    {
+                        "ods_code": "7A7",
+                        "publication_date": "2022-04-14",
+                        "boundary_identifier": "W11000024",
+                        "name": "Powys Teaching Health Board",
+                        "welsh_name": "Bwrdd Iechyd Addysgu Powys",
+                        "bng_e": 302328,
+                        "bng_n": 273254,
+                        "long": -3.43533,
+                        "lat": 52.34863,
+                    },
+                ],
+                response_only=True,
+            )
+        ],
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
         summary="This endpoint returns a Local Health Board by ods_code.",
+        examples=[
+            OpenApiExample(
+                "/local_health_boards/7A3/",
+                value={
+                    "ods_code": "7A3",
+                    "publication_date": "2022-04-14",
+                    "boundary_identifier": "W11000031",
+                    "name": "Swansea Bay University Health Board",
+                    "welsh_name": "Bwrdd Iechyd Prifysgol Bae Abertawe",
+                    "bng_e": 266283,
+                    "bng_n": 198175,
+                    "long": -3.93489,
+                    "lat": 51.6664,
+                },
+                response_only=True,
+            )
+        ],
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
     @extend_schema(
-        summary="This endpoint returns GeoJSON boundaries of all Local Health Board.",
+        summary="This endpoint returns GeoJSON boundaries of all Local Health Boards.",
         operation_id="list_local_health_boards_geojson",
     )
     @action(detail=False, url_path="geojson", url_name="geojson")
