@@ -20,7 +20,7 @@ site_dir: ../staticdocs
 
 # theme settings, fonts, colours
 theme:
-  favicon: ../docs/_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg
+  favicon: _assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg
   name: material
   #custom_dir: rcpch-theme
   features:
@@ -48,7 +48,7 @@ theme:
     code: Roboto Mono
 
   # favicon: _assets/_images/dynamic-child-favicon.png
-  logo: _assets/_images/rcpch_logo.png
+  logo: _assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg
 
 # mkdocs plugins
 plugins:
@@ -129,13 +129,12 @@ extra:
 nav:
   - Home:
     - 'index.md'
-    - 'home/nhs-organisations.md'
+    - 'home/getting-started.md'
     - 'home/routes.md'
     - 'home/citation.md'
   - Researchers:
-    - 'api.md'
+    - 'researchers/api.md'
   - Developers:
-    - 'developer/getting-started.md'
     - 'developer/models.md'
     - 'developer/seeding.md'
     - 'developer/database_maintenance.md'
