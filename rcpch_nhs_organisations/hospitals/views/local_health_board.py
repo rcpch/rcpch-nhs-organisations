@@ -2,7 +2,6 @@ from rest_framework import (
     viewsets,
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
-from rest_framework.decorators import api_view
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
@@ -95,7 +94,7 @@ class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
         summary="This endpoint returns a list of Local Health Boards with all child organisations nested within.",
         examples=[
             OpenApiExample(
-                "Local Health Board with organisations",
+                "local_health_boards/organisations",
                 value={
                     "ods_code": "7A3",
                     "boundary_identifier": "W11000031",

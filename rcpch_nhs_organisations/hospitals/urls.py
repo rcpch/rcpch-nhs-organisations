@@ -7,7 +7,6 @@ from .views import (
     LocalAuthorityDistrictViewSet,
     LocalHealthBoardViewSet,
     LondonBoroughViewSet,
-    LondonBoroughOrganisationViewSet,
     NHSEnglandRegionViewSet,
     NHSEnglandRegionOrganisationViewSet,
     OrganisationsAssociatedWithPaediatricDiabetesUnitsList,
@@ -54,14 +53,8 @@ router.register(
 )
 # returns a list of London Boroughs and their boundary data
 router.register(
-    r"london_boroughs/extended",
+    r"london_boroughs",
     viewset=LondonBoroughViewSet,
-    basename="london_borough",
-)
-# returns a list of London Boroughs with name, ods_code and nested organisations
-router.register(
-    r"london_boroughs/organisations",
-    viewset=LondonBoroughOrganisationViewSet,
     basename="london_borough",
 )
 # returns a list of NHS England regions and their boundary data

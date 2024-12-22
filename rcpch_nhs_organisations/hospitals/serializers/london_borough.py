@@ -6,25 +6,21 @@ from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 from ..models import LondonBorough
 
 
-@extend_schema_serializer(
-    examples=[
-        OpenApiExample(
-            "/london_borough/1/extended",
-            value={
-                "name": "",
-                "gss_code": "",
-                "hectares": "",
-                "nonld_area": "",
-                "ons_inner": "",
-                "sub_2009": "",
-                "sub_2006": "",
-                "geom": "",
-            },
-            response_only=True,
-        )
-    ]
-)
 class LondonBoroughSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LondonBorough
+        fields = [
+            "name",
+            "gss_code",
+            "hectares",
+            "nonld_area",
+            "ons_inner",
+            "sub_2009",
+            "sub_2006",
+        ]
+
+
+class LondonBoroughGeoJSONSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = LondonBorough
         geo_field = "geom"

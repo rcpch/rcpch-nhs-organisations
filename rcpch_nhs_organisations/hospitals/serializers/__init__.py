@@ -13,7 +13,11 @@ from .local_health_board import (
     LocalHealthBoardGeoJSONSerializer,
     LocalHealthBoardLimitedSerializer,
 )
-from .london_borough import LondonBoroughSerializer, LondonBoroughLimitedSerializer
+from .london_borough import (
+    LondonBoroughSerializer,
+    LondonBoroughLimitedSerializer,
+    LondonBoroughGeoJSONSerializer,
+)
 from .nhs_england_region import (
     NHSEnglandRegionSerializer,
     NHSEnglandRegionLimitedSerializer,
