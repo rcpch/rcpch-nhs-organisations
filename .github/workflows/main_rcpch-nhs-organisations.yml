@@ -58,6 +58,9 @@ jobs:
           SITE_DIR: ./site
         run: mkdocs build --config-file documentation/mkdocs.yml
 
+      - name: Debug MkDocs build output
+        run: ls -la ./site
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
