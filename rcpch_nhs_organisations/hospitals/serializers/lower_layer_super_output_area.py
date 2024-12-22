@@ -1,8 +1,12 @@
+# Django imports
 from django.apps import apps
 from rest_framework import serializers
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
+# Third party imports
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
+# RCCPCH NHS Organisations imports
 from ..models import LowerLayerSuperOutputArea
 
 
@@ -25,7 +29,7 @@ from ..models import LowerLayerSuperOutputArea
         )
     ]
 )
-class LowerLayerSuperOutputAreaSerializer(serializers.ModelSerializer):
+class LowerLayerSuperOutputAreaGeoJSONSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = LowerLayerSuperOutputArea
         # depth = 1
@@ -39,4 +43,19 @@ class LowerLayerSuperOutputAreaSerializer(serializers.ModelSerializer):
             "lat",
             "globalid",
             "geom",
+        ]
+
+
+class LowerLayerSuperOutputAreaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LowerLayerSuperOutputArea
+        # depth = 1
+        fields = [
+            "lsoa11cd",
+            "lsoa11nm",
+            "lsoa11nmw",
+            "bng_e",
+            "bng_n",
+            "long",
+            "lat",
         ]
