@@ -60,7 +60,8 @@
 
 /* enlarges the font used for titles and navbar */
 .md-header__title {
-  font-size: 1.5rem;
+  font-size: 1rem;
+  width: 100%;
 }
 
 .md-tabs__list {
