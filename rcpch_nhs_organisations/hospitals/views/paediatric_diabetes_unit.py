@@ -3,6 +3,7 @@ from rest_framework import (
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
@@ -43,56 +44,11 @@ from ..serializers import (
             ],
         ),
     },
-    summary="This endpoint returns a list of Paediatric Diabetes Units from England and Wales, or an individual PDU by PZ code.",
+    summary="This endpoint returns a list of Paediatric Diabetes Units from England and Wales, or an individual PDU by PZ code, with each organisation's associated lower layer super output area and local authority district.",
 )
 class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    This endpoint returns a list of Paediatric Diabetes Units from England and Wales, or an individual PDU by PZ code.
-
-    Filter Parameters:
-
-    `pz_code`
-
-    If none are passed, a list is returned.
-
-    """
-
-    queryset = PaediatricDiabetesUnit.objects.all().order_by("pz_code")
-    serializer_class = PaediatricDiabetesUnitSerializer
-    lookup_field = "pz_code"
-    filterset_fields = [
-        "pz_code",
-    ]
-    filter_backends = (DjangoFilterBackend,)
-    pagination_class = None
-
-
-@extend_schema(
-    request=PaediatricDiabetesUnitWithNestedOrganisationSerializer,
-    responses={
-        200: OpenApiResponse(
-            response=OpenApiTypes.OBJECT,
-            description="Valid Response",
-            examples=[
-                OpenApiExample(
-                    "/paediatric_diabetes_units/1/organisations",
-                    external_value="external value",
-                    value={
-                        "pz_code": "PZ002",
-                        "organisations": [{"name": "Name", "ods_code": ""}],
-                    },
-                    response_only=True,
-                ),
-            ],
-        ),
-    },
-    summary="This endpoint returns a list of Paediatric Diabetes Units from England and Wales, or an individual PDU by PZ code, with nested parent organisations.",
-)
-class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
-    viewsets.ReadOnlyModelViewSet
-):
-    """
-    This endpoint returns a list of Paediatric Diabetes Units from England and Wales, or an individual PDU by PZ code, with nested parent organisations.
+    This endpoint returns a list of Paediatric Diabetes Units from England and Wales, or an individual PDU by PZ code, with each organisation's associated lower layer super output area and local authority district.
 
     Filter Parameters:
 
@@ -110,6 +66,64 @@ class PaediatricDiabetesUnitWithNestedOrganisationsViewSet(
     ]
     filter_backends = (DjangoFilterBackend,)
     pagination_class = None
+
+    def get_serializer_class(self):
+        if self.action in ["list_parents", "retrieve_parent"]:
+            return PaediatricDiabetesUnitWithNestedParentSerializer
+        return super().get_serializer_class()
+
+    @extend_schema(
+        description="This endpoint returns a list of Paediatric Diabetes Units from England and Wales with each organisation's associated lower layer super output area and local authority district.",
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        This endpoint returns a list of Paediatric Diabetes Units from England and Wales with each organisation's associated lower layer super output area and local authority district.
+        """
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        description="This endpoint returns an individual PDU by PZ code, with each organisation's associated lower layer super output area and local authority district.",
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        This endpoint returns an individual PDU by PZ code, with each organisation's associated lower layer super output area and local authority district.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
+        description="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
+        operation_id="list_parents",
+    )
+    @action(detail=False, methods=["get"], url_path="parent", url_name="parent")
+    def list_parents(self, request, ods_code=None):
+        """
+        This endpoint returns a list of Paediatric Diabetes Units from England and Wales with each organisation's associated lower layer super output area and local authority district.
+        """
+        return super().list(
+            request,
+        )
+
+    @extend_schema(
+        description="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
+        summary="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
+        operation_id="retrieve_parent",
+        parameters=[
+            OpenApiParameter(
+                name="pz_code",
+                description="PZ Code of the Paediatric Diabetes Unit",
+                required=False,
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+            ),
+        ],
+    )
+    @action(detail=True, methods=["get"], url_path="parent", url_name="parent")
+    def retrieve_parent(self, request, pz_code=None):
+        """
+        This endpoint returns an individual PDU by PZ code, with each organisation's associated lower layer super output area and local authority district.
+        """
+        return super().retrieve(request, pz_code)
 
 
 @extend_schema(
@@ -172,65 +186,3 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
             queryset, many=True
         )
         return Response(serializer.data)
-
-
-@extend_schema(
-    request=PaediatricDiabetesUnitWithNestedParentSerializer,
-    responses={
-        200: OpenApiResponse(
-            response=OpenApiTypes.OBJECT,
-            description="Valid Response",
-            examples=[
-                OpenApiExample(
-                    "paediatric_diabetes_units/trust/RGT/",
-                    external_value="external value",
-                    value={
-                        "pz_code": "PZ002",
-                        "paediatric_diabetes_network": {
-                            "pn_code": "PN06",
-                            "name": "East of England",
-                        },
-                        "parent": {
-                            "ods_code": "RM1",
-                            "name": "NORFOLK AND NORWICH UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
-                            "address_line_1": "COLNEY LANE",
-                            "address_line_2": "COLNEY",
-                            "town": "NORWICH",
-                            "postcode": "NR4 7UY",
-                            "country": "ENGLAND",
-                            "telephone": None,
-                            "website": None,
-                            "active": True,
-                            "published_at": None,
-                        },
-                        "primary_organisation": {
-                            "ods_code": "RM102",
-                            "name": "NORFOLK & NORWICH UNIVERSITY HOSPITAL",
-                        },
-                    },
-                    response_only="true",
-                ),
-            ],
-        ),
-    },
-    parameters=[
-        OpenApiParameter(
-            name="pz_code",
-            description="PZ Code of the Paediatric Diabetes Unit",
-            required=False,
-            type=OpenApiTypes.STR,
-            location=OpenApiParameter.QUERY,
-        ),
-    ],
-    summary="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
-)
-class PaediatricDiabetesUnitForParentViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = PaediatricDiabetesUnit.objects.all()
-    serializer_class = PaediatricDiabetesUnitWithNestedParentSerializer
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        pz_code = self.request.query_params.get("pz_code", None)
-        if pz_code is not None:
-            queryset = queryset.filter(pz_code=pz_code)
-        return queryset

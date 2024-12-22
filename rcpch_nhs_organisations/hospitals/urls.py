@@ -8,9 +8,8 @@ from .views import (
     LondonBoroughViewSet,
     NHSEnglandRegionViewSet,
     PaediatricDiabetesUnitViewSet,
-    PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
-    PaediatricDiabetesUnitForParentViewSet,
+    # PaediatricDiabetesUnitForParentViewSet,
     TrustViewSet,
 )
 
@@ -56,28 +55,16 @@ router.register(
 
 # RCPCH networks
 router.register(
-    r"paediatric_diabetes_units/extended",
+    r"paediatric_diabetes_units",
     viewset=PaediatricDiabetesUnitViewSet,
     basename="paediatric_diabetes_unit",
 )
-# returns a list of Paediatric Diabetes Units with nested child organisations
-router.register(
-    r"paediatric_diabetes_units/organisations",
-    viewset=PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
-    basename="paediatric_diabetes_unit",
-)
-# returns a list of Paediatric Diabetes Units with nested trusts
-router.register(
-    r"paediatric_diabetes_units/parent",
-    viewset=PaediatricDiabetesUnitForParentViewSet,
-    basename="paediatric_diabetes_unit",
-)
 
-router.register(
-    r"local_authority_districts",
-    viewset=LocalAuthorityDistrictViewSet,
-    basename="local_authority_district",
-)
+# router.register(
+#     r"local_authority_districts",
+#     viewset=LocalAuthorityDistrictViewSet,
+#     basename="local_authority_district",
+# )
 
 drf_routes = [
     # rest framework paths
