@@ -84,6 +84,12 @@ jobs:
           DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml
 
+      - name: Debug MkDocs build output
+        run: ls -la
+
+      - name: Debug MkDocs site output
+        run: ls -la ../staticdocs || echo "Site directory does not exist"
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
