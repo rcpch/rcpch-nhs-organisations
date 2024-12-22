@@ -45,21 +45,6 @@ from ..serializers import (
                             "bng_n": 531474,
                             "long": -1.270225,
                             "lat": 54.676159,
-                            "globalid": "{F1D3D2A4-1D4D-4D3D-8D3D-3D1D4D3D1D4D}",
-                            "geom": {
-                                "type": "MultiPolygon",
-                                "coordinates": [
-                                    [
-                                        [
-                                            [-1.270225, 54.676159],
-                                            [-1.270225, 54.676159],
-                                            [-1.270225, 54.676159],
-                                            [-1.270225, 54.676159],
-                                            [-1.270225, 54.676159],
-                                        ]
-                                    ]
-                                ],
-                            },
                         }
                     ],
                     response_only=True,
@@ -82,14 +67,13 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
     `bng_n`
     `long`
     `lat`
-    `globalid`
 
     If none are passed, a list is returned.
 
     """
 
     queryset = LocalAuthorityDistrict.objects.all().order_by("-lad24nm")
-    serializer_class = LocalAuthorityDistrictGeoJSONSerializer
+    serializer_class = LocalAuthorityDistrictSerializer
     lookup_field = "lad24cd"
     filterset_fields = [
         "lad24cd",
@@ -99,13 +83,12 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
         "bng_n",
         "long",
         "lat",
-        "globalid",
     ]
     filter_backends = (DjangoFilterBackend,)
 
     def get_serializer_class(self):
-        if self.action == "within_radius":
-            return LocalAuthorityDistrictSerializer
+        if self.action == "within_radius_with_geography":
+            return LocalAuthorityDistrictGeoJSONSerializer
         return super().get_serializer_class()
 
     @extend_schema(
@@ -114,19 +97,31 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
                 name="lat",
                 type=OpenApiTypes.NUMBER,
                 description="Latitude of the center point",
+                required=True,
             ),
             OpenApiParameter(
                 name="long",
                 type=OpenApiTypes.NUMBER,
                 description="Longitude of the center point",
+                required=True,
             ),
             OpenApiParameter(
-                name="radius", type=OpenApiTypes.NUMBER, description="Radius in meters"
+                name="radius",
+                type=OpenApiTypes.NUMBER,
+                description="Radius in meters",
+                required=True,
             ),
         ],
-        responses={200: LocalAuthorityDistrictGeoJSONSerializer(many=True)},
-        summary="Get Local Authority Districtsand boundaries within a radius",
-        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude. It also returns geojson boundaries for each district.",
+        examples=[
+            OpenApiExample(
+                "Example Request",
+                value={"lat": 51.5074, "long": -0.1278, "radius": 1000},
+                request_only=True,
+            ),
+        ],
+        responses=LocalAuthorityDistrictGeoJSONSerializer(many=True),
+        summary="Get Local Authority Districts within a radius (in meters) together with their GeoJSON boundaries",
+        description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude. It also returns GeoJSON boundaries for each district (super-generalized, SRID=4326).",
     )
     @action(detail=False, methods=["get"])
     def within_radius_with_geography(self, request):
@@ -155,18 +150,23 @@ class LocalAuthorityDistrictViewSet(viewsets.ReadOnlyModelViewSet):
                 name="lat",
                 type=OpenApiTypes.NUMBER,
                 description="Latitude of the center point",
+                required=True,
             ),
             OpenApiParameter(
                 name="long",
                 type=OpenApiTypes.NUMBER,
                 description="Longitude of the center point",
+                required=True,
             ),
             OpenApiParameter(
-                name="radius", type=OpenApiTypes.NUMBER, description="Radius in meters"
+                name="radius",
+                type=OpenApiTypes.NUMBER,
+                description="Radius in meters",
+                required=True,
             ),
         ],
         responses={200: LocalAuthorityDistrictSerializer(many=True)},
-        summary="Get Local Authority Districts within a radius",
+        summary="Get Local Authority Districts within a radius in meters",
         description="This endpoint returns a list of Local Authority Districts within a specified radius from a given latitude and longitude.",
     )
     @action(detail=False, methods=["get"])

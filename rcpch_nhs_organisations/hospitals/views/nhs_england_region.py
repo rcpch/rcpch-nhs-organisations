@@ -1,8 +1,14 @@
+# Python imports
+
+# Django imports
 from rest_framework import (
     viewsets,
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
-from rest_framework.decorators import api_view
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+# Third Party imports
 from django_filters.rest_framework import DjangoFilterBackend
 
 from drf_spectacular.utils import (
@@ -15,7 +21,9 @@ from drf_spectacular.types import OpenApiTypes
 from ..models import NHSEnglandRegion
 from ..serializers import (
     NHSEnglandRegionSerializer,
+    NHSEnglandRegionGeoJSONSerializer,
     NHSEnglandRegionWithNestedOrganisationsSerializer,
+    NHSEnglandRegionWithNestedTrustsSerializer,
 )
 
 
@@ -27,7 +35,7 @@ from ..serializers import (
             description="Valid Response",
             examples=[
                 OpenApiExample(
-                    "/nhs_england_region/1/",
+                    "/nhs_england_region/Y58/",
                     external_value="external value",
                     value={
                         "region_code": "Y58",
@@ -38,8 +46,6 @@ from ..serializers import (
                         "bng_n": 102567,
                         "long": -3.63343,
                         "lat": 50.8112,
-                        "globalid": "4e8906ed-a19e-49ac-a111-3474937655e9",
-                        "geom": "SRID=27700;MULTIPOLYGON (((87767.5686999997 8868.28480000049, 89125.5478999997 ...",
                     },
                     response_only=True,
                 ),
@@ -62,8 +68,6 @@ class NHSEnglandRegionViewSet(viewsets.ReadOnlyModelViewSet):
     `bng_n`
     `long`
     `lat`
-    `globalid`
-    `geom`
 
     If none are passed, a list is returned.
 
@@ -81,125 +85,287 @@ class NHSEnglandRegionViewSet(viewsets.ReadOnlyModelViewSet):
         "bng_n",
         "long",
         "lat",
-        "globalid",
     ]
     filter_backends = (DjangoFilterBackend,)
 
+    def get_serializer_class(self):
+        if self.action == "retrieve_nhs_england_geojson":
+            return NHSEnglandRegionGeoJSONSerializer
+        return super().get_serializer_class()
 
-@extend_schema(
-    request=NHSEnglandRegionWithNestedOrganisationsSerializer,
-    responses={
-        200: OpenApiResponse(
-            response=OpenApiTypes.OBJECT,
-            description="Valid Response",
-            examples=[
-                OpenApiExample(
-                    "/nhs_england_region/1/",
-                    external_value="external value",
-                    value={
+    @extend_schema(
+        summary="This endpoint returns GeoJSON boundaries of an individual NHS England region by region_code.",
+        operation_id="retrieve_nhs_england_geojson",
+        examples=[
+            OpenApiExample(
+                "/nhs_england_region/Y58/geojson/",
+                external_value="external value",
+                value={
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": [
+                            [
+                                [
+                                    [87639.5325999996, 8861.14220000058],
+                                    [87767.5686999997, 8868.28480000049],
+                                ]
+                            ],
+                            [
+                                [
+                                    [93194.4424000001, 11947.8482000008],
+                                    [93203.2514000004, 11105.0558000002],
+                                ]
+                            ],
+                            [
+                                [
+                                    [90235.1972000003, 14756.3121000007],
+                                    [89302.3872999996, 13383.4123],
+                                ]
+                            ],
+                            [
+                                [
+                                    [88032.3142999997, 14719.2186999992],
+                                ]
+                            ],
+                        ],
+                    },
+                    "properties": {
                         "region_code": "Y58",
                         "publication_date": "2022-07-30",
                         "boundary_identifier": "E40000006",
                         "name": "South West",
-                        "nhs_england_region_organisations": [
-                            {"ods_code": "RVN38", "name": "BARTON HILL SETTLEMENT"},
+                        "bng_e": 285015,
+                        "bng_n": 102567,
+                        "long": -3.63343,
+                        "lat": 50.8112,
+                        "globalid": "4e8906ed-a19e-49ac-a111-3474937655e9",
+                    },
+                },
+            )
+        ],
+    )
+    @action(detail=True, methods=["get"], url_path="geojson")
+    def retrieve_nhs_england_geojson(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="This endpoint returns a list of NHS England regions.",
+        operation_id="list",
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="This endpoint returns an individual NHS England region by region_code.",
+        operation_id="retrieve",
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="This endpoint returns an individual NHS England region by region code with all paediatric organisations nested in.",
+        operation_id="list_organisations",
+    )
+    @action(detail=True, methods=["get"], url_path="organisations")
+    def retrieve_organisations(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = NHSEnglandRegionWithNestedOrganisationsSerializer(instance)
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="This endpoint returns a list of NHS England regions with all paediatric organisations nested in.",
+        operation_id="list_nhs_england_regions_organisations",
+    )
+    @action(detail=False, methods=["get"], url_path="organisations")
+    def list_nhs_england_regions_organisations(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = NHSEnglandRegionWithNestedOrganisationsSerializer(
+            queryset, many=True
+        )
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="This endpoint returns all NHS England regions with constituent NHS Trusts nested in.",
+        operation_id="list_trusts",
+        examples=[
+            OpenApiExample(
+                "/nhs_england_region/trusts/",
+                external_value="external value",
+                value=[
+                    {
+                        "region_code": "Y59",
+                        "publication_date": "2022-07-30",
+                        "boundary_identifier": "E40000005",
+                        "name": "South East",
+                        "trusts": [
                             {
-                                "ods_code": "RA723",
-                                "name": "BRISTOL ROYAL HOSPITAL FOR CHILDREN",
+                                "ods_code": "RTK",
+                                "name": "ASHFORD AND ST PETER'S HOSPITALS NHS FOUNDATION TRUST",
                             },
                             {
-                                "ods_code": "C1G7Z",
-                                "name": "CDC POOLE @ DORSET HEALTH VILLAGE",
+                                "ods_code": "RWX",
+                                "name": "BERKSHIRE HEALTHCARE NHS FOUNDATION TRUST",
                             },
                             {
-                                "ods_code": "RTE01",
-                                "name": "CHELTENHAM GENERAL HOSPITAL",
-                            },
-                            {"ods_code": "RK98A", "name": "CHILD DEVELOPMENT CENTRE"},
-                            {"ods_code": "REFCH", "name": "CHILD HEALTH"},
-                            {"ods_code": "RK950", "name": "DERRIFORD HOSPITAL"},
-                            {"ods_code": "RBD01", "name": "DORSET COUNTY HOSPITAL"},
-                            {"ods_code": "RVN4T", "name": "DROVE HOUSE"},
-                            {"ods_code": "RVJT9", "name": "EASTGATE HOUSE"},
-                            {
-                                "ods_code": "RTE03",
-                                "name": "GLOUCESTERSHIRE ROYAL HOSPITAL",
-                            },
-                            {"ods_code": "RVNE6", "name": "KINGSWOOD HUB"},
-                            {"ods_code": "RN351", "name": "MOREDON MEDICAL CENTRE"},
-                            {"ods_code": "RK901", "name": "MOUNT GOULD HOSPITAL"},
-                            {"ods_code": "RH5A8", "name": "MUSGROVE PARK HOSPITAL"},
-                            {
-                                "ods_code": "RH880",
-                                "name": "NORTH DEVON DISTRICT HOSPITAL",
-                            },
-                            {"ods_code": "RVNE9", "name": "OSPREY COURT"},
-                            {"ods_code": "RVJT4", "name": "PATCHWAY LOCALITY HUB"},
-                            {"ods_code": "R0D01", "name": "POOLE HOSPITAL"},
-                            {"ods_code": "R0D02", "name": "ROYAL BOURNEMOUTH HOSPITAL"},
-                            {
-                                "ods_code": "REF12",
-                                "name": "ROYAL CORNWALL HOSPITAL (TRELISKE)",
+                                "ods_code": "RXQ",
+                                "name": "BUCKINGHAMSHIRE HEALTHCARE NHS TRUST",
                             },
                             {
-                                "ods_code": "RK963",
-                                "name": "ROYAL DEVON & EXETER FOUNDATION HOSPITAL",
+                                "ods_code": "RN7",
+                                "name": "DARTFORD AND GRAVESHAM NHS TRUST",
                             },
                             {
-                                "ods_code": "RH801",
-                                "name": "ROYAL DEVON & EXETER HOSPITAL (WONFORD)",
-                            },
-                            {"ods_code": "RD130", "name": "ROYAL UNITED HOSPITAL"},
-                            {
-                                "ods_code": "RNZ02",
-                                "name": "SALISBURY DISTRICT HOSPITAL",
+                                "ods_code": "RVV",
+                                "name": "EAST KENT HOSPITALS UNIVERSITY NHS FOUNDATION TRUST",
                             },
                             {
-                                "ods_code": "RA773",
-                                "name": "SOUTH BRISTOL COMMUNITY HOSPITAL",
+                                "ods_code": "RXC",
+                                "name": "EAST SUSSEX HEALTHCARE NHS TRUST",
                             },
                             {
-                                "ods_code": "RVJ72",
-                                "name": "SOUTH GLOUCESTERSHIRE COMMUNITY HEALTH SERVICES",
+                                "ods_code": "RVR",
+                                "name": "EPSOM AND ST HELIER UNIVERSITY HOSPITALS NHS TRUST",
                             },
-                            {"ods_code": "RA707", "name": "ST MICHAEL'S HOSPITAL"},
-                            {"ods_code": "RN341", "name": "SWINDON HEALTH CENTRE"},
-                            {"ods_code": "RN325", "name": "THE GREAT WESTERN HOSPITAL"},
-                            {"ods_code": "RA901", "name": "TORBAY HOSPITAL"},
-                            {"ods_code": "RVJJ8", "name": "WESTON GENERAL HOSPITAL"},
-                            {"ods_code": "RA430", "name": "YEOVIL DISTRICT HOSPITAL"},
+                            {
+                                "ods_code": "RDU",
+                                "name": "FRIMLEY HEALTH NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RN5",
+                                "name": "HAMPSHIRE HOSPITALS NHS FOUNDATION TRUST",
+                            },
+                            {"ods_code": "R1F", "name": "ISLE OF WIGHT NHS TRUST"},
+                            {
+                                "ods_code": "RAX",
+                                "name": "KINGSTON HOSPITAL NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RWF",
+                                "name": "MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST",
+                            },
+                            {"ods_code": "RPA", "name": "MEDWAY NHS FOUNDATION TRUST"},
+                            {
+                                "ods_code": "RTH",
+                                "name": "OXFORD UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RHU",
+                                "name": "PORTSMOUTH HOSPITALS UNIVERSITY NATIONAL HEALTH SERVICE TRUST",
+                            },
+                            {
+                                "ods_code": "RHW",
+                                "name": "ROYAL BERKSHIRE NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RA2",
+                                "name": "ROYAL SURREY COUNTY HOSPITAL NHS FOUNDATION TRUST",
+                            },
+                            {"ods_code": "R1C", "name": "SOLENT NHS TRUST"},
+                            {
+                                "ods_code": "RW1",
+                                "name": "SOUTHERN HEALTH NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RTP",
+                                "name": "SURREY AND SUSSEX HEALTHCARE NHS TRUST",
+                            },
+                            {
+                                "ods_code": "RDR",
+                                "name": "SUSSEX COMMUNITY NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RHM",
+                                "name": "UNIVERSITY HOSPITAL SOUTHAMPTON NHS FOUNDATION TRUST",
+                            },
+                            {
+                                "ods_code": "RYR",
+                                "name": "UNIVERSITY HOSPITALS SUSSEX NHS FOUNDATION TRUST",
+                            },
                         ],
                     },
-                    response_only=True,
-                ),
-            ],
-        ),
-    },
-    summary="This endpoint returns a list of NHS England regions, or an individual region by region_code, with all child organisations nested within.",
-)
-class NHSEnglandRegionOrganisationViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    This endpoint returns a list of NHS England regions, or an individual region by region_code, with all child organisations nested within.
+                ],
+            )
+        ],
+    )
+    @action(detail=False, methods=["get"], url_path="trusts")
+    def list_trusts(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = NHSEnglandRegionWithNestedTrustsSerializer(queryset, many=True)
+        return Response(serializer.data)
 
-    Filter Parameters:
-
-    `region_code`
-    `publication_date`
-    `boundary_identifier`
-    `name`
-
-    If none are passed, a list is returned.
-
-    """
-
-    queryset = NHSEnglandRegion.objects.all().order_by("-name")
-    serializer_class = NHSEnglandRegionWithNestedOrganisationsSerializer
-    lookup_field = "region_code"
-    filterset_fields = [
-        "region_code",
-        "publication_date",
-        "boundary_identifier",
-        "name",
-    ]
-    filter_backends = (DjangoFilterBackend,)
-    pagination_class = None
+    @extend_schema(
+        summary="This endpoint returns an individual NHS England region by region code with all NHS Trusts nested in.",
+        operation_id="retrieve_trusts",
+        examples=[
+            OpenApiExample(
+                "/nhs_england_region/Y59/trusts/",
+                external_value="external value",
+                value={
+                    "region_code": "Y59",
+                    "publication_date": "2022-07-30",
+                    "boundary_identifier": "E40000005",
+                    "name": "South East",
+                    "trusts": [
+                        {
+                            "ods_code": "RTK",
+                            "name": "ASHFORD AND ST PETER'S HOSPITALS NHS FOUNDATION TRUST",
+                        },
+                        {
+                            "ods_code": "RWX",
+                            "name": "BERKSHIRE HEALTHCARE NHS FOUNDATION TRUST",
+                        },
+                        {
+                            "ods_code": "RXQ",
+                            "name": "BUCKINGHAMSHIRE HEALTHCARE NHS TRUST",
+                        },
+                        {
+                            "ods_code": "RN7",
+                            "name": "DARTFORD AND GRAVESHAM NHS TRUST",
+                        },
+                        {
+                            "ods_code": "RVV",
+                            "name": "EAST KENT HOSPITALS UNIVERSITY NHS FOUNDATION TRUST",
+                        },
+                        {
+                            "ods_code": "RXC",
+                            "name": "EAST SUSSEX HEALTHCARE NHS TRUST",
+                        },
+                        {
+                            "ods_code": "RVR",
+                            "name": "EPSOM AND ST HELIER UNIVERSITY HOSPITALS NHS TRUST",
+                        },
+                        {
+                            "ods_code": "RDU",
+                            "name": "FRIMLEY HEALTH NHS FOUNDATION TRUST",
+                        },
+                        {
+                            "ods_code": "RN5",
+                            "name": "HAMPSHIRE HOSPITALS NHS FOUNDATION TRUST",
+                        },
+                        {"ods_code": "R1F", "name": "ISLE OF WIGHT NHS TRUST"},
+                        {
+                            "ods_code": "RAX",
+                            "name": "KINGSTON HOSPITAL NHS FOUNDATION TRUST",
+                        },
+                        {
+                            "ods_code": "RWF",
+                            "name": "MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST",
+                        },
+                        {"ods_code": "RPA", "name": "MEDWAY NHS FOUNDATION TRUST"},
+                        {
+                            "ods_code": "RTH",
+                            "name": "OXFORD UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+                        },
+                    ],
+                },
+            )
+        ],
+    )
+    @action(detail=True, methods=["get"], url_path="trusts")
+    def retrieve_trusts(self, request, *args, **kwargs):
+        nhs_england_region = self.get_object()
+        serializer = NHSEnglandRegionWithNestedTrustsSerializer(nhs_england_region)
+        return Response(serializer.data)

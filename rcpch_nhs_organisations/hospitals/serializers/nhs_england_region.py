@@ -9,6 +9,42 @@ from ..models import NHSEnglandRegion
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
+            "/nhs_england_regions/QKK/",
+            value={
+                "region_code": "",
+                "publication_date": "",
+                "boundary_identifier": "E54000030",
+                "name": "NHS England Region",
+                "bng_e": "541305",
+                "bng_n": "168583",
+                "long": "0.029892",
+                "lat": "51.3987",
+                "ods_code": "QKK",
+                "publication_date": "15/03/2023",
+            },
+            response_only=True,
+        )
+    ]
+)
+class NHSEnglandRegionSerializer(serializers.ModelSerializer):
+    # returns NHS England regions and boundaries
+    class Meta:
+        model = NHSEnglandRegion
+        fields = [
+            "region_code",
+            "publication_date",
+            "boundary_identifier",
+            "name",
+            "bng_e",
+            "bng_n",
+            "long",
+            "lat",
+        ]
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
             "/nhs_england_regions/1/",
             value={
                 "region_code": "",
@@ -28,7 +64,7 @@ from ..models import NHSEnglandRegion
         )
     ]
 )
-class NHSEnglandRegionSerializer(GeoFeatureModelSerializer):
+class NHSEnglandRegionGeoJSONSerializer(GeoFeatureModelSerializer):
     # returns NHS England regions and boundaries
     class Meta:
         model = NHSEnglandRegion

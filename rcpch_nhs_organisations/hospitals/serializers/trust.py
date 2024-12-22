@@ -173,3 +173,13 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
                 return OrganisationNoParentsSerializer(organisations.first()).data
         else:
             return OrganisationNoParentsSerializer(organisations.get()).data
+
+
+class LimitedTrustSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Trust
+        fields = [
+            "ods_code",
+            "name",
+        ]
