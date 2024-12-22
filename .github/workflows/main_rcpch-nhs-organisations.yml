@@ -51,7 +51,7 @@ jobs:
 
       - name: Install MkDocs and dependencies
         run: |
-          pip install mkdocs mkdocs-material
+          pip install mkdocs mkdocs-material mkdocs-git-committers-plugin-2 mkdocs-git-revision-date-localized-plugin mkdocs-macros-plugin mkdocs-with-pdf
 
       - name: Build MkDocs site
         run: mkdocs build --config-file documentation/mkdocs.yml
