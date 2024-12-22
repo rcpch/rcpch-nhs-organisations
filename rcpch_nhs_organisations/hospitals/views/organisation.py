@@ -35,7 +35,7 @@ from ..serializers import (
             description="Valid Response",
             examples=[
                 OpenApiExample(
-                    "/organisations/1/",
+                    "/organisations/RGT01/",
                     external_value="external value",
                     value={
                         "ods_code": "RGT01",
@@ -54,9 +54,30 @@ from ..serializers import (
                             "type": "Point",
                             "coordinates": [0.140753239, 52.17513275],
                         },
-                        "active": "true",
-                        "published_at": "null",
-                        "paediatric_diabetes_unit": {"pz_code": "PZ041"},
+                        "active": True,
+                        "published_at": "",
+                        "local_authority_district": {
+                            "lad24cd": "E07000008",
+                            "lad24nm": "Cambridge",
+                            "lad24nmw": "",
+                            "bng_e": 545420,
+                            "bng_n": 257901,
+                            "long": 0.126436,
+                            "lat": 52.2002,
+                        },
+                        "lower_layer_super_output_area": {
+                            "lsoa11cd": "E01017995",
+                            "lsoa11nm": "Cambridge 013D",
+                            "lsoa11nmw": "Cambridge 013D",
+                            "bng_e": 546965,
+                            "bng_n": 254958,
+                            "long": 0.147751,
+                            "lat": 52.1733,
+                        },
+                        "paediatric_diabetes_unit": {
+                            "pz_code": "PZ041",
+                            "paediatric_diabetes_network": "",
+                        },
                         "trust": {
                             "ods_code": "RGT",
                             "name": "CAMBRIDGE UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
@@ -65,12 +86,12 @@ from ..serializers import (
                             "town": "CAMBRIDGE",
                             "postcode": "CB2 0QQ",
                             "country": "ENGLAND",
-                            "telephone": "null",
-                            "website": "null",
-                            "active": "true",
-                            "published_at": "null",
+                            "telephone": "",
+                            "website": "",
+                            "active": True,
+                            "published_at": "",
                         },
-                        "local_health_board": "null",
+                        "local_health_board": "",
                         "integrated_care_board": {
                             "boundary_identifier": "E54000056",
                             "name": "NHS Cambridgeshire and Peterborough Integrated Care Board",
@@ -88,7 +109,7 @@ from ..serializers import (
                             "country": "England",
                             "publication_date": "2022-12-08",
                         },
-                        "london_borough": "null",
+                        "london_borough": "",
                         "country": {
                             "boundary_identifier": "E92000001",
                             "name": "England",
@@ -163,6 +184,92 @@ class OrganisationViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         summary="This endpoint returns a list of NHS Organisations (Acute or Community Hospitals), with nested parent regions or organisations, from the UK.",
+        examples=[
+            OpenApiExample(
+                "/organisations/",
+                external_value="external value",
+                value=[
+                    {
+                        "ods_code": "RGT01",
+                        "name": "ADDENBROOKE'S HOSPITAL",
+                        "website": "https://www.cuh.nhs.uk/",
+                        "address1": "HILLS ROAD",
+                        "address2": "",
+                        "address3": "",
+                        "telephone": "01223 245151",
+                        "city": "CAMBRIDGE",
+                        "county": "CAMBRIDGESHIRE",
+                        "latitude": 52.17513275,
+                        "longitude": 0.140753239,
+                        "postcode": "CB2 0QQ",
+                        "geocode_coordinates": {
+                            "type": "Point",
+                            "coordinates": [0.140753239, 52.17513275],
+                        },
+                        "active": True,
+                        "published_at": "",
+                        "local_authority_district": {
+                            "lad24cd": "E07000008",
+                            "lad24nm": "Cambridge",
+                            "lad24nmw": "",
+                            "bng_e": 545420,
+                            "bng_n": 257901,
+                            "long": 0.126436,
+                            "lat": 52.2002,
+                        },
+                        "lower_layer_super_output_area": {
+                            "lsoa11cd": "E01017995",
+                            "lsoa11nm": "Cambridge 013D",
+                            "lsoa11nmw": "Cambridge 013D",
+                            "bng_e": 546965,
+                            "bng_n": 254958,
+                            "long": 0.147751,
+                            "lat": 52.1733,
+                        },
+                        "paediatric_diabetes_unit": {
+                            "pz_code": "PZ041",
+                            "paediatric_diabetes_network": "",
+                        },
+                        "trust": {
+                            "ods_code": "RGT",
+                            "name": "CAMBRIDGE UNIVERSITY HOSPITALS NHS FOUNDATION TRUST",
+                            "address_line_1": "CAMBRIDGE BIOMEDICAL CAMPUS",
+                            "address_line_2": "HILLS ROAD",
+                            "town": "CAMBRIDGE",
+                            "postcode": "CB2 0QQ",
+                            "country": "ENGLAND",
+                            "telephone": "",
+                            "website": "",
+                            "active": True,
+                            "published_at": "",
+                        },
+                        "local_health_board": "",
+                        "integrated_care_board": {
+                            "boundary_identifier": "E54000056",
+                            "name": "NHS Cambridgeshire and Peterborough Integrated Care Board",
+                            "ods_code": "QUE",
+                        },
+                        "nhs_england_region": {
+                            "region_code": "Y61",
+                            "publication_date": "2022-07-30",
+                            "boundary_identifier": "E40000007",
+                            "name": "East of England",
+                        },
+                        "openuk_network": {
+                            "name": "Eastern Paediatric Epilepsy Network",
+                            "boundary_identifier": "EPEN",
+                            "country": "England",
+                            "publication_date": "2022-12-08",
+                        },
+                        "london_borough": "",
+                        "country": {
+                            "boundary_identifier": "E92000001",
+                            "name": "England",
+                        },
+                    },
+                ],
+            )
+        ],
     )
     def list(self, request, *args, **kwargs):
         """
