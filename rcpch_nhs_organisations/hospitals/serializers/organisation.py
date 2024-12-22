@@ -36,7 +36,7 @@ from .openuk_network import OPENUKNetworkSerializer
 from .paediatric_diabetes_unit import (
     PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer,
 )
-from .trust import TrustSerializer
+from .trust import TrustSerializer, LimitedTrustSerializer
 
 
 @extend_schema_serializer(
@@ -4688,6 +4688,29 @@ class NHSEnglandRegionWithNestedOrganisationsSerializer(serializers.ModelSeriali
             "name",
             "organisations",
         ]
+
+
+class NHSEnglandRegionWithNestedTrustsSerializer(serializers.ModelSerializer):
+    # Used to return all Trusts within an NHS England Region
+    # Note the use of distinct() to avoid duplicate Trusts since the middle table is Organisation
+    # which can have multiple entries for the same Trust
+    trusts = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NHSEnglandRegion
+        fields = [
+            "region_code",
+            "publication_date",
+            "boundary_identifier",
+            "name",
+            "trusts",
+        ]
+
+    def get_trusts(self, obj):
+        trusts = Trust.objects.filter(
+            trust_organisations__nhs_england_region=obj
+        ).distinct()
+        return LimitedTrustSerializer(trusts, many=True).data
 
 
 @extend_schema_serializer(

@@ -20,6 +20,7 @@ from .london_borough import (
 )
 from .nhs_england_region import (
     NHSEnglandRegionSerializer,
+    NHSEnglandRegionGeoJSONSerializer,
     NHSEnglandRegionLimitedSerializer,
 )
 from .lower_layer_super_output_area import LowerLayerSuperOutputAreaSerializer
@@ -32,9 +33,14 @@ from .organisation import (
     LocalHealthBoardOrganisationsSerializer,
     LondonBoroughWithNestedOrganisationsSerializer,
     NHSEnglandRegionWithNestedOrganisationsSerializer,
+    NHSEnglandRegionWithNestedTrustsSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationSerializer,
     PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
     OrganisationWithLSOAAndLADSerializer,
 )
 from .paediatric_diabetes_unit import PaediatricDiabetesUnitSerializer
-from .trust import TrustSerializer, PaediatricDiabetesUnitWithNestedParentSerializer
+from .trust import (
+    TrustSerializer,
+    LimitedTrustSerializer,
+    PaediatricDiabetesUnitWithNestedParentSerializer,
+)

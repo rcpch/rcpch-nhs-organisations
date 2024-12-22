@@ -159,6 +159,7 @@ class IntegratedCareBoardViewSet(viewsets.ReadOnlyModelViewSet):
             ),
         },
         summary="This endpoint returns a list of Integrated Care Boards from England and Wales, with boundaries as geojson (SRID 27700).",
+        operation_id="list_geojson",
     )
     @action(detail=False, methods=["get"], url_path="geojson")
     def list_geojson(self, request):
@@ -209,6 +210,7 @@ class IntegratedCareBoardViewSet(viewsets.ReadOnlyModelViewSet):
                 ],
             ),
         },
+        operation_id="retrieve_geojson",
         summary="This endpoint returns a single Integrated Care Board from England and Wales by ODS code, with boundaries as geojson (SRID=27700).",
     )
     @action(detail=True, methods=["get"], url_path="geojson")

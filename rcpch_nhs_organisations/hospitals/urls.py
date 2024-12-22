@@ -8,7 +8,6 @@ from .views import (
     LocalHealthBoardViewSet,
     LondonBoroughViewSet,
     NHSEnglandRegionViewSet,
-    NHSEnglandRegionOrganisationViewSet,
     OrganisationsAssociatedWithPaediatricDiabetesUnitsList,
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitWithNestedOrganisationsViewSet,
@@ -59,14 +58,8 @@ router.register(
 )
 # returns a list of NHS England regions and their boundary data
 router.register(
-    r"nhs_england_regions/extended",
+    r"nhs_england_regions",
     viewset=NHSEnglandRegionViewSet,
-    basename="nhs_england_region",
-)
-# returns a list of NHS England regions and nested organisations
-router.register(
-    r"nhs_england_regions/organisations",
-    viewset=NHSEnglandRegionOrganisationViewSet,
     basename="nhs_england_region",
 )
 
