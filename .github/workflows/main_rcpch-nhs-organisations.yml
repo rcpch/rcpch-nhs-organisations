@@ -54,18 +54,13 @@ jobs:
           pip install mkdocs mkdocs-material mkdocs-git-committers-plugin-2 mkdocs-git-revision-date-localized-plugin mkdocs-macros-plugin mkdocs-with-pdf
 
       - name: Build MkDocs site
-        env:
-          SITE_DIR: ./site
         run: mkdocs build --config-file documentation/mkdocs.yml
-
-      - name: Debug MkDocs build output
-        run: ls -la ./site
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
+          publish_dir: ../staticdocs
 
   deploy-mkdocs-only:
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.title, '[docs]')
@@ -85,15 +80,12 @@ jobs:
 
       - name: Build MkDocs site
         env:
-          SITE_DIR: ./site
+          SITE_DIR: ../staticdocs
           DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml
-
-      - name: Debug MkDocs build output
-        run: ls -la ./site
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
+          publish_dir: ../staticdocs
