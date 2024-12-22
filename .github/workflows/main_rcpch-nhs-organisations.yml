@@ -54,6 +54,8 @@ jobs:
           pip install mkdocs mkdocs-material mkdocs-git-committers-plugin-2 mkdocs-git-revision-date-localized-plugin mkdocs-macros-plugin mkdocs-with-pdf
 
       - name: Build MkDocs site
+        env:
+          SITE_DIR: ./site
         run: mkdocs build --config-file documentation/mkdocs.yml
 
       - name: Deploy to GitHub Pages
@@ -79,6 +81,9 @@ jobs:
           pip install mkdocs mkdocs-material mkdocs-git-committers-plugin-2 mkdocs-git-revision-date-localized-plugin mkdocs-macros-plugin mkdocs-with-pdf
 
       - name: Build MkDocs site
+        env:
+          SITE_DIR: ./site
+          DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml
 
       - name: Deploy to GitHub Pages
