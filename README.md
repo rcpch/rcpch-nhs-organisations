@@ -20,4 +20,6 @@ This is a Django 4.0 (django rest framework) project written in python 3.11.0, w
 
 This will create a dockerised running API accessible at localhost on port 8003.
 
-There is a more complete documentation site on port 8004.
+There is a more complete documentation site on port 8004 at localhost
+
+Live documentation is [here](https://rcpch.github.io/rcpch-nhs-organisations/)
