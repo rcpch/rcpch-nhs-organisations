@@ -3,6 +3,7 @@ from rest_framework import routers
 from .views import (
     OrganisationViewSet,
     IntegratedCareBoardViewSet,
+    LocalAuthorityDistrictViewSet,
     LocalHealthBoardViewSet,
     LondonBoroughViewSet,
     NHSEnglandRegionViewSet,
@@ -42,6 +43,12 @@ router.register(
 router.register(
     r"london_boroughs",
     viewset=LondonBoroughViewSet,
+    basename="london_borough",
+)
+# Local Authority District endpoints
+router.register(
+    r"local_authority_districts",
+    viewset=LocalAuthorityDistrictViewSet,
     basename="london_borough",
 )
 # NHS England Region endpoints
