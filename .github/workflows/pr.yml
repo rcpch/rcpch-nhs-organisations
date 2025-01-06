@@ -12,10 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout full code repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # to allow git_context_processor.py to still work
+          lfs: true # ensures large files are downloaded using Git LFS
 
       - name: Create .env file from example
         run: cp envs/example.env envs/.env
