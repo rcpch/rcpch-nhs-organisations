@@ -44,6 +44,11 @@ services:
     volumes:
       - postgis-data:/var/lib/postgresql/data
     restart: always
+    healthcheck:
+      test: pg_isready
+      interval: 1s
+      timeout: 5s
+      retries: 30
 
   mkdocs:
     <<: *django # this will inherit all the settings from the django service
