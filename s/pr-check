@@ -1,4 +1,5 @@
 #!/bin/bash -e
 
-s/up --detach --wait
+# s/up --detach --wait
+s/up
 s/test
