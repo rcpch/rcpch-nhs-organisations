@@ -1,0 +1,4 @@
+#!/bin/bash -e
+
+s/up -d
+s/test
