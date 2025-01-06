@@ -1,5 +1,6 @@
 #!/bin/bash -e
 
-# s/up --detach --wait
-s/up
+s/up --detach
+# I tried --wait and a healthcheck but still got connection refused from postgres
+sleep 5
 s/test
