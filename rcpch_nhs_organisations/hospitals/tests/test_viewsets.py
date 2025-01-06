@@ -85,24 +85,24 @@ def local_authority_districts():
 
 @pytest.mark.django_db
 def test_list_local_authority_districts(api_client, local_authority_districts):
-    url = reverse("local_authority_district-list")
+    url = reverse("local_authority_districts-list")
     response = api_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data["features"]) == 3
+    assert len(response.data) == 3
 
 
 @pytest.mark.django_db
 def test_within_radius(api_client, local_authority_districts):
-    url = reverse("local_authority_district-within-radius")
+    url = reverse("local_authority_districts-within-radius")
     response = api_client.get(
         url, {"lat": 53.0, "long": -3.0, "radius": 500000}
     )  # within 500km
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data["features"]) == 3
+    assert len(response.data) == 3
 
     response = api_client.get(
         url, {"lat": 53.0, "long": -3.0, "radius": 5}
     )  # within 5 km
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data["features"]) == 0
+    assert len(response.data) == 0

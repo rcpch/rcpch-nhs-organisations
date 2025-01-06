@@ -1,0 +1,25 @@
+# Runs the Pytest test suite when PRs are made against any branch
+
+name: Run pr-check script on all PRs
+
+on:
+    pull_request:
+      branches:
+        - "*"
+
+jobs:
+  build-and-run-pytest-suite-in-docker-compose:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true # ensures large files are downloaded using Git LFS
+
+      - name: Create .env file from example
+        run: cp envs/example.env envs/.env
+
+      - name: Run pr-check script
+        run: s/pr-check
+
+

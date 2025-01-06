@@ -35,28 +35,12 @@ SECRET_KEY = os.getenv("RCPCH_NHS_ORGANISATIONS_SECRET_KEY", get_random_secret_k
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") + [
-    "127.0.0.1",
-    "localhost",
-    "0.0.0.0",
-]
-
 if os.getenv("WEBSITE_SITE_NAME"):
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = [
-        "127.0.0.1",
-        "localhost",
-        "0.0.0.0",
-        "rcpch-nhs-organisations.localhost",
-    ]
+    ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
 
-CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") + [
-    "https://rcpch-nhs-organisations.localhost",
-    "https://127.0.0.1",
-    "https://localhost",
-    "https://0.0.0.0",
-]
+CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
 
 # Enables Django to use the X-Forwarded-Host header in preference to the Host header.
 # Fixes CSRF errors when using Caddy to forward requests to Django.
@@ -119,11 +103,11 @@ WSGI_APPLICATION = "rcpch_nhs_organisations.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": os.environ.get("PGDATABASENAME"),
-        "USER": os.environ.get("PGUSER"),
-        "PASSWORD": os.environ.get("PGPASSWORD"),
-        "PORT": os.environ.get("PGPORT"),
-        "HOST": os.environ.get("PGHOST"),
+        "NAME": os.environ.get("POSTGRES_DB"),
+        "USER": os.environ.get("POSTGRES_USER"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+        "PORT": os.environ.get("POSTGRES_PORT"),
+        "HOST": os.environ.get("POSTGRES_HOST"),
     }
 }
 

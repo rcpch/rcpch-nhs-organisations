@@ -49,7 +49,7 @@ router.register(
 router.register(
     r"local_authority_districts",
     viewset=LocalAuthorityDistrictViewSet,
-    basename="london_borough",
+    basename="local_authority_districts",
 )
 # NHS England Region endpoints
 router.register(
