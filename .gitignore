@@ -5,5 +5,6 @@ staticfiles
 staticdocs
 envs/.env
 logs
+documentation/site
 
 .DS_Store
