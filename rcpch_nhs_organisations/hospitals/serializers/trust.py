@@ -98,9 +98,9 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
 
     def get_parent(self, obj):
         # there are deprecated PDUs that don't have an organisation
-        try:
+        if PaediatricDiabetesUnit.objects.filter(pz_code=obj.pz_code).exists():
             pdu = PaediatricDiabetesUnit.objects.get(pz_code=obj.pz_code)
-        except PaediatricDiabetesUnit.DoesNotExist:
+        else:
             return None
 
         try:
