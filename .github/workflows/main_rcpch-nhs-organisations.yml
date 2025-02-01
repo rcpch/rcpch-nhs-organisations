@@ -19,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           lfs: true # ensures large files are downloaded using Git LFS
 
       - name: Set up Python version
@@ -55,7 +56,7 @@ jobs:
 
       - name: Build MkDocs site
         env:
-          SITE_DIR: site
+          SITE_DIR: documentation/site
           DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml
 
@@ -83,9 +84,12 @@ jobs:
 
       - name: Build MkDocs site
         env:
-          SITE_DIR: site
+          SITE_DIR: documentation/site
           DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml
+
+      - name: Verify MkDocs build output
+        run: ls -la documentation/site || echo "MkDocs build failed or output directory is missing!"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
