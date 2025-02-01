@@ -169,6 +169,11 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
                 return OrganisationNoParentsSerializer(
                     organisations.filter(ods_code="RXC01").get()
                 ).data
+            elif obj.pz_code == "PZ249":
+                # PZ249 is South Tees Hospital NHS Foundation Trust
+                return OrganisationNoParentsSerializer(
+                    organisations.filter(ods_code="RTRAT").get()
+                ).data
             else:
                 return OrganisationNoParentsSerializer(organisations.first()).data
         else:

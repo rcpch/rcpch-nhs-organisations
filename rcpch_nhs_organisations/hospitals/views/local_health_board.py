@@ -150,7 +150,6 @@ class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
                         {"ods_code": "7A3LW", "name": "CHILD DEVELOPMENT UNIT"},
                         {"ods_code": "7A3C7", "name": "MORRISTON HOSPITAL"},
                         {"ods_code": "7A3CJ", "name": "NEATH PORT TALBOT HOSPITAL"},
-                        {"ods_code": "7A3B7", "name": "PRINCESS OF WALES HOSPITAL"},
                         {"ods_code": "7A3C4", "name": "SINGLETON HOSPITAL"},
                         {"ods_code": "7A3LE", "name": "THE MOUNT SURGERY"},
                     ],
