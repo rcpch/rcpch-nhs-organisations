@@ -63,7 +63,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site
+          publish_dir: documentation/site
 
   deploy-mkdocs-only:
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.title, '[docs]')
@@ -91,4 +91,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site
+          publish_dir: documentation/site
