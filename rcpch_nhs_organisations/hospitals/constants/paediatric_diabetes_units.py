@@ -25,7 +25,10 @@ PZ_CODES = [
     {"ods_code": "RJ701", "npda_code": "PZ023"},
     {"ods_code": "RVV", "npda_code": "PZ024"},
     {"ods_code": "RWA01", "npda_code": "PZ026"},
-    {"ods_code": "RTR45", "npda_code": "PZ027"},
+    {
+        "ods_code": "RTR45",
+        "npda_code": "PZ249",
+    },  # PZ027 deprecated after merger updated 1/2/25
     {"ods_code": "RXQ02", "npda_code": "PZ028"},
     {"ods_code": "RBT20", "npda_code": "PZ030"},
     {"ods_code": "RYR16", "npda_code": "PZ031"},
@@ -102,7 +105,10 @@ PZ_CODES = [
     {"ods_code": "RCD01", "npda_code": "PZ129"},
     {"ods_code": "RQM01", "npda_code": "PZ130"},
     {"ods_code": "RGN80", "npda_code": "PZ131"},
-    {"ods_code": "RTRAT", "npda_code": "PZ133"},
+    {
+        "ods_code": "RTRAT",
+        "npda_code": "PZ249",
+    },  # PZ133 deprecated after merger updated 1/2/25
     {"ods_code": "G0W1C", "npda_code": "PZ135"},  # Royal Alexandra
     {
         "ods_code": "R0A",
@@ -332,7 +338,7 @@ PZ_CODES_NETWORKS = [
     },
     {
         "ods_code": "RTR45",
-        "npda_code": "PZ027",
+        "npda_code": "PZ249",
         "network_name": "North East & North Cumbria",
         "network_code": "PN12",
     },
@@ -776,7 +782,7 @@ PZ_CODES_NETWORKS = [
     },
     {
         "ods_code": "RTRAT",
-        "npda_code": "PZ133",
+        "npda_code": "PZ249",  # PZ133 deprecated after merger updated 1/2/25
         "network_name": "North East & North Cumbria",
         "network_code": "PN12",
     },
