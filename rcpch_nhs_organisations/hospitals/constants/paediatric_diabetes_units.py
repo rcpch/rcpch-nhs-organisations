@@ -12,7 +12,7 @@ PZ_CODES = [
     {
         "ods_code": "RM325",
         "npda_code": "PZ015",
-    },  # WYTHENSHAWE HOSPITAL (RM325 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST - RA0): this is the correct affiliation
+    },  # WYTHENSHAWE HOSPITAL (RM325 - parent UNIVERSITY HOSPITAL OF SOUTH MANCHESTER NHS FOUNDATION TRUST - RM2): this is the correct affiliation
     #  Note that it  has two ODS codes on the spine: the other is R0A07, parent Northern Care Alliance. This is incorrect. Note that Wythenshawe Hospital has a PZ code of PZ015,
     # which is different to the parent organisation ROA (whose children have PZ codes of PZ136)
     {"ods_code": "RP5BA", "npda_code": "PZ016"},
