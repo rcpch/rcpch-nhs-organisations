@@ -1536,7 +1536,7 @@ RCPCH_ORGANISATIONS = [
         "Sector": "NHS Sector",
         "OrganisationStatus": "Visible",
         "IsPimsManaged": "TRUE",
-        "OrganisationName": "CITY HOSPITAL",
+        "OrganisationName": "MIDLAND METROPOLITAN UNIVERSITY HOSPITAL",
         "Address1": "DUDLEY ROAD",
         "Address2": "",
         "Address3": "",
