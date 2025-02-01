@@ -16,7 +16,7 @@ edit_uri: blob/development/documentation/docs
 dev_addr: "0.0.0.0:8004"
 
 # Specifies the destination directory in which to build the static site
-site_dir: ../staticdocs
+site_dir: !ENV SITE_DIR
 
 # theme settings, fonts, colours
 theme:
