@@ -83,7 +83,7 @@ jobs:
 
       - name: Build MkDocs site
         env:
-          SITE_DIR: ../staticdocs
+          SITE_DIR: staticdocs
           DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml
 
@@ -91,4 +91,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ../staticdocs
+          publish_dir: staticdocs
