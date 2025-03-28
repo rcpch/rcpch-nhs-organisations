@@ -65,7 +65,7 @@ PZ_CODES = [
     {"ods_code": "R1F01", "npda_code": "PZ075"},
     {"ods_code": "RDEE4", "npda_code": "PZ076"},
     {"ods_code": "RJE01", "npda_code": "PZ078"},
-    {"ods_code": "R0B01", "npda_code": "PZ080"},
+    # {"ods_code": "R0B01", "npda_code": "PZ080"}, # deprecated 28/3/25 in favour of PZ250
     {"ods_code": "RJ122", "npda_code": "PZ082"},
     {"ods_code": "RWP31", "npda_code": "PZ084"},
     {"ods_code": "RJZ30", "npda_code": "PZ085"},
@@ -124,7 +124,7 @@ PZ_CODES = [
     {"ods_code": "RJC02", "npda_code": "PZ138"},
     {"ods_code": "RA723", "npda_code": "PZ139"},
     {"ods_code": "RMP01", "npda_code": "PZ140"},
-    {"ods_code": "R0B0Q", "npda_code": "PZ141"},
+    # {"ods_code": "R0B0Q", "npda_code": "PZ141"}, deprecated 28/3/25 in favour of PZ250
     {"ods_code": "RRK98", "npda_code": "PZ144"},
     {"ods_code": "RD816", "npda_code": "PZ145"},
     {"ods_code": "RAJ01", "npda_code": "PZ146"},
@@ -558,9 +558,15 @@ PZ_CODES_NETWORKS = [
         "network_name": "West Midlands",
         "network_code": "PN08",
     },
+    # {
+    #     "ods_code": "R0B01",
+    #     "npda_code": "PZ080",
+    #     "network_name": "North East & North Cumbria",
+    #     "network_code": "PN12",
+    # }, deprecated 28/3/25 in favour of PZ250
     {
         "ods_code": "R0B01",
-        "npda_code": "PZ080",
+        "npda_code": "PZ250",
         "network_name": "North East & North Cumbria",
         "network_code": "PN12",
     },
@@ -822,9 +828,15 @@ PZ_CODES_NETWORKS = [
         "network_name": "North West",
         "network_code": "PN11",
     },
+    # {
+    #     "ods_code": "R0B0Q",
+    #     "npda_code": "PZ141",
+    #     "network_name": "North East & North Cumbria",
+    #     "network_code": "PN12",
+    # }, # deprecated 28/3/25 in favour of PZ250
     {
         "ods_code": "R0B0Q",
-        "npda_code": "PZ141",
+        "npda_code": "PZ250",
         "network_name": "North East & North Cumbria",
         "network_code": "PN12",
     },
