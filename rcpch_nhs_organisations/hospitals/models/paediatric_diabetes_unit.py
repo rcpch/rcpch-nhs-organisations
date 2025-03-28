@@ -26,3 +26,17 @@ class PaediatricDiabetesUnit(models.Model):
         blank=True,
         null=True,
     )
+
+    updated_at = models.DateTimeField(
+        "Last Updated",
+        auto_now=True,
+    )
+
+    version = models.PositiveIntegerField(default=1)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.version = 1
+        else:
+            self.version = self.version + 1
+        super().save(*args, **kwargs)
