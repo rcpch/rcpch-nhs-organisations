@@ -34,10 +34,28 @@ from ..serializers import (
             description="Valid Response",
             examples=[
                 OpenApiExample(
-                    "/paediatric_diabetes_units/1/",
+                    "/paediatric_diabetes_units/PZ215/parent/",
                     external_value="external value",
                     value={
-                        "pz_code": "E54000054",
+                        "pz_code": "PZ215",
+                        "paediatric_diabetes_network": "PN05",
+                        "parent": {
+                            "ods_code": "RJZ",
+                            "name": "KING'S COLLEGE HOSPITAL NHS FOUNDATION TRUST",
+                            "address_line_1": "DENMARK HILL",
+                            "address_line_2": "",
+                            "town": "LONDON",
+                            "postcode": "SE5 9RS",
+                            "country": "ENGLAND",
+                            "telephone": None,
+                            "website": None,
+                            "active": True,
+                            "published_at": None,
+                        },
+                        "primary_organisation": {
+                            "ods_code": "RJZ01",
+                            "name": "KING'S COLLEGE HOSPITAL (DENMARK HILL)",
+                        },
                     },
                     response_only=True,
                 ),
@@ -96,7 +114,7 @@ class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
         operation_id="list_parents",
     )
     @action(detail=False, methods=["get"], url_path="parent", url_name="parent")
-    def list_parents(self, request, ods_code=None):
+    def list_parents(self, request, pz_code=None):
         """
         This endpoint returns a list of Paediatric Diabetes Units from England and Wales with each organisation's associated lower layer super output area and local authority district.
         """
@@ -108,15 +126,6 @@ class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
         description="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
         summary="This endpoint returns the parent NHS Trust or Local Health Board for a given Paediatric Diabetes Unit (with their primary organisation and Paediatric Diabetes Network), against a PZ code. If no code is provide, a list is returned.",
         operation_id="retrieve_parent",
-        parameters=[
-            OpenApiParameter(
-                name="pz_code",
-                description="PZ Code of the Paediatric Diabetes Unit",
-                required=False,
-                type=OpenApiTypes.STR,
-                location=OpenApiParameter.QUERY,
-            ),
-        ],
     )
     @action(detail=True, methods=["get"], url_path="parent", url_name="parent")
     def retrieve_parent(self, request, pz_code=None):

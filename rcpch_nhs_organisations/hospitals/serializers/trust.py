@@ -112,15 +112,23 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
         except Organisation.DoesNotExist:
             return None
 
-        if organisation.country.boundary_identifier in [
+        if not organisation:  # No related organisations found
+            return None
+
+        trust = getattr(organisation, "trust", None)
+        local_health_board = getattr(organisation, "local_health_board", None)
+
+        if trust and organisation.country.boundary_identifier in [
             "E92000001",
             "E92000003",
         ]:  # England / Jersey
-            return TrustSerializer(organisation.trust).data
-        elif organisation.country.boundary_identifier == "W92000004":  # Wales
-            return LocalHealthBoardLimitedSerializer(
-                organisation.local_health_board
-            ).data
+            return TrustSerializer(trust).data
+        elif (
+            local_health_board
+            and organisation.country.boundary_identifier == "W92000004"
+        ):  # Wales
+            return LocalHealthBoardLimitedSerializer(local_health_board).data
+
         return None
 
     def get_paediatric_diabetes_network(self, obj):
