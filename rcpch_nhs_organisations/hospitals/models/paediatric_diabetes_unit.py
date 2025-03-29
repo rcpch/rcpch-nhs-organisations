@@ -31,3 +31,8 @@ class PaediatricDiabetesUnit(models.Model):
         "Last Updated",
         auto_now=True,
     )
+
+    active = models.BooleanField(
+        "Active",
+        default=True,
+    )
