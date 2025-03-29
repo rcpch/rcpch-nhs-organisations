@@ -100,6 +100,8 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
             "paediatric_diabetes_network",
             "parent",
             "primary_organisation",
+            "updated_at",
+            "active",
         ]
 
     def get_parent(self, obj):

@@ -26,13 +26,15 @@ class PaediatricDiabetesUnitSerializer(serializers.ModelSerializer):
         # depth = 1
         fields = [
             "pz_code",
+            "updated_at",
+            "active",
         ]
 
 
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            "/paediatric_diabetes_unit/1/",
+            "/paediatric_diabetes_units/",
             value={
                 "pz_code": "",
                 "paediatric_diabetes_network": {"pn_code": "", "name": ""},
@@ -49,10 +51,7 @@ class PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer(
     class Meta:
         model = PaediatricDiabetesUnit
         # depth = 1
-        fields = [
-            "pz_code",
-            "paediatric_diabetes_network",
-        ]
+        fields = ["pz_code", "paediatric_diabetes_network", "active", "updated_at"]
 
     def get_paediatric_diabetes_network(self, obj):
         network = obj.paediatric_diabetes_network

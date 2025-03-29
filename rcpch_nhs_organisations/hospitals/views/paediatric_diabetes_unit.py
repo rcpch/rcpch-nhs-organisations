@@ -76,7 +76,7 @@ class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
 
     """
 
-    queryset = PaediatricDiabetesUnit.objects.all().order_by("pz_code")
+    queryset = PaediatricDiabetesUnit.objects.filter(active=True).order_by("pz_code")
     serializer_class = PaediatricDiabetesUnitWithNestedOrganisationSerializer
     lookup_field = "pz_code"
     filterset_fields = [
@@ -189,7 +189,7 @@ class PaediatricDiabetesUnitForOrganisationWithParentViewSet(viewsets.ViewSet):
 
     def list(self, request, ods_code=None):
         queryset = PaediatricDiabetesUnit.objects.filter(
-            paediatric_diabetes_unit_organisations__ods_code=ods_code
+            paediatric_diabetes_unit_organisations__ods_code=ods_code, active=True
         )
         serializer = PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
             queryset, many=True
