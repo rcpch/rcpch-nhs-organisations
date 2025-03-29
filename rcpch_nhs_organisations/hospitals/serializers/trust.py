@@ -1,6 +1,10 @@
-from rest_framework import serializers
+import logging
+
+# Django
 from django.apps import apps
 
+# Third-party
+from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 from .local_health_board import LocalHealthBoardLimitedSerializer
@@ -8,6 +12,8 @@ from .local_health_board import LocalHealthBoardLimitedSerializer
 Organisation = apps.get_model("hospitals", "Organisation")
 PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
 Trust = apps.get_model("hospitals", "Trust")
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_serializer(
@@ -148,11 +154,9 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
             OrganisationNoParentsSerializer,
         )
 
-        try:
-            organisations = Organisation.objects.filter(
-                paediatric_diabetes_unit=obj
-            ).all()
-        except Organisation.DoesNotExist:
+        organisations = Organisation.objects.filter(paediatric_diabetes_unit=obj).all()
+
+        if not organisations.exists():
             return None
 
         if organisations.count() > 1:
