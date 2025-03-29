@@ -112,9 +112,12 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
         except Organisation.DoesNotExist:
             return None
 
-        if organisation.trust:
+        if organisation.country.boundary_identifier in [
+            "E92000001",
+            "E92000003",
+        ]:  # England / Jersey
             return TrustSerializer(organisation.trust).data
-        elif organisation.local_health_board:
+        elif organisation.country.boundary_identifier == "W92000004":  # Wales
             return LocalHealthBoardLimitedSerializer(
                 organisation.local_health_board
             ).data
