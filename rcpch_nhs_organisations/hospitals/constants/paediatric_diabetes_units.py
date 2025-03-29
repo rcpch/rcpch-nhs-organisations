@@ -66,6 +66,7 @@ PZ_CODES = [
     {"ods_code": "RDEE4", "npda_code": "PZ076"},
     {"ods_code": "RJE01", "npda_code": "PZ078"},
     # {"ods_code": "R0B01", "npda_code": "PZ080"}, # deprecated 28/3/25 in favour of PZ250
+    {"ods_code": "R0B01", "npda_code": "PZ250"},
     {"ods_code": "RJ122", "npda_code": "PZ082"},
     {"ods_code": "RWP31", "npda_code": "PZ084"},
     {"ods_code": "RJZ30", "npda_code": "PZ085"},
@@ -125,6 +126,7 @@ PZ_CODES = [
     {"ods_code": "RA723", "npda_code": "PZ139"},
     {"ods_code": "RMP01", "npda_code": "PZ140"},
     # {"ods_code": "R0B0Q", "npda_code": "PZ141"}, deprecated 28/3/25 in favour of PZ250
+    {"ods_code": "R0B0Q", "npda_code": "PZ250"},
     {"ods_code": "RRK98", "npda_code": "PZ144"},
     {"ods_code": "RD816", "npda_code": "PZ145"},
     {"ods_code": "RAJ01", "npda_code": "PZ146"},
