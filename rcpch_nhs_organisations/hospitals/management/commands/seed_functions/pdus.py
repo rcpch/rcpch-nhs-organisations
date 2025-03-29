@@ -46,7 +46,7 @@ def seed_pdus():
             # the ods_code provided is for an existing organisation, update to include PDU
             paediatric_diabetes_unit, created = (
                 PaediatricDiabetesUnit.objects.update_or_create(
-                    pz_code=pdu["npda_code"]
+                    pz_code=pdu["npda_code"], active=pdu["active"]
                 )
             )
             Organisation.objects.filter(ods_code=pdu["ods_code"]).update(
@@ -62,7 +62,7 @@ def seed_pdus():
                 # create the PDU
                 paediatric_diabetes_unit, created = (
                     PaediatricDiabetesUnit.objects.update_or_create(
-                        pz_code=pdu["npda_code"]
+                        pz_code=pdu["npda_code"], active=pdu["active"]
                     )
                 )
                 # get the trust
@@ -80,7 +80,7 @@ def seed_pdus():
                 # create the PDU
                 paediatric_diabetes_unit, created = (
                     PaediatricDiabetesUnit.objects.update_or_create(
-                        pz_code=pdu["npda_code"]
+                        pz_code=pdu["npda_code"], active=pdu["active"]
                     )
                 )
                 # get the local health board
@@ -137,7 +137,7 @@ def seed_pdus():
                     if parent_trust is not None:
                         paediatric_diabetes_unit, created = (
                             PaediatricDiabetesUnit.objects.update_or_create(
-                                pz_code=pdu["npda_code"]
+                                pz_code=pdu["npda_code"], active=pdu["active"]
                             )
                         )
 

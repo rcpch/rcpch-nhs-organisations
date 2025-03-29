@@ -353,7 +353,7 @@ class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
 
     class Meta:
         model = PaediatricDiabetesUnit
-        fields = ["pz_code", "organisations"]
+        fields = ["pz_code", "organisations", "active", "updated_at"]
 
 
 # Returns an organisation with its parent LHB or Trust details
@@ -402,4 +402,4 @@ class PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
     class Meta:
         geo_field = "geom"
         model = PaediatricDiabetesUnit
-        fields = ["pz_code", "organisations"]
+        fields = ["pz_code", "organisations", "active", "updated_at"]
