@@ -26,3 +26,8 @@ class PaediatricDiabetesUnit(models.Model):
         blank=True,
         null=True,
     )
+
+    updated_at = models.DateTimeField(
+        "Last Updated",
+        auto_now=True,
+    )
