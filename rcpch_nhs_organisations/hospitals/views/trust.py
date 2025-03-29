@@ -111,7 +111,7 @@ class TrustViewSet(viewsets.ReadOnlyModelViewSet):
                 description="Valid Response",
                 examples=[
                     OpenApiExample(
-                        "/trust/1/",
+                        "/trusts/",
                         external_value="external value",
                         value=[
                             {
