@@ -191,6 +191,13 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
                 return OrganisationNoParentsSerializer(
                     organisations.filter(ods_code="RTRAT").get()
                 ).data
+            elif obj.pz_code == "PZ250":
+                #  PZ250 is Sunderland Royal Hospital (R0B01) and South Tyneside District General Hospital (R0B0Q)
+                return OrganisationNoParentsSerializer(
+                    organisations.filter(
+                        ods_code="R0B01"
+                    ).get()  # Sunderland Royal Hospital
+                ).data
             else:
                 return OrganisationNoParentsSerializer(organisations.first()).data
         else:

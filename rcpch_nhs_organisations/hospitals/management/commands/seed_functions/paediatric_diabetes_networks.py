@@ -52,6 +52,11 @@ def update_pdu_networks():
             pn_code=pdu["network_code"]
         )
         if not paediatric_network.exists():
+            if pdu["network_code"] is None:
+                logger.warning(
+                    f"{pdu['npda_code']} has no network code. Skipping this PDU."
+                )
+                continue
             logger.error(
                 f"Network: {pdu['network_code']} does not exist in the database."
             )

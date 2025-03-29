@@ -81,6 +81,7 @@ class Command(BaseCommand):
             create_jersey_general_hospital()
             seed_pdus()
             seed_paediatric_diabetes_networks()
+            update_pdu_networks()
             seed_local_authorities_and_lsoas()
             rcpch_ascii_art()
 
