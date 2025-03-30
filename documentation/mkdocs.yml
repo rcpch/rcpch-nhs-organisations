@@ -129,6 +129,8 @@ extra:
 nav:
   - Home:
     - 'index.md'
+    - 'home/nhs-organisations.md'
+    - 'home/child-health-context.md'
     - 'home/getting-started.md'
     - 'home/routes.md'
     - 'home/citation.md'
@@ -136,10 +138,11 @@ nav:
     - 'researchers/api.md'
   - Developers:
     - 'developer/models.md'
-    - 'developer/seeding.md'
-    - 'developer/database_maintenance.md'
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
+    - 'developer/seeding.md'
+    - 'developer/database_maintenance.md'
+    - 'developer/contributing.md'
   - Contact:
     - 'contact/contact-rcpch.md'
   - Legal:
