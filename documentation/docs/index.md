@@ -30,6 +30,8 @@ The project is dockerised, and has containers for [Postgresql](https://www.postg
 
 The [NHS Digital](https://digital.nhs.uk/services/spine) publishes all NHS Organisational data exhaustively - this project is not intended to replace it. There is a need though for RCPCH to be able to provide lists of organisations that care for children or are responsible for children's health, to inform research, audit and clinical practice. The project will build and maintain lists of these organisations and their relationships with each other, where possible maintaining the structure already provided by NHS Digital. It is a work in progress.
 
+While this project aims to describe the organisation environment for children and child health, an allied project, [the RCPCH Census Platform](https://github.com/rcpch/rcpch-census-platform) aims to describe the lived environment of children in data.
+
 ## Python packages
 
 A further ambition of this project is to provide this list not only as an API, but also as a python package hosted on PyPi but regularly updated as organisational changes occur (such as take overs and mergers), so that it can be used by other projects as a dependency.
