@@ -207,6 +207,7 @@ PZ_CODES = [
     {"ods_code": "RHU03", "npda_code": "PZ238", "active": 1},
     {"ods_code": "RNA01", "npda_code": "PZ240", "active": 1},
     {"ods_code": "RTE01", "npda_code": "PZ242", "active": 1},
+    {"ods_code": "RTE03", "npda_code": "PZ242", "active": 1},
     {
         "ods_code": "RGT1W",
         "npda_code": "PZ248",
@@ -1234,7 +1235,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN08",
     },
     {
-        "ods_code": "RTE01",
+        "ods_code": "RTE03",
         "npda_code": "PZ242",
         "network_name": "South West",
         "network_code": "PN02",

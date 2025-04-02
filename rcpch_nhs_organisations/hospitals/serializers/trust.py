@@ -204,6 +204,15 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
                         ods_code="R0B01"
                     ).get()  # Sunderland Royal Hospital
                 ).data
+            elif obj.pz_code == "PZ242":
+                # PZ242 is GLOUCESTERSHIRE HOSPITALS NHS FOUNDATION TRUST
+                #  - RTE01	CHELTENHAM GENERAL HOSPITAL 
+                #  - RTE03	GLOUCESTERSHIRE ROYAL HOSPITAL (lead)
+                return OrganisationNoParentsSerializer(
+                    organisations.filter(
+                        ods_code="RTE03"
+                    ).get()  # GLOUCESTERSHIRE ROYAL HOSPITAL
+                ).data
             else:
                 return OrganisationNoParentsSerializer(organisations.first()).data
         else:
