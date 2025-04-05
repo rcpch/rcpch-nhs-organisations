@@ -1,6 +1,6 @@
 PZ_CODES = [
     {"ods_code": "RM102", "npda_code": "PZ002", "active": 1},
-    {"ods_code": "RXF05", "npda_code": "PZ003", "active": 1},
+    {"ods_code": "RXF05", "npda_code": "PZ003", "active": 0},
     {"ods_code": "RNS01", "npda_code": "PZ004", "active": 1},
     {"ods_code": "RTGFG", "npda_code": "PZ005", "active": 1},
     {"ods_code": "RP5DR", "npda_code": "PZ006", "active": 1},
@@ -257,6 +257,16 @@ PZ_CODES = [
         "npda_code": "PZ245",
         "active": 1,
     },  # The Grange University Hospital
+    {
+        "ods_code": "RXF05",
+        "npda_code": "PZ251",
+        "active": 1,
+    },  # Pinderfields - new PZ code 5/4/25
+    {
+        "ods_code": "RXF3C",
+        "npda_code": "PZ252",
+        "active": 1,
+    },  # Pontefract - new PZ code 5/4/25
     {"ods_code": "8HV48", "npda_code": "PZ999", "active": 1},  # RCPCH
 ]
 
@@ -269,8 +279,16 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN06",
     },
     {
-        "ods_code": "RXF05",
-        "npda_code": "PZ003",
+        "ods_code": "RXF05",  # PINDERFIELDS GENERAL HOSPITAL
+        "npda_code": "PZ251",
+        # "npda_code": "PZ003", deprecated 5/4/2025
+        "network_name": "Yorkshire & Humber",
+        "network_code": "PN10",
+    },
+    {
+        "ods_code": "RL131",  # Pontefract General Infirmary
+        "npda_code": "PZ251",
+        # "npda_code": "PZ003", deprecated 5/4/2025
         "network_name": "Yorkshire & Humber",
         "network_code": "PN10",
     },
