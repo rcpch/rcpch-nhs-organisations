@@ -8454,7 +8454,7 @@ RCPCH_ORGANISATIONS = [
     },  # 01/04/1994 Region: Y60 MIDLANDS COMMISSIONING REGION, ICB: QOC NHS SHROPSHIRE, TELFORD AND WREKIN INTEGRATED CARE BOARD, OPENUK: BRPNF - Birmingham Regional Paediatric Neurology Form
     {
         "OrganisationID": "",
-        "OrganisationCode": "RXF3C",
+        "OrganisationCode": "RXF03",
         "OrganisationType": "",
         "SubType": "",
         "Sector": "",
