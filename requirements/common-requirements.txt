@@ -1,19 +1,19 @@
 # standard imports
-requests==2.32.0
+requests==2.32.3
 python-dateutil==2.9.0.post0
 
 # third party imports
-django==4.2.17
-djangorestframework==3.15.2
-djangorestframework-gis==1.0
-drf-spectacular==0.27.1
-django-filter==24.1
-markdown==3.5.2 # support for browsable API
-psycopg2-binary==2.9.9
-whitenoise==6.6.0
+django==5.2.1
+djangorestframework==3.16.0
+djangorestframework-gis==1.1
+drf-spectacular==0.28.0
+django-filter==25.1
+markdown==3.8 # support for browsable API
+psycopg2-binary==2.9.10
+whitenoise==6.9.0
 
 # live application server
-gunicorn>=22.0.0
+gunicorn==23.0.0
 
 
 # DOCUMENTATION - MATERIAL FOR MKDOCS INSIDERS
@@ -25,17 +25,17 @@ gunicorn>=22.0.0
 
 # Further information is at https://squidfunk.github.io/mkdocs-material/insiders/getting-started/
 
-mkdocs-material==9.5.13
-mkdocs-git-committers-plugin-2==2.3.0 # displays authors at the bottom of the page
-mkdocs-git-revision-date-localized-plugin==1.2.4 # displays last edit date at the bottom of the page
-mkdocs-macros-plugin==1.0.5 # enables 'foldable' admonition text (used for large code blocks)
+mkdocs-material==9.6.12
+mkdocs-git-committers-plugin-2==2.5.0 # displays authors at the bottom of the page
+mkdocs-git-revision-date-localized-plugin==1.4.5 # displays last edit date at the bottom of the page
+mkdocs-macros-plugin==1.3.7 # enables 'foldable' admonition text (used for large code blocks)
 mkdocs-with-pdf==0.9.3 # PDF export feature
 
 # code linting and formatting
-autopep8==2.0.4
-black==24.3.0
+autopep8==2.3.2
+black==25.1.0
 
 # for colored logs
-colorlog==6.8.2
+colorlog==6.9.0
 
 # RCPCH imports
