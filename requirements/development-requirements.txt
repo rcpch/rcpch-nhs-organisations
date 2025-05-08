@@ -2,9 +2,7 @@
 -r common-requirements.txt
 
 # standard imports
-autopep8
 coverage
-black
 pytest
 pytest-django
 
