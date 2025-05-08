@@ -2,11 +2,11 @@
 -r common-requirements.txt
 
 # standard imports
-coverage
-pytest
-pytest-django
+coverage==7.8.0
+pytest==8.3.5
+pytest-django==4.11.1
 
 # third party imports
-bump2version
+bump2version==1.0.1
 
 # RCPCH imports
