@@ -267,6 +267,21 @@ PZ_CODES = [
         "npda_code": "PZ252",
         "active": 1,
     },  # Pontefract - new PZ code 5/4/25
+    {
+        "ods_code": "RM315",
+        "npda_code": "PZ246",
+        "active": 1,
+    },
+    {
+        "ods_code": "RM316",
+        "npda_code": "PZ246",
+        "active": 1,
+    },
+    {
+        "ods_code": "RM317",
+        "npda_code": "PZ246",
+        "active": 1,
+    },
     {"ods_code": "8HV48", "npda_code": "PZ999", "active": 1},  # RCPCH
 ]
 
@@ -1144,12 +1159,12 @@ PZ_CODES_NETWORKS = [
         "network_name": "London & South East",
         "network_code": "PN05",
     },
-    {
-        "ods_code": "RM3",  # Salford Royal Hospital is the parent, Pennine Acute Hospitals NHS Trust - the PZ code is currently not in use
-        "npda_code": "PZ206",
-        "network_name": "Unknown",
-        "network_code": None,
-    },
+    # {
+    #     "ods_code": "RM3",  # Salford Royal Hospital is the parent, Pennine Acute Hospitals NHS Trust - the PZ code is currently not in use
+    #     "npda_code": "PZ206",
+    #     "network_name": "Unknown",
+    #     "network_code": None,
+    # },
     {
         "ods_code": "RTP04",
         "npda_code": "PZ213",
@@ -1331,9 +1346,15 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN07",
     },
     {
-        "ods_code": "8HV48",
+        "ods_code": "8HV48",  # RCPCH
         "npda_code": "PZ999",
         "network_name": "Unknown",
         "network_code": None,
     },
+    {
+        "ods_code": "RM317",
+        "npda_code": "PZ246",
+        "network_name": "North West",
+        "network_code": "PN11",
+    },  # Northern Care Alliance
 ]
