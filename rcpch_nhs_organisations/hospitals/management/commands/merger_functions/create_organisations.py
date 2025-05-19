@@ -163,7 +163,7 @@ def create_organisations(self, organisations):
 
             # fetch the county, postcode and retrieve the longitude and latitude
             try:
-                longitude = float(postcode_object]["longitude"])
+                longitude = float(postcode_object["longitude"])
             except:
                 longitude = None
 
