@@ -46,7 +46,6 @@ def create_organisations(self, organisations):
             )
             continue
 
-        print(spine_result)
         if Organisation.objects.filter(
             ods_code=spine_result["OrgId"]["extension"]
         ).exists():
