@@ -6,6 +6,7 @@ from rest_framework import (
     serializers,  # serializers here required for drf-spectacular @extend_schema
 )
 from rest_framework.decorators import action
+from rest_framework.response import Response
 
 # Third-party imports
 from django_filters.rest_framework import DjangoFilterBackend
@@ -171,5 +172,8 @@ class TrustViewSet(viewsets.ReadOnlyModelViewSet):
     @action(
         detail=True, methods=["get"], url_path="organisations", url_name="organisations"
     )
-    def retrieve_trust_organisations(self, request):
-        return super().retrieve(request)
+    @action(detail=True, url_path="organisations", url_name="organisations")
+    def retrieve_trust_organisations(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = TrustWithNestedOrganisationsSerializer(instance)
+        return Response(serializer.data)

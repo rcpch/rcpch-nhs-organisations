@@ -1,6 +1,6 @@
 """
 This constant is used for seeding the ICB table
-Contains INTEGRATED_CARE_BOARDS to seed the 42 ICBs 
+Contains INTEGRATED_CARE_BOARDS to seed the 42 ICBs
 Contains INTEGRATED_CARE_BOARDS_LOCAL_AUTHORITIES, matching Trusts to ICBs
 """
 
@@ -703,9 +703,9 @@ INTEGRATED_CARE_BOARDS_LOCAL_AUTHORITIES = [
     {
         "NHS England Region": "North East and Yorkshire",
         "NHS England Region Code": "Y63",
-        "ODS ICB Code": "QOQ",
+        "ODS ICB Code": "QHM",
         "ONS ICB Boundary Code": "E54000051",
-        "ICB Name": "NHS HUMBER AND NORTH YORKSHIRE INTEGRATED CARE BOARD",
+        "ICB Name": "NHS NORTH EAST AND NORTH CUMBRIA INTEGRATED CARE BOARD",
         "Sub ICB Locations (formerly CCGs)": "",
         "ODS Sub ICB Code": "",
         "Local Authority": "",
