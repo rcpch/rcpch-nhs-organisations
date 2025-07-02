@@ -192,7 +192,7 @@ PZ_CODES = [
     {"ods_code": "RCUEF", "npda_code": "PZ219", "active": 1},
     {"ods_code": "RC979", "npda_code": "PZ220", "active": 1},  # Bedford Hospital
     {
-        "ods_code": "RGT2X",
+        "ods_code": "RC971",
         "npda_code": "PZ010",
         "active": 1,
     },  # Luton and Dunstable Hospital
@@ -1202,7 +1202,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN06",
     },
     {
-        "ods_code": "RGT2X",
+        "ods_code": "RC971",
         "npda_code": "PZ010",
         "network_name": "East of England",
         "network_code": "PN06",
