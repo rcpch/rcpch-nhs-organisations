@@ -92,6 +92,7 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
     parent = serializers.SerializerMethodField()
     primary_organisation = serializers.SerializerMethodField()
     paediatric_diabetes_network = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
 
     class Meta:
         model = PaediatricDiabetesUnit
@@ -102,6 +103,7 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
             "primary_organisation",
             "updated_at",
             "active",
+            "name"
         ]
 
     def get_parent(self, obj):
@@ -217,6 +219,9 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
                 return OrganisationNoParentsSerializer(organisations.first()).data
         else:
             return OrganisationNoParentsSerializer(organisations.get()).data
+
+    def get_name(self, obj):
+        return obj.name or self.get_primary_organisation(obj)['name']
 
 
 class LimitedTrustSerializer(serializers.ModelSerializer):

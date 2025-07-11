@@ -10,6 +10,14 @@ from .paediatric_diabetes_network import PaediatricDiabetesNetwork
 class PaediatricDiabetesUnit(models.Model):
     pz_code = CharField("Paediatric Diabetes Unit PZ Number", max_length=5, unique=True)
 
+    name = CharField(
+        "Name for the unit if different from the primary organisation for the parent",
+        max_length=255,
+        null=True,
+        blank=True,
+        default=None
+    )
+
     class Meta:
         verbose_name = "Paediatric Diabetes Unit"
         verbose_name_plural = "Paediatric Diabetes Units"
