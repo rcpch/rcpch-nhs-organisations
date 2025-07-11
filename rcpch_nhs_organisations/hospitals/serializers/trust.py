@@ -92,7 +92,6 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
     parent = serializers.SerializerMethodField()
     primary_organisation = serializers.SerializerMethodField()
     paediatric_diabetes_network = serializers.SerializerMethodField()
-    name = serializers.SerializerMethodField()
 
     class Meta:
         model = PaediatricDiabetesUnit
@@ -158,57 +157,9 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
             OrganisationNoParentsSerializer,
         )
 
-        return OrganisationNoParentsSerializer(obj.primary_organisation).data
-
-    def get_name(self, obj):
-        return obj.name or obj.primary_organisation.name
-
-    def to_representation(self, instance):
-        # Avoid multiple queries for primary organisation
-        instance.primary_organisation = self._get_primary_organisation(instance)
-
-        return super().to_representation(instance)
-
-    def _get_primary_organisation(self, obj):
-        organisations = Organisation.objects.filter(paediatric_diabetes_unit=obj).all()
-
-        if not organisations.exists():
-            return None
-
-        if organisations.count() > 1:
-            if obj.pz_code == "PZ024":
-                # RPF01 is the parent organisation for PZ024 (William Harvey Hospital, Ashford)
-                return organisations.filter(ods_code="RVV01").get()
-            elif obj.pz_code == "PZ050":
-                # RPF01 is the parent organisation for PZ024 (Queen Mary's Hospital for Children, Carshalton)
-                return organisations.filter(ods_code="RVR07").get()
-            elif obj.pz_code == "PZ099":
-                # RPF01 is the parent organisation for PZ099 (Lister Hospital, Stevenage)
-                return organisations.filter(ods_code="RWH01").get()
-            elif obj.pz_code == "PZ136":
-                # RPF01 is the parent organisation for PZ099 (Manchester Children's Hospital)
-                return organisations.filter(ods_code="R0A03").get()
-            elif obj.pz_code == "PZ206":
-                # RM401 is the parent organisation for PZ206 (Trafford General Hospital)
-                return organisations.filter(ods_code="RM321").get()
-            elif obj.pz_code == "PZ230":
-                # RM230 is the parent organisation for PZ230 (Conquest Hospital, Hastings)
-                return organisations.filter(ods_code="RXC01").get()
-            elif obj.pz_code == "PZ249":
-                # PZ249 is South Tees Hospital NHS Foundation Trust
-                return organisations.filter(ods_code="RTRAT").get()
-            elif obj.pz_code == "PZ250":
-                #  PZ250 is Sunderland Royal Hospital (R0B01) and South Tyneside District General Hospital (R0B0Q)
-                return organisations.filter(ods_code="R0B01").get()  # Sunderland Royal Hospital
-            elif obj.pz_code == "PZ242":
-                # PZ242 is GLOUCESTERSHIRE HOSPITALS NHS FOUNDATION TRUST
-                #  - RTE01	CHELTENHAM GENERAL HOSPITAL 
-                #  - RTE03	GLOUCESTERSHIRE ROYAL HOSPITAL (lead)
-                return organisations.filter(ods_code="RTE03").get()  # GLOUCESTERSHIRE ROYAL HOSPITAL
-            else:
-                return organisations.first()
-        else:
-            return organisations.get()
+        primary_organisation = obj.primary_organisation
+        if primary_organisation:
+            return OrganisationNoParentsSerializer(primary_organisation).data
 
 
 class LimitedTrustSerializer(serializers.ModelSerializer):
