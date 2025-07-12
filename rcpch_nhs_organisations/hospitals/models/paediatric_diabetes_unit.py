@@ -6,9 +6,16 @@ from django.db.models import CharField
 
 from .paediatric_diabetes_network import PaediatricDiabetesNetwork
 
-
 class PaediatricDiabetesUnit(models.Model):
     pz_code = CharField("Paediatric Diabetes Unit PZ Number", max_length=5, unique=True)
+
+    unit_name = CharField(
+        "Name for the unit if different from the primary organisation for the parent",
+        max_length=255,
+        null=True,
+        blank=True,
+        default=None
+    )
 
     class Meta:
         verbose_name = "Paediatric Diabetes Unit"
@@ -36,3 +43,58 @@ class PaediatricDiabetesUnit(models.Model):
         "Active",
         default=True,
     )
+
+    @property
+    def primary_organisation(self):
+        # Fix circular import
+        from .organisation import Organisation
+
+        organisations = Organisation.objects.filter(paediatric_diabetes_unit=self).all()
+
+        if not organisations.exists():
+            return None
+
+        if organisations.count() > 1:
+            if self.pz_code == "PZ024":
+                # RPF01 is the parent organisation for PZ024 (William Harvey Hospital, Ashford)
+                return organisations.filter(ods_code="RVV01").get()
+            elif self.pz_code == "PZ050":
+                # RPF01 is the parent organisation for PZ024 (Queen Mary's Hospital for Children, Carshalton)
+                return organisations.filter(ods_code="RVR07").get()
+            elif self.pz_code == "PZ099":
+                # RPF01 is the parent organisation for PZ099 (Lister Hospital, Stevenage)
+                return organisations.filter(ods_code="RWH01").get()
+            elif self.pz_code == "PZ136":
+                # RPF01 is the parent organisation for PZ099 (Manchester Children's Hospital)
+                return organisations.filter(ods_code="R0A03").get()
+            elif self.pz_code == "PZ206":
+                # RM401 is the parent organisation for PZ206 (Trafford General Hospital)
+                return organisations.filter(ods_code="RM321").get()
+            elif self.pz_code == "PZ230":
+                # RM230 is the parent organisation for PZ230 (Conquest Hospital, Hastings)
+                return organisations.filter(ods_code="RXC01").get()
+            elif self.pz_code == "PZ249":
+                # PZ249 is South Tees Hospital NHS Foundation Trust
+                return organisations.filter(ods_code="RTRAT").get()
+            elif self.pz_code == "PZ250":
+                #  PZ250 is Sunderland Royal Hospital (R0B01) and South Tyneside District General Hospital (R0B0Q)
+                return organisations.filter(ods_code="R0B01").get()  # Sunderland Royal Hospital
+            elif self.pz_code == "PZ242":
+                # PZ242 is GLOUCESTERSHIRE HOSPITALS NHS FOUNDATION TRUST
+                #  - RTE01	CHELTENHAM GENERAL HOSPITAL 
+                #  - RTE03	GLOUCESTERSHIRE ROYAL HOSPITAL (lead)
+                return organisations.filter(ods_code="RTE03").get()  # GLOUCESTERSHIRE ROYAL HOSPITAL
+            else:
+                return organisations.first()
+        else:
+            return organisations.get()
+    
+    @property
+    def name(self):
+        if self.unit_name:
+            return self.unit_name
+        
+        if self.primary_organisation:
+            return self.primary_organisation.name
+        
+        return self.pz_code

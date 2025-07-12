@@ -28,6 +28,7 @@ class PaediatricDiabetesUnitSerializer(serializers.ModelSerializer):
             "pz_code",
             "updated_at",
             "active",
+            "name"
         ]
 
 
@@ -51,7 +52,7 @@ class PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer(
     class Meta:
         model = PaediatricDiabetesUnit
         # depth = 1
-        fields = ["pz_code", "paediatric_diabetes_network", "active", "updated_at"]
+        fields = ["pz_code", "paediatric_diabetes_network", "active", "updated_at", "name"]
 
     def get_paediatric_diabetes_network(self, obj):
         network = obj.paediatric_diabetes_network
