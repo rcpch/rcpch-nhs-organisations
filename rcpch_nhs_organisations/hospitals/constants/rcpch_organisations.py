@@ -8601,7 +8601,7 @@ RCPCH_ORGANISATIONS = [
         "Website": "https://www.enherts-tr.nhs.uk/hospitals/new-qeii-hospital/",
         "Fax": "",
         "LocalAuthority": "E07000241",
-    },
+    }, # Addition 15.07.2024 - PZ032 is Queen Elizabeth II Hospital, not the Lister Hospital (since 2015 I think?)
 ]
 
 JERSEY_ORGANISATION = {
