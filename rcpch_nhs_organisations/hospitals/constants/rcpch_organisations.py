@@ -8575,7 +8575,7 @@ RCPCH_ORGANISATIONS = [
         "Email": "",
         "Website": "https://www.newcastle-hospitals.nhs.uk/hospitals/great-north-childrens-hospital/",
         "Fax": "",
-        "LocalAuthority": "",
+        "LocalAuthority": "E08000021",
     },  # Addition 15.07.2024 - PZ032 is Great North Children's Hospital, not the Royal Victoria Infirmary (although they are on the same site)
     {
         "OrganisationID": "",
