@@ -8552,6 +8552,31 @@ RCPCH_ORGANISATIONS = [
         "Fax": "",
         "LocalAuthority": "",
     },  # Addition 29.6.2024 - Add RCPCH!
+    {
+        "OrganisationID": "",
+        "OrganisationCode": "RTD10",
+        "OrganisationType": "",
+        "SubType": "",
+        "Sector": "",
+        "OrganisationStatus": "",
+        "IsPimsManaged": "",
+        "OrganisationName": "GREAT NORTH CHILDREN'S HOSPITAL",
+        "Address1": "QUEEN VICTORIA ROAD",
+        "Address2": "NEWCASTLE UPON TYNE",
+        "Address3": "TYNE AND WEAR",
+        "City": "Newcastle upon Tyne",
+        "County": "Tyne and Wear",
+        "Postcode": "NE1 4LP",
+        "Latitude": "54.98022",
+        "Longitude": "-1.618869",
+        "ParentODSCode": "RTD",
+        "ParentName": "THE NEWCASTLE UPON TYNE HOSPITALS NHS FOUNDATION TRUST",
+        "Phone": "0191 2336161",
+        "Email": "",
+        "Website": "https://www.newcastle-hospitals.nhs.uk/hospitals/great-north-childrens-hospital/",
+        "Fax": "",
+        "LocalAuthority": "E08000021",
+    },  # Addition 15.07.2024 - PZ032 is Great North Children's Hospital, not the Royal Victoria Infirmary (although they are on the same site)
 ]
 
 JERSEY_ORGANISATION = {

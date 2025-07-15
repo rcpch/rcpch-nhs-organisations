@@ -34,7 +34,7 @@ PZ_CODES = [
     {"ods_code": "RXQ02", "npda_code": "PZ028", "active": 1},
     {"ods_code": "RBT20", "npda_code": "PZ030", "active": 1},
     {"ods_code": "RYR16", "npda_code": "PZ031", "active": 1},
-    {"ods_code": "RTD02", "npda_code": "PZ032", "active": 1},
+    {"ods_code": "RTD10", "npda_code": "PZ032", "active": 1},
     {"ods_code": "RTG02", "npda_code": "PZ033", "active": 1},
     {"ods_code": "RN541", "npda_code": "PZ034", "active": 1},
     {"ods_code": "RHW01", "npda_code": "PZ035", "active": 1},
@@ -42,7 +42,7 @@ PZ_CODES = [
     {"ods_code": "RXQ50", "npda_code": "PZ038", "active": 1},
     {"ods_code": "RRK97", "npda_code": "PZ040", "active": 1},
     {"ods_code": "RGT01", "npda_code": "PZ041", "active": 1},
-    {"ods_code": "RX1RA", "npda_code": "PZ042", "active": 1},
+    {"ods_code": "RX1RA", "npda_code": "PZ042", "active": 1, "unit_name": "NOTTINGHAM CHILDREN'S HOSPITAL"},
     {"ods_code": "RKEQ4", "npda_code": "PZ045", "active": 1},
     {"ods_code": "RCF22", "npda_code": "PZ047", "active": 1},
     {"ods_code": "RWDDA", "npda_code": "PZ048", "active": 1},
@@ -73,7 +73,7 @@ PZ_CODES = [
     {"ods_code": "RJE01", "npda_code": "PZ078", "active": 1},
     # {"ods_code": "R0B01", "npda_code": "PZ080"}, # deprecated 28/3/25 in favour of PZ250
     {"ods_code": "R0B01", "npda_code": "PZ250", "active": 1},
-    {"ods_code": "RJ122", "npda_code": "PZ082", "active": 1},
+    {"ods_code": "RJ122", "npda_code": "PZ082", "active": 1, "unit_name": "EVELINA LONDON CHILDREN'S HOSPITAL"},
     {"ods_code": "RWP31", "npda_code": "PZ084", "active": 1},
     {"ods_code": "RJZ30", "npda_code": "PZ085", "active": 1},
     {"ods_code": "RGN90", "npda_code": "PZ086", "active": 1},
@@ -83,7 +83,7 @@ PZ_CODES = [
     {"ods_code": "RXWAT", "npda_code": "PZ094", "active": 1},
     {"ods_code": "RK950", "npda_code": "PZ096", "active": 1},
     {"ods_code": "RXK02", "npda_code": "PZ097", "active": 1},
-    {"ods_code": "RWH", "npda_code": "PZ099", "active": 1},
+    {"ods_code": "RWH20", "npda_code": "PZ099", "active": 1},
     {
         "ods_code": "RH880",
         "npda_code": "PZ100",
@@ -446,7 +446,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN03",
     },
     {
-        "ods_code": "RTD02",
+        "ods_code": "RTD10",
         "npda_code": "PZ032",
         "network_name": "North East & North Cumbria",
         "network_code": "PN12",
@@ -716,7 +716,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN08",
     },
     {
-        "ods_code": "RWH",
+        "ods_code": "RWH20",
         "npda_code": "PZ099",
         "network_name": "East of England",
         "network_code": "PN06",
