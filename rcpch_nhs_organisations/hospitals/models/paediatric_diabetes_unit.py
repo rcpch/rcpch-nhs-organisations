@@ -104,6 +104,12 @@ class PaediatricDiabetesUnit(models.Model):
             "PZ250", # SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST
         ]:
             return self.primary_organisation.trust.name
+        
+        # These units identify themselves by their local health board (🐉) rather than lead organisation
+        if self.pz_code in [
+            "PZ244"
+        ]:
+            return self.primary_organisation.local_health_board.name
 
         if self.primary_organisation:
             return self.primary_organisation.name
