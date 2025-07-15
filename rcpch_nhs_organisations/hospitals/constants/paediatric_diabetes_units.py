@@ -446,7 +446,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN03",
     },
     {
-        "ods_code": "RTD02",
+        "ods_code": "RTD10",
         "npda_code": "PZ032",
         "network_name": "North East & North Cumbria",
         "network_code": "PN12",
