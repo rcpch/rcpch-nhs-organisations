@@ -42,7 +42,7 @@ PZ_CODES = [
     {"ods_code": "RXQ50", "npda_code": "PZ038", "active": 1},
     {"ods_code": "RRK97", "npda_code": "PZ040", "active": 1},
     {"ods_code": "RGT01", "npda_code": "PZ041", "active": 1},
-    {"ods_code": "RX1RA", "npda_code": "PZ042", "active": 1},
+    {"ods_code": "RX1RA", "npda_code": "PZ042", "active": 1, "unit_name": "NOTTINGHAM CHILDREN'S HOSPITAL"},
     {"ods_code": "RKEQ4", "npda_code": "PZ045", "active": 1},
     {"ods_code": "RCF22", "npda_code": "PZ047", "active": 1},
     {"ods_code": "RWDDA", "npda_code": "PZ048", "active": 1},
@@ -73,7 +73,7 @@ PZ_CODES = [
     {"ods_code": "RJE01", "npda_code": "PZ078", "active": 1},
     # {"ods_code": "R0B01", "npda_code": "PZ080"}, # deprecated 28/3/25 in favour of PZ250
     {"ods_code": "R0B01", "npda_code": "PZ250", "active": 1},
-    {"ods_code": "RJ122", "npda_code": "PZ082", "active": 1},
+    {"ods_code": "RJ122", "npda_code": "PZ082", "active": 1, "unit_name": "EVELINA LONDON CHILDREN'S HOSPITAL"},
     {"ods_code": "RWP31", "npda_code": "PZ084", "active": 1},
     {"ods_code": "RJZ30", "npda_code": "PZ085", "active": 1},
     {"ods_code": "RGN90", "npda_code": "PZ086", "active": 1},
