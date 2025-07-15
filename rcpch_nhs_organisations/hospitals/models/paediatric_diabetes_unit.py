@@ -91,6 +91,20 @@ class PaediatricDiabetesUnit(models.Model):
         if self.unit_name:
             return self.unit_name
         
+        # These units identify themselves by their trust rather than lead organisation
+        if self.pz_code in [
+            "PZ024", # East Kent Hospitals University NHS Foundation Trust
+            "PZ120", # Northumbria Healthcare NHS Foundation Trust
+            "PZ167", # UNIVERSITY HOSPITALS OF MORECAMBE BAY NHS FOUNDATION TRUST
+            "PZ172", # WEST HERTFORDSHIRE TEACHING HOSPITALS NHS TRUST
+            "PZ186", # CALDERDALE AND HUDDERSFIELD NHS FOUNDATION TRUST
+            "PZ232", # BARKING, HAVERING AND REDBRIDGE UNIVERSITY HOSPITALS NHS TRUST
+            "PZ246", # NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST
+            "PZ249", # SOUTH TEES HOSPITALS NHS FOUNDATION TRUST
+            "PZ250", # SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST
+        ]:
+            return self.primary_organisation.trust.name
+
         if self.primary_organisation:
             return self.primary_organisation.name
         
