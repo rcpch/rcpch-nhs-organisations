@@ -155,7 +155,6 @@ ORGANISATION_TO_LSOA_LAD_MAPPING = [
     {"lsoa_code": "E01031274", "lad_code": "E07000222", "ods_code": "RJC79"},
     {"lsoa_code": "E01026125", "lad_code": "E07000138", "ods_code": "RWDDA"},
     {"lsoa_code": "E01023800", "lad_code": "E07000243", "ods_code": "RWH01"},
-    {"lsoa_code": "E01023946", "lad_code": "E07000241", "ods_code": "RWH20"},
     {"lsoa_code": "E01015713", "lad_code": "E06000032", "ods_code": "RGT2X"},
     {"lsoa_code": "E01015713", "lad_code": "E06000032", "ods_code": "RC971"},
     {"lsoa_code": "E01023002", "lad_code": "E07000091", "ods_code": "RW1Y0"},
