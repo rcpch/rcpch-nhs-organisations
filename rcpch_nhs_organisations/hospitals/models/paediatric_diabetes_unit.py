@@ -56,19 +56,19 @@ class PaediatricDiabetesUnit(models.Model):
 
         if organisations.count() > 1:
             if self.pz_code == "PZ024":
-                # RPF01 is the parent organisation for PZ024 (William Harvey Hospital, Ashford)
+                # RVV01 is the parent organisation for PZ024 (William Harvey Hospital, Ashford)
                 return organisations.filter(ods_code="RVV01").get()
             elif self.pz_code == "PZ050":
-                # RPF01 is the parent organisation for PZ024 (Queen Mary's Hospital for Children, Carshalton)
+                # RVR07 is the parent organisation for PZ024 (Queen Mary's Hospital for Children, Carshalton)
                 return organisations.filter(ods_code="RVR07").get()
             elif self.pz_code == "PZ136":
-                # RPF01 is the parent organisation for PZ099 (Manchester Children's Hospital)
+                # R0A03 is the parent organisation for PZ099 (Manchester Children's Hospital)
                 return organisations.filter(ods_code="R0A03").get()
             elif self.pz_code == "PZ206":
-                # RM401 is the parent organisation for PZ206 (Trafford General Hospital)
+                # RM321 is the parent organisation for PZ206 (Trafford General Hospital)
                 return organisations.filter(ods_code="RM321").get()
             elif self.pz_code == "PZ230":
-                # RM230 is the parent organisation for PZ230 (Conquest Hospital, Hastings)
+                # RXC01 is the parent organisation for PZ230 (Conquest Hospital, Hastings)
                 return organisations.filter(ods_code="RXC01").get()
             elif self.pz_code == "PZ249":
                 # PZ249 is South Tees Hospital NHS Foundation Trust
