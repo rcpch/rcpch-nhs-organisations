@@ -83,7 +83,7 @@ PZ_CODES = [
     {"ods_code": "RXWAT", "npda_code": "PZ094", "active": 1},
     {"ods_code": "RK950", "npda_code": "PZ096", "active": 1},
     {"ods_code": "RXK02", "npda_code": "PZ097", "active": 1},
-    {"ods_code": "RWH", "npda_code": "PZ099", "active": 1},
+    {"ods_code": "RWH20", "npda_code": "PZ099", "active": 1},
     {
         "ods_code": "RH880",
         "npda_code": "PZ100",
@@ -716,7 +716,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN08",
     },
     {
-        "ods_code": "RWH",
+        "ods_code": "RWH20",
         "npda_code": "PZ099",
         "network_name": "East of England",
         "network_code": "PN06",

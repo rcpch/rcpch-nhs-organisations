@@ -61,9 +61,6 @@ class PaediatricDiabetesUnit(models.Model):
             elif self.pz_code == "PZ050":
                 # RPF01 is the parent organisation for PZ024 (Queen Mary's Hospital for Children, Carshalton)
                 return organisations.filter(ods_code="RVR07").get()
-            elif self.pz_code == "PZ099":
-                # RPF01 is the parent organisation for PZ099 (Lister Hospital, Stevenage)
-                return organisations.filter(ods_code="RWH01").get()
             elif self.pz_code == "PZ136":
                 # RPF01 is the parent organisation for PZ099 (Manchester Children's Hospital)
                 return organisations.filter(ods_code="R0A03").get()

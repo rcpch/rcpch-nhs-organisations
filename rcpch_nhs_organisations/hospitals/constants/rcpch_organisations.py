@@ -8577,6 +8577,31 @@ RCPCH_ORGANISATIONS = [
         "Fax": "",
         "LocalAuthority": "",
     },  # Addition 15.07.2024 - PZ032 is Great North Children's Hospital, not the Royal Victoria Infirmary (although they are on the same site)
+    {
+        "OrganisationID": "",
+        "OrganisationCode": "RWH20",
+        "OrganisationType": "",
+        "SubType": "",
+        "Sector": "",
+        "OrganisationStatus": "",
+        "IsPimsManaged": "",
+        "OrganisationName": "QUEEN ELIZABETH I I HOSPITALL",
+        "Address1": "HOWLANDS",
+        "Address2": "WELWYN GARDEN CITY",
+        "Address3": "",
+        "City": "WELWYN GARDEN CITY",
+        "County": "HERTFORDSHIRE",
+        "Postcode": "AL7 4HQ",
+        "Latitude": "54.98022",
+        "Longitude": "-1.618869",
+        "ParentODSCode": "RWH",
+        "ParentName": "EAST AND NORTH HERTFORDSHIRE NHS TRUST",
+        "Phone": "01438 314333",
+        "Email": "",
+        "Website": "https://www.enherts-tr.nhs.uk/hospitals/new-qeii-hospital/",
+        "Fax": "",
+        "LocalAuthority": "E07000241",
+    },
 ]
 
 JERSEY_ORGANISATION = {
