@@ -34,7 +34,7 @@ PZ_CODES = [
     {"ods_code": "RXQ02", "npda_code": "PZ028", "active": 1},
     {"ods_code": "RBT20", "npda_code": "PZ030", "active": 1},
     {"ods_code": "RYR16", "npda_code": "PZ031", "active": 1},
-    {"ods_code": "RTD02", "npda_code": "PZ032", "active": 1},
+    {"ods_code": "RTD10", "npda_code": "PZ032", "active": 1},
     {"ods_code": "RTG02", "npda_code": "PZ033", "active": 1},
     {"ods_code": "RN541", "npda_code": "PZ034", "active": 1},
     {"ods_code": "RHW01", "npda_code": "PZ035", "active": 1},
