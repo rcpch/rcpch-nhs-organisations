@@ -8,7 +8,7 @@
 
 ## About this project
 
-This is a Django 4.0 (django rest framework) project written in python 3.11.0, with a postgresql database. It (will) create a versioned database of all hospitals in the UK, updated periodically from the [Organisation Data Service](https://digital.nhs.uk/developer/api-catalogue/organisation-data-service-ord). This information in turn will be checked for accuracy with NHS clinicians across the UK to maintain accuracy. It will run as a service.
+This is a Django 5 (django rest framework) project written in python 3.11.0, with a postgresql database. It (will) create a versioned database of all hospitals in the UK, updated periodically from the [Organisation Data Service](https://digital.nhs.uk/developer/api-catalogue/organisation-data-service-ord). This information in turn will be checked for accuracy with NHS clinicians across the UK to maintain accuracy. It will run as a service.
 
 ### Getting started
 
