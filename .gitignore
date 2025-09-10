@@ -8,3 +8,5 @@ logs
 documentation/site
 
 .DS_Store
+
+build_info.json
