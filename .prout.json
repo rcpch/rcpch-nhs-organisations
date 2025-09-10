@@ -1,0 +1,5 @@
+{
+  "checkpoints": {
+    "LIVE": { "url": "https://rcpch-nhs-organisations.azurewebsites.net/", "overdue": "10M" }
+  }
+}
