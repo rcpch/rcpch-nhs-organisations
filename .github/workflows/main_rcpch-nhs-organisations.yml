@@ -29,6 +29,9 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+      
+      - name: Burn in build info
+        run: s/get-build-info > build_info.json
 
       - name: "Deploy to Azure Web App"
         uses: azure/webapps-deploy@v2 # Update the version to v2
