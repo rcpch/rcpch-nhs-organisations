@@ -454,8 +454,8 @@ PZ_CODES_NETWORKS = [
     {
         "ods_code": "RTG02",
         "npda_code": "PZ033",
-        "network_name": "West Midlands",
-        "network_code": "PN08",
+        "network_name": "East Midlands",
+        "network_code": "PN09",
     },
     {
         "ods_code": "RN541",
