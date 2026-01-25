@@ -348,7 +348,7 @@ class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
     serializers.ModelSerializer
 ):
     organisations = OrganisationWithLSOAAndLADSerializer(
-        many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
+        many=True, read_only=True
     )
 
     class Meta:
@@ -370,7 +370,7 @@ class OrganisationWithParentSerializer(GeoFeatureModelSerializer):
     parent = serializers.SerializerMethodField()
 
     class Meta:
-        geo_field = "geom"
+        geo_field = "geocode_coordinates"
         model = Organisation
         fields = ["ods_code", "name", "parent"]
 
@@ -393,13 +393,12 @@ class OrganisationWithParentSerializer(GeoFeatureModelSerializer):
     ]
 )
 class PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer(
-    GeoFeatureModelSerializer
+    serializers.ModelSerializer
 ):
     organisations = OrganisationWithParentSerializer(
-        many=True, read_only=True, source="paediatric_diabetes_unit_organisations"
+        many=True, read_only=True
     )
 
     class Meta:
-        geo_field = "geom"
         model = PaediatricDiabetesUnit
         fields = ["pz_code", "organisations", "active", "updated_at", "name"]

@@ -293,10 +293,19 @@ PZ_CODES_NETWORKS = [
         "network_name": "East of England",
         "network_code": "PN06",
     },
+    # INACTIVE 05/04/25
+    # Was PZ003 (Pinderfields General Hospital).
+    # Split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary).
     {
         "ods_code": "RXF05",  # PINDERFIELDS GENERAL HOSPITAL
         "npda_code": "PZ251",
-        # "npda_code": "PZ003", deprecated 5/4/2025
+        "npda_code": "PZ003",
+        "network_name": "Yorkshire & Humber",
+        "network_code": "PN10",
+    },
+    {
+        "ods_code": "RXF05",  # PINDERFIELDS GENERAL HOSPITAL
+        "npda_code": "PZ251",
         "network_name": "Yorkshire & Humber",
         "network_code": "PN10",
     },

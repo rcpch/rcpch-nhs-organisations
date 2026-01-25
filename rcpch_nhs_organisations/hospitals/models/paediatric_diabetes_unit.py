@@ -45,6 +45,18 @@ class PaediatricDiabetesUnit(models.Model):
     )
 
     @property
+    def organisations(self):
+        # Fix circular import
+        from .organisation import Organisation
+
+        match self.pz_code:
+            case "PZ003":
+                # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
+                return Organisation.objects.filter(ods_code="RXF05")
+
+        return self.paediatric_diabetes_unit_organisations.all()
+
+    @property
     def primary_organisation(self):
         # Fix circular import
         from .organisation import Organisation
@@ -52,6 +64,10 @@ class PaediatricDiabetesUnit(models.Model):
         organisations = Organisation.objects.filter(paediatric_diabetes_unit=self).all()
 
         if not organisations.exists():
+            if self.pz_code == "PZ003":
+                # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
+                return Organisation.objects.get(ods_code="RXF05")
+            
             return None
 
         if organisations.count() > 1:

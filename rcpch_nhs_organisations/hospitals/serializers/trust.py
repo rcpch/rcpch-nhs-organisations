@@ -106,8 +106,13 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
         ]
 
     def get_parent(self, obj):
-        # there are deprecated PDUs that don't have an organisation
-        if PaediatricDiabetesUnit.objects.filter(pz_code=obj.pz_code).exists():
+        # there are deprecated PDUs that don't have an organisation in the database
+        if obj.pz_code == "PZ003":
+            # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
+            # It was RXF05 at the time. Look up RXF rather than the current trust parent just in case they move but keep the
+            # same ODS code (it happens!)
+            return TrustSerializer(Trust.objects.get(ods_code="RXF")).data
+        elif PaediatricDiabetesUnit.objects.filter(pz_code=obj.pz_code).exists():
             pdu = PaediatricDiabetesUnit.objects.get(pz_code=obj.pz_code)
         else:
             return None
