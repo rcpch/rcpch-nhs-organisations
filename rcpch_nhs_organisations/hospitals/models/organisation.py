@@ -59,6 +59,11 @@ class Organisation(TimeStampAbstractBaseClass):
         related_name="paediatric_diabetes_unit_organisations",
     )
 
+    inactive_paediatric_diabetes_units = models.ManyToManyField(
+        to=PaediatricDiabetesUnit,
+        blank=True,
+    )
+
     trust = models.ForeignKey(
         to=Trust,
         on_delete=models.CASCADE,
