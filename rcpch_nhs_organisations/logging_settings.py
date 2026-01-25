@@ -5,12 +5,12 @@ import os
 
 # LOGGING ENV VARS
 CONSOLE_LOG_LEVEL = os.getenv(
-    "CONSOLE_LOG_LEVEL", "DEBUG"
+    "CONSOLE_LOG_LEVEL", "INFO"
 )  # For hospitals specific logs
 CONSOLE_DJANGO_LOG_LEVEL = os.getenv(
-    "CONSOLE_DJANGO_LOG_LEVEL", "DEBUG"
+    "CONSOLE_DJANGO_LOG_LEVEL", "INFO"
 )  # For django logs
-FILE_LOG_LEVEL = os.getenv("FILE_LOG_LEVEL", "DEBUG")
+FILE_LOG_LEVEL = os.getenv("FILE_LOG_LEVEL", "INFO")
 
 
 # Define the default django logger settings
