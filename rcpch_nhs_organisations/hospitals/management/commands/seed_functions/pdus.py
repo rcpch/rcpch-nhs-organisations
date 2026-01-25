@@ -14,8 +14,39 @@ from rcpch_nhs_organisations.hospitals.general_functions import (
     fetch_by_postcode,
 )
 
+from rcpch_nhs_organisations.hospitals.models import (
+    Organisation,
+    PaediatricDiabetesUnit,
+    Trust,
+    LocalHealthBoard
+)
+
 # logger setup
 logger = logging.getLogger("hospitals")
+
+def update_pdu_for_parent(parent_model, parent_model_field, pdu):
+    paediatric_diabetes_unit, created = (
+        PaediatricDiabetesUnit.objects.update_or_create(
+            pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
+        )
+    )
+
+    parent = parent_model.objects.get(ods_code=pdu["ods_code"])
+
+    organisations = Organisation.objects.filter(**{parent_model_field: parent})
+
+    if pdu["active"]:
+        organisations.update(paediatric_diabetes_unit=paediatric_diabetes_unit)
+
+        for organisation in organisations:
+            organisation.inactive_paediatric_diabetes_units.remove(paediatric_diabetes_unit)
+    else:
+        for organisation in organisations:
+            organisation.inactive_paediatric_diabetes_units.add(paediatric_diabetes_unit)
+
+    logger.info(
+        f"Updated {parent} and all child organisations ({', '.join([org.name for org in organisations])}) with PDU {pdu['npda_code']}"
+    )
 
 
 def seed_pdus():
@@ -29,12 +60,6 @@ def seed_pdus():
 
     """
 
-    # Get models
-    Organisation = apps.get_model("hospitals", "Organisation")
-    Trust = apps.get_model("hospitals", "Trust")
-    LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
-    PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
-
     if PaediatricDiabetesUnit.objects.exists():
         logger.info(
             "Paediatric Diabetes Units already exist in the database. Updating..."
@@ -42,53 +67,31 @@ def seed_pdus():
 
     logger.info("Paediatric Diabetes Units being seeded...")
     for pdu in PZ_CODES:
-        if Organisation.objects.filter(ods_code=pdu["ods_code"]).exists():
+        try:
+            organisation = Organisation.objects.get(ods_code=pdu["ods_code"])
+
             # the ods_code provided is for an existing organisation, update to include PDU
             paediatric_diabetes_unit, created = (
                 PaediatricDiabetesUnit.objects.update_or_create(
                     pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
                 )
             )
-            Organisation.objects.filter(ods_code=pdu["ods_code"]).update(
-                paediatric_diabetes_unit=paediatric_diabetes_unit
-            )
+
+            if pdu["active"]:
+                organisation.paediatric_diabetes_unit = paediatric_diabetes_unit
+                organisation.inactive_paediatric_diabetes_units.remove(paediatric_diabetes_unit)
+                organisation.save()
+            else:
+                organisation.inactive_paediatric_diabetes_units.add(paediatric_diabetes_unit)
+
             logger.info(
-                f"Updated Organisation {Organisation.objects.get(ods_code=pdu['ods_code'])} with PDU {pdu['npda_code']}"
+                f"Updated Organisation {organisation} with PDU {pdu['npda_code']}"
             )
-        else:
+        except Organisation.DoesNotExist:
             if Trust.objects.filter(ods_code=pdu["ods_code"]).exists():
-                # the ods_code provided is for a Trust, update all the related organisations
-
-                # create the PDU
-                paediatric_diabetes_unit, created = (
-                    PaediatricDiabetesUnit.objects.update_or_create(
-                        pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
-                    )
-                )
-                # get the trust
-                trust = Trust.objects.filter(ods_code=pdu["ods_code"]).get()
-                # Update trust's child organisations and update their affiliation with the new PDU - exclude any organisations that already have a PDU
-                Organisation.objects.filter(trust=trust).exclude(
-                    paediatric_diabetes_unit__isnull=False
-                ).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
-                logger.info(
-                    f"Updated Trust {trust} and all child organisations({Organisation.objects.filter(trust=trust)}) with PDU {pdu['npda_code']}"
-                )
-
+                update_pdu_for_parent(Trust, 'trust', pdu)
             elif LocalHealthBoard.objects.filter(ods_code=pdu["ods_code"]).exists():
-                # the ods_code provided is for a Local Health Board, update all the related organisations
-                # create the PDU
-                paediatric_diabetes_unit, created = (
-                    PaediatricDiabetesUnit.objects.update_or_create(
-                        pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
-                    )
-                )
-                # get the local health board
-                lhb = LocalHealthBoard.objects.get(ods_code=pdu["ods_code"])
-                # update all child organisations in Local Health Board - exclude any organisations that already have a PDU
-                Organisation.objects.filter(local_health_board=lhb).exclude(
-                    paediatric_diabetes_unit__isnull=False
-                ).update(paediatric_diabetes_unit=paediatric_diabetes_unit)
+                update_pdu_for_parent(LocalHealthBoard, 'local_health_board', pdu)
             else:
                 # this organisation is associated with a pz code but does not exist in the organisation list we have
                 # Fetch therefore from the Spine
@@ -178,10 +181,15 @@ def seed_pdus():
                                 geocode_coordinates=new_point,
                                 published_at=ORD_organisation["Date"][0]["Start"],
                                 openuk_network=child_organisations.first().openuk_network,
-                                paediatric_diabetes_unit=paediatric_diabetes_unit,
                                 london_borough=child_organisations.first().london_borough,
                                 country=child_organisations.first().country,
                             )
+                            if pdu["active"]:
+                                new_organisation.paediatric_diabetes_unit = paediatric_diabetes_unit
+                                new_organisation.save()
+                            else:
+                                new_organisation.inactive_paediatric_diabetes_units.add(paediatric_diabetes_unit)
+
                             if child_organisations.first().country.name == "England":
                                 new_organisation.trust = parent_trust
                                 new_organisation.integrated_care_board = (
