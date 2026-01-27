@@ -59,6 +59,12 @@ class PaediatricDiabetesUnit(models.Model):
             case "PZ125":
                 # PZ125 (THE MAIDSTONE HOSPITAL) merged into PZ253 MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST (Jan 25)
                 return Organisation.objects.filter(ods_code="RWF03")
+            case "PZ080":
+                # PZ080 (SUNDERLAND ROYAL HOSPITAL) merged into PZ250 SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST (Mar 25)
+                return Organisation.objects.filter(ods_code="R0B01")
+            case "PZ141":
+                # PZ141 (SOUTH TYNESIDE DISTRICT GENERAL HOSPITAL) merged into PZ250 SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST (Mar 25)
+                return Organisation.objects.filter(ods_code="R0B0Q")
 
         return self.paediatric_diabetes_unit_organisations.all()
 
