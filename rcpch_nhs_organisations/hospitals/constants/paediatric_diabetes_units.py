@@ -71,7 +71,7 @@ PZ_CODES = [
     {"ods_code": "R1F01", "npda_code": "PZ075", "active": 1},
     {"ods_code": "RDEE4", "npda_code": "PZ076", "active": 1},
     {"ods_code": "RJE01", "npda_code": "PZ078", "active": 1},
-    # {"ods_code": "R0B01", "npda_code": "PZ080"}, # deprecated 28/3/25 in favour of PZ250
+    {"ods_code": "R0B01", "npda_code": "PZ080", "active": 0}, # deprecated 28/3/25 in favour of PZ250
     {"ods_code": "R0B01", "npda_code": "PZ250", "active": 1},
     {"ods_code": "RJ122", "npda_code": "PZ082", "active": 1, "unit_name": "EVELINA LONDON CHILDREN'S HOSPITAL"},
     {"ods_code": "RWP31", "npda_code": "PZ084", "active": 1},
@@ -134,7 +134,7 @@ PZ_CODES = [
     {"ods_code": "RJC02", "npda_code": "PZ138", "active": 1},
     {"ods_code": "RA723", "npda_code": "PZ139", "active": 1},
     {"ods_code": "RMP01", "npda_code": "PZ140", "active": 1},
-    # {"ods_code": "R0B0Q", "npda_code": "PZ141"}, deprecated 28/3/25 in favour of PZ250
+    {"ods_code": "R0B0Q", "npda_code": "PZ141", "active": 0}, # deprecated 28/3/25 in favour of PZ250
     {"ods_code": "R0B0Q", "npda_code": "PZ250", "active": 1},
     {"ods_code": "RRK98", "npda_code": "PZ144", "active": 1},
     {"ods_code": "RD816", "npda_code": "PZ145", "active": 1},
@@ -672,12 +672,12 @@ PZ_CODES_NETWORKS = [
         "network_name": "West Midlands",
         "network_code": "PN08",
     },
-    # {
-    #     "ods_code": "R0B01",
-    #     "npda_code": "PZ080",
-    #     "network_name": "North East & North Cumbria",
-    #     "network_code": "PN12",
-    # }, deprecated 28/3/25 in favour of PZ250
+    {
+        "ods_code": "R0B01",
+        "npda_code": "PZ080",
+        "network_name": "North East & North Cumbria",
+        "network_code": "PN12",
+    }, # deprecated 28/3/25 in favour of PZ250
     {
         "ods_code": "R0B01",
         "npda_code": "PZ250",
@@ -936,12 +936,12 @@ PZ_CODES_NETWORKS = [
         "network_name": "North West",
         "network_code": "PN11",
     },
-    # {
-    #     "ods_code": "R0B0Q",
-    #     "npda_code": "PZ141",
-    #     "network_name": "North East & North Cumbria",
-    #     "network_code": "PN12",
-    # }, # deprecated 28/3/25 in favour of PZ250
+    {
+        "ods_code": "R0B0Q",
+        "npda_code": "PZ141",
+        "network_name": "North East & North Cumbria",
+        "network_code": "PN12",
+    }, # deprecated 28/3/25 in favour of PZ250
     {
         "ods_code": "R0B0Q",
         "npda_code": "PZ250",
@@ -1182,12 +1182,12 @@ PZ_CODES_NETWORKS = [
         "network_name": "London & South East",
         "network_code": "PN05",
     },
-    # {
-    #     "ods_code": "RM3",  # Salford Royal Hospital is the parent, Pennine Acute Hospitals NHS Trust - the PZ code is currently not in use
-    #     "npda_code": "PZ206",
-    #     "network_name": "Unknown",
-    #     "network_code": None,
-    # },
+    {
+        "ods_code": "RM3",  # Salford Royal Hospital is the parent, Pennine Acute Hospitals NHS Trust - the PZ code is currently not in use
+        "npda_code": "PZ206",
+        "network_name": "North West",
+        "network_code": "PN11",
+    },
     {
         "ods_code": "RTP04",
         "npda_code": "PZ213",

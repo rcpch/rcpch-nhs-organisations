@@ -121,6 +121,10 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
             "PZ216": "RWF",
             # PZ125 (THE MAIDSTONE HOSPITAL) merged into PZ253 MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST (Jan 25)
             "PZ125": "RWF",
+            # PZ080 (SUNDERLAND ROYAL HOSPITAL) merged into PZ250 SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST (Mar 25)
+            "PZ080": "R0B",
+            # PZ141 (SOUTH TYNESIDE DISTRICT GENERAL HOSPITAL) merged into PZ250 SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST (Mar 25)
+            "PZ141": "R0B",
         }
 
         if obj.pz_code in inactive_pdu_to_trust_mapping:
