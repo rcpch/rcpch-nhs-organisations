@@ -106,7 +106,6 @@ PZ_CODES = [
     {"ods_code": "RTFFS", "npda_code": "PZ120", "active": 1},
     {"ods_code": "RLT09", "npda_code": "PZ121", "active": 1},
     {"ods_code": "RKB01", "npda_code": "PZ122", "active": 1},
-    {"ods_code": "RWF03", "npda_code": "PZ125", "active": 1},
     {"ods_code": "RPA02", "npda_code": "PZ126", "active": 1},
     {"ods_code": "RGP75", "npda_code": "PZ127", "active": 1},
     {"ods_code": "RWDLA", "npda_code": "PZ128", "active": 1},
@@ -187,7 +186,6 @@ PZ_CODES = [
     },  # Pennine Acute Hospitals NHS Trust was RW6 and merged with Salford Royal NHS Foundation Trust, RM3 - currently not in use
     {"ods_code": "RTP04", "npda_code": "PZ213", "active": 1},
     {"ods_code": "RJZ01", "npda_code": "PZ215", "active": 1},
-    {"ods_code": "RWFTW", "npda_code": "PZ216", "active": 1},
     {"ods_code": "RDU01", "npda_code": "PZ218", "active": 1},
     {"ods_code": "RCUEF", "npda_code": "PZ219", "active": 1},
     {"ods_code": "RC979", "npda_code": "PZ220", "active": 1},  # Bedford Hospital
@@ -281,6 +279,28 @@ PZ_CODES = [
         "ods_code": "RM317",
         "npda_code": "PZ246",
         "active": 1,
+    },
+    # PZ216 and PZ125 merged into PZ253 (Jan 25)
+    # https://github.com/rcpch/national-paediatric-diabetes-audit/issues/1292
+    {
+        "ods_code": "RWFTW",
+        "npda_code": "PZ216",
+        "active": 1
+    },
+    {
+        "ods_code": "RWF03",
+        "npda_code": "PZ125",
+        "active": 1
+    },
+    {
+        "ods_code": "RWFTW",
+        "npda_code": "PZ253",
+        "active": 1
+    },
+    {
+        "ods_code": "RWF03",
+        "npda_code": "PZ253",
+        "active": 1
     },
     {"ods_code": "8HV48", "npda_code": "PZ999", "active": 1},  # RCPCH
 ]
@@ -839,12 +859,6 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN08",
     },
     {
-        "ods_code": "RWF03",
-        "npda_code": "PZ125",
-        "network_name": "London & South East",
-        "network_code": "PN05",
-    },
-    {
         "ods_code": "RPA02",
         "npda_code": "PZ126",
         "network_name": "London & South East",
@@ -1187,12 +1201,6 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN05",
     },
     {
-        "ods_code": "RWFTW",
-        "npda_code": "PZ216",
-        "network_name": "London & South East",
-        "network_code": "PN05",
-    },
-    {
         "ods_code": "RDU01",
         "npda_code": "PZ218",
         "network_name": "London & South East",
@@ -1366,4 +1374,30 @@ PZ_CODES_NETWORKS = [
         "network_name": "North West",
         "network_code": "PN11",
     },  # Northern Care Alliance
+    # PZ216 and PZ125 merged into PZ253 (Jan 25)
+    # https://github.com/rcpch/national-paediatric-diabetes-audit/issues/1292
+    {
+        "ods_code": "RWFTW",
+        "npda_code": "PZ216",
+        "network_name": "London & South East",
+        "network_code": "PN05",
+    },
+    {
+        "ods_code": "RWF03",
+        "npda_code": "PZ125",
+        "network_name": "London & South East",
+        "network_code": "PN05",
+    },
+    {
+        "ods_code": "RWFTW",
+        "npda_code": "PZ253",
+        "network_name": "London & South East",
+        "network_code": "PN05",
+    },
+    {
+        "ods_code": "RWF03",
+        "npda_code": "PZ253",
+        "network_name": "London & South East",
+        "network_code": "PN05",
+    },
 ]

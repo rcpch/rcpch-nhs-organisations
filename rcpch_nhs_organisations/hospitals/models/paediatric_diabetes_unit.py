@@ -53,6 +53,12 @@ class PaediatricDiabetesUnit(models.Model):
             case "PZ003":
                 # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
                 return Organisation.objects.filter(ods_code="RXF05")
+            case "PZ216":
+                # PZ216 (THE TUNBRIDGE WELLS HOSPITAL) merged into PZ253 MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST (Jan 25)
+                return Organisation.objects.filter(ods_code="RWFTW")
+            case "PZ125":
+                # PZ125 (THE MAIDSTONE HOSPITAL) merged into PZ253 MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST (Jan 25)
+                return Organisation.objects.filter(ods_code="RWF03")
 
         return self.paediatric_diabetes_unit_organisations.all()
 
@@ -61,13 +67,9 @@ class PaediatricDiabetesUnit(models.Model):
         # Fix circular import
         from .organisation import Organisation
 
-        organisations = Organisation.objects.filter(paediatric_diabetes_unit=self).all()
+        organisations = self.organisations
 
         if not organisations.exists():
-            if self.pz_code == "PZ003":
-                # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
-                return Organisation.objects.get(ods_code="RXF05")
-            
             return None
 
         if organisations.count() > 1:
@@ -118,6 +120,7 @@ class PaediatricDiabetesUnit(models.Model):
             "PZ246", # NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST
             "PZ249", # SOUTH TEES HOSPITALS NHS FOUNDATION TRUST
             "PZ250", # SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST
+            "PZ253", # MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST
         ]:
             return self.primary_organisation.trust.name
         
