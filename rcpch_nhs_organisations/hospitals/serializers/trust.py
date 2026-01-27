@@ -106,25 +106,34 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
         ]
 
     def get_parent(self, obj):
-        # there are deprecated PDUs that don't have an organisation in the database
-        if obj.pz_code == "PZ003":
-            # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
-            # It was RXF05 at the time. Look up RXF rather than the current trust parent just in case they move but keep the
-            # same ODS code (it happens!)
-            return TrustSerializer(Trust.objects.get(ods_code="RXF")).data
-        elif PaediatricDiabetesUnit.objects.filter(pz_code=obj.pz_code).exists():
+        try:
             pdu = PaediatricDiabetesUnit.objects.get(pz_code=obj.pz_code)
-        else:
+        except PaediatricDiabetesUnit.DoesNotExist:
             return None
 
-        try:
-            # all related organisations for that PaediatricDiabetesUnit should have the same parent
-            # so we can just get the first one
-            organisation = Organisation.objects.filter(
-                paediatric_diabetes_unit=pdu
-            ).first()
-        except Organisation.DoesNotExist:
-            return None
+        # There are inactive PDUs where their organisation is now linked to a new PDU.
+        # Look up the trust which they were linked to before becoming inactive just in case the organisation is
+        # now part of a different trust and has not changed ODS code.
+        inactive_pdu_to_trust_mapping = {
+            # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
+            "PZ003": "RXF",
+            # PZ216 (THE TUNBRIDGE WELLS HOSPITAL) merged into PZ253 MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST (Jan 25)
+            "PZ216": "RWF",
+            # PZ125 (THE MAIDSTONE HOSPITAL) merged into PZ253 MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST (Jan 25)
+            "PZ125": "RWF",
+        }
+
+        if obj.pz_code in inactive_pdu_to_trust_mapping:
+            trust_ods_code = inactive_pdu_to_trust_mapping[obj.pz_code]
+            trust = Trust.objects.get(ods_code=trust_ods_code)
+
+            return TrustSerializer(trust).data
+
+        # all related organisations for that PaediatricDiabetesUnit should have the same parent
+        # so we can just get the first one
+        organisation = Organisation.objects.filter(
+            paediatric_diabetes_unit=pdu
+        ).first()
 
         if not organisation:  # No related organisations found
             return None
