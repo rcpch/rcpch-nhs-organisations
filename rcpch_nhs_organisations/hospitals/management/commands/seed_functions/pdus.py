@@ -45,8 +45,8 @@ def seed_pdus():
         if Organisation.objects.filter(ods_code=pdu["ods_code"]).exists():
             # the ods_code provided is for an existing organisation, update to include PDU
             paediatric_diabetes_unit, created = (
-                PaediatricDiabetesUnit.objects.update_or_create(
-                    pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
+                PaediatricDiabetesUnit.objects.update_or_create(pz_code=pdu["npda_code"],
+                    defaults={"active": pdu["active"], "unit_name": pdu.get("unit_name", None)}
                 )
             )
             Organisation.objects.filter(ods_code=pdu["ods_code"]).update(
@@ -61,8 +61,8 @@ def seed_pdus():
 
                 # create the PDU
                 paediatric_diabetes_unit, created = (
-                    PaediatricDiabetesUnit.objects.update_or_create(
-                        pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
+                    PaediatricDiabetesUnit.objects.update_or_create(pz_code=pdu["npda_code"],
+                        defaults={"active": pdu["active"], "unit_name": pdu.get("unit_name", None)}
                     )
                 )
                 # get the trust
@@ -79,8 +79,8 @@ def seed_pdus():
                 # the ods_code provided is for a Local Health Board, update all the related organisations
                 # create the PDU
                 paediatric_diabetes_unit, created = (
-                    PaediatricDiabetesUnit.objects.update_or_create(
-                        pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
+                    PaediatricDiabetesUnit.objects.update_or_create(pz_code=pdu["npda_code"],
+                        defaults={"active": pdu["active"], "unit_name": pdu.get("unit_name", None)}
                     )
                 )
                 # get the local health board
@@ -136,8 +136,8 @@ def seed_pdus():
 
                     if parent_trust is not None:
                         paediatric_diabetes_unit, created = (
-                            PaediatricDiabetesUnit.objects.update_or_create(
-                                pz_code=pdu["npda_code"], active=pdu["active"], unit_name=pdu.get("unit_name", None)
+                            PaediatricDiabetesUnit.objects.update_or_create(pz_code=pdu["npda_code"],
+                                defaults={"active": pdu["active"], "unit_name": pdu.get("unit_name", None)}
                             )
                         )
 

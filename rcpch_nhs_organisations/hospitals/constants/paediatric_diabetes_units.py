@@ -182,7 +182,7 @@ PZ_CODES = [
     {
         "ods_code": "RM3",
         "npda_code": "PZ206",
-        "active": 1,
+        "active": 0,
     },  # Pennine Acute Hospitals NHS Trust was RW6 and merged with Salford Royal NHS Foundation Trust, RM3 - currently not in use
     {"ods_code": "RTP04", "npda_code": "PZ213", "active": 1},
     {"ods_code": "RJZ01", "npda_code": "PZ215", "active": 1},
