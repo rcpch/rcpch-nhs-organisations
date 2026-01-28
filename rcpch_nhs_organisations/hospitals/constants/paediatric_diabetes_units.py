@@ -285,12 +285,12 @@ PZ_CODES = [
     {
         "ods_code": "RWFTW",
         "npda_code": "PZ216",
-        "active": 1
+        "active": 0
     },
     {
         "ods_code": "RWF03",
         "npda_code": "PZ125",
-        "active": 1
+        "active": 0
     },
     {
         "ods_code": "RWFTW",
