@@ -36,6 +36,7 @@ def seed_organisations():
     england = Country.objects.get(boundary_identifier="E92000001")
     wales = Country.objects.get(boundary_identifier="W92000004")
     jersey = Country.objects.get(boundary_identifier="E92000003")
+    isle_of_man = Country.objects.get(boundary_identifier="M83000003")
 
     if Organisation.objects.all().count() >= 330:
         logger.info(
@@ -103,11 +104,13 @@ def seed_organisations():
                     )
                     organisation.trust = trust
 
-                    organisation.country = england
-
-                    # Jersey is a special case
-                    if rcpch_organisation["OrganisationCode"] == "RGT1W":
-                        organisation.country = jersey
+                    match rcpch_organisation["OrganisationCode"]:
+                        case "RGT1W":
+                            organisation.country = jersey
+                        case "YK301":
+                            organisation.country = isle_of_man
+                        case _:
+                            organisation.country = england
 
                 else:
                     raise Exception(

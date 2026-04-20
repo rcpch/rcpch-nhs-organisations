@@ -12,7 +12,7 @@ from .seed_functions import (
     update_pdu_networks,
     seed_pdus,
     ods_codes_to_abstraction_levels,
-    create_jersey_general_hospital,
+    seed_crown_dependencies,
 )
 
 from .image import rcpch_ascii_art
@@ -78,7 +78,7 @@ class Command(BaseCommand):
             ods_codes_to_abstraction_levels()
             seed_trusts()
             seed_organisations()
-            create_jersey_general_hospital()
+            seed_crown_dependencies()
             seed_pdus()
             seed_paediatric_diabetes_networks()
             update_pdu_networks()

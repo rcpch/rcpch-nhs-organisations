@@ -31,9 +31,9 @@ The ICBs fit neatly inside a smaller number of larger NHS England regions.
 
 [The Department for Health, Social Services and Public Safety for Northern Ireland](https://www.health-ni.gov.uk/) receives money from the UK Treasury and has responsibility for health and social care, public health and public safety. Through its health and social care board, it administers 5 commissioning groups which commmission health and social care services across 5 health and social care trusts with the same boundaries. The Northern Ireland Ambulance Service is national and provides emergency ambulance services to the whole country.
 
-### Channel Islands
+### Crown Dependencies
 
-Jersey is the only island currently included in RCPCH NHS Organisations. It includes shape files of the boundary. Jersey General Hospital is included in the organisations list but as it is its own entity, it appears both as an organisation and a trust. Note that Jersey is not part of the NHS and patients are eligible for a Health Card and free treatment only have 6 months of residence. Not all services are provided on the island, and for some specialist medical and surgical support patients have to be treated in England. As they are not part of the NHS, patients do not have NHS numbers, but they are now included in two UK clinical audits for children - Epilepsy12 and the National Paediatric Diabetes Audit.
+Jersey and the Isle of Man are currently included as we require them for our clinical audits (Epilepsy12 and the National Paediatric Diabetes Unit). Only Jersey current has a shape file of the boundary. Jersey General Hospital is included in the organisations list as both an organisation and a "trust" for convenience in the audits. Noble's Hospital on the Isle of Man is included under Manx Care (the overseeing body on the island) as the "trust". Neither are part of the NHS but specialist treatment can be provided in the UK.
 
 ## Implications for RCPCH NHS Organisations
 

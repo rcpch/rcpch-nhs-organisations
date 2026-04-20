@@ -314,6 +314,11 @@ PZ_CODES = [
         "npda_code": "PZ255",
         "active": 1
     },
+    {
+        "ods_code": "YK301",
+        "npda_code": "PZ256",
+        "active": 1
+    },
     {"ods_code": "8HV48", "npda_code": "PZ999", "active": 1},  # RCPCH
 ]
 
@@ -1423,6 +1428,12 @@ PZ_CODES_NETWORKS = [
     {
         "ods_code": "RXN01",
         "npda_code": "PZ255",
+        "network_name": "North West",
+        "network_code": "PN11",
+    },
+    {
+        "ods_code": "YK301",
+        "npda_code": "PZ256",
         "network_name": "North West",
         "network_code": "PN11",
     }

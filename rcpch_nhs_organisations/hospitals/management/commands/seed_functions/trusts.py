@@ -22,8 +22,8 @@ def seed_trusts():
     # Get models
     Trust = apps.get_model("hospitals", "Trust")
 
-    if Trust.objects.all().count() == 243:
-        logging_message = "243 Trusts already seeded (including Jersey). Skipping..."
+    if Trust.objects.all().count() == 244:
+        logging_message = "244 Trusts already seeded (including Crown Dependencies). Skipping..."
         logger.info(logging_message)
     else:
         logger.info("Adding new Trusts...")

@@ -9,8 +9,14 @@ Seeding the database happens on initial migration (`002_seed_abstraction_levels`
 - Integrated Care Boards
 - NHS England Regions
 - Countries
+  - England
+  - Wales
+  - Scotland
+  - Northern Island
+  - Jersey
+  - Isle of Man
 
-Each one of these is associated with GIS shapes data loaded in from .csv in the `shape_files` folder. This goes through a LayerMapping step beforehand. Countries included are England, Wales, Scotland, Northern Ireland and Jersey.
+Each one of these is associated with GIS shapes data loaded in from .csv in the `shape_files` folder. This goes through a LayerMapping step beforehand. We don't have a shape file for the Isle of Man yet.
 
 Subsequent seeding happens then from the command line and adds:
 
@@ -31,4 +37,4 @@ If only individual models need seeding the `--model` attribute accepts these par
 `trusts`
 `organisations`
 `pdus`
-`all`  - Adds all the above as well as Jersey General Hosptial
+`all`  - Adds all the above as well
