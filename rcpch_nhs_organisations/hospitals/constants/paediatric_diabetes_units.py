@@ -303,6 +303,11 @@ PZ_CODES = [
         "active": 1
     },
     {
+        "ods_code": "RGN80",
+        "npda_code": "PZ254",
+        "active": 1
+    },
+    {
         "ods_code": "RXN01",
         "npda_code": "PZ255",
         "active": 1
@@ -1404,6 +1409,12 @@ PZ_CODES_NETWORKS = [
         "npda_code": "PZ253",
         "network_name": "London & South East",
         "network_code": "PN05",
+    },
+    {
+        "ods_code": "RGN80",
+        "npda_code": "PZ254",
+        "network_name": "East of England",
+        "network_code": "PN06",
     },
     {
         "ods_code": "RXN01",
