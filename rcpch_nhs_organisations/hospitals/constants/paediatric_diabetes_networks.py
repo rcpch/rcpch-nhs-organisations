@@ -10,5 +10,5 @@ PAEDIATRIC_DIABETES_NETWORKS = [
     {"id": "PN09", "name": "East Midlands"},
     {"id": "PN10", "name": "Yorkshire & Humber"},
     {"id": "PN11", "name": "North West"},
-    {"id": "PN12", "name": "North East & North Cumbria"},
+    {"id": "PN12", "name": "North East & North Cumbria"}
 ]

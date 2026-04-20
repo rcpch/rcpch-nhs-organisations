@@ -2196,3 +2196,17 @@ JERSEY_NHS_TRUST = {
     "postcode": "JE1 3Q",
     "country": "JERSEY",
 }  # 01/04/2015 Jersey is a special case as it is both an organisation and a Trust. The ODS code is the same for both.
+
+# The ODS computer does have a whole special Isle of Man structure
+#   Statutory Board (Manx Care) YJ1 > Directorate (Secondary Healthcare) YK3 > Noble's Hospital (Site) YK301
+# but I don't think it's useful to model that until we need to have other Isle of Man providers so I've done the same
+# as Jersey and made it a parent of itself.
+NOBLES_HOSPITAL_ISLE_OF_MAN_NHS_TRUST = {
+    "ods_code": "YK301",
+    "trust_name": "NOBLE'S HOSPITAL",
+    "address_line_1": "STRANG ROAD",
+    "address_line_2": "",
+    "town": "BRADDAN",
+    "postcode": "IM4 3EX",
+    "country": "ISLE OF MAN",
+}

@@ -8605,6 +8605,37 @@ JERSEY_ORGANISATION = {
     "LocalAuthority": "",
 }  # 01/04/2015 - Jersey General Hospital, Jersey, Channel Islands is a special case as it is both an organisation and a trust. It is member of the South West Interest Group Paediatric Epilepsy. It has no other organisational hierarchies
 
+# 20/04/26 - Noble's Hospital is the acute care hospital on the Isle of Man and run by Manx Care which is akin to an English NHS trust.
+NOBLES_HOSPITAL_ISLE_OF_MAN_ORGANISATION = {
+    "OrganisationID": "",
+    "OrganisationCode": "YK301",
+    "OrganisationType": "",
+    "SubType": "",
+    "Sector": "",
+    "OrganisationStatus": "",
+    "IsPimsManaged": "",
+    "OrganisationName": "NOBLE'S HOSPITAL",
+    "Address1": "STRANG ROAD",
+    "Address2": "",
+    "Address3": "",
+    "City": "BRADDAN",
+    "County": "ISLE OF MAN",
+    "Postcode": "IM4 4RJ",
+    "Latitude": "54.172632273296806",
+    "Longitude": "-4.505652859851688",
+    # The ODS computer does have a whole special Isle of Man structure
+    #   Statutory Board (Manx Care) YJ1 > Directorate (Secondary Healthcare) YK3 > Noble's Hospital (Site) YK301
+    # but I don't think it's useful to model that until we need to have other Isle of Man providers so I've done the same
+    # as Jersey and made it a parent of itself.
+    "ParentODSCode": "YK301", 
+    "ParentName": "NOBLE'S HOSPITAL",
+    "Phone": "01624650000",
+    "Email": "",
+    "Website": "https://www.gov.im/categories/health-and-wellbeing/hospitals-and-emergency-treatment/nobles-hospital/",
+    "Fax": "",
+    "LocalAuthority": "",
+}
+
 """
 Steps to update organisation in the console once created in the admin
 from django.contrib.gis.geos import Point
