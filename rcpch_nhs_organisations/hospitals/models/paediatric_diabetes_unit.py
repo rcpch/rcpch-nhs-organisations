@@ -127,6 +127,7 @@ class PaediatricDiabetesUnit(models.Model):
             "PZ249", # SOUTH TEES HOSPITALS NHS FOUNDATION TRUST
             "PZ250", # SOUTH TYNESIDE AND SUNDERLAND NHS FOUNDATION TRUST
             "PZ253", # MAIDSTONE AND TUNBRIDGE WELLS NHS TRUST
+            "PZ254", # NORTH WEST ANGLIA NHS FOUNDATION TRUST
         ]:
             return self.primary_organisation.trust.name
         

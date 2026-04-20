@@ -302,6 +302,13 @@ PZ_CODES = [
         "npda_code": "PZ253",
         "active": 1
     },
+    # PZ086 and PZ131 merged into PZ254 (for 26/27 audit year onwards)
+    # https://github.com/rcpch/national-paediatric-diabetes-audit/issues/1349
+    {
+        "ods_code": "RGN80",
+        "npda_code": "PZ254",
+        "active": 1
+    },
     {
         "ods_code": "RXN01",
         "npda_code": "PZ255",
@@ -1404,6 +1411,14 @@ PZ_CODES_NETWORKS = [
         "npda_code": "PZ253",
         "network_name": "London & South East",
         "network_code": "PN05",
+    },
+    # PZ086 and PZ131 merged into PZ254 (for 26/27 audit year onwards)
+    # https://github.com/rcpch/national-paediatric-diabetes-audit/issues/1349
+    {
+        "ods_code": "RGN80",
+        "npda_code": "PZ254",
+        "network_name": "East of England",
+        "network_code": "PN06",
     },
     {
         "ods_code": "RXN01",
