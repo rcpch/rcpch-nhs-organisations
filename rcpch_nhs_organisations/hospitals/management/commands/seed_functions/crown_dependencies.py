@@ -17,12 +17,9 @@ from rcpch_nhs_organisations.hospitals.constants import (
 logger = logging.getLogger(__name__)
 
 
-def create_crown_dependency_hospital(country, organisation, trust):
+def create_crown_dependency_hospital(country, organisation, trust, openuk_network):
     Organisation = apps.get_model("hospitals", "Organisation")
     Trust = apps.get_model("hospitals", "Trust")
-    OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
-
-    swipe = OPENUKNetwork.objects.get(boundary_identifier="SWIPE")
 
     if Organisation.objects.filter(
         ods_code=organisation["OrganisationCode"]
@@ -66,7 +63,7 @@ def create_crown_dependency_hospital(country, organisation, trust):
         country=country,
         trust=trust,
         local_health_board=None,
-        openuk_network=swipe,
+        openuk_network=openuk_network,
         nhs_england_region=None,
         integrated_care_board=None,
         london_borough=None,
@@ -78,10 +75,15 @@ def create_crown_dependency_hospital(country, organisation, trust):
 def seed_crown_dependencies():
     Country = apps.get_model("hospitals", "Country")
 
+    OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
+
+    swipe = OPENUKNetwork.objects.get(boundary_identifier="SWIPE")
+
     create_crown_dependency_hospital(
         country=Country.objects.get(boundary_identifier="E92000003"),
         organisation=JERSEY_ORGANISATION,
-        trust=JERSEY_NHS_TRUST
+        trust=JERSEY_NHS_TRUST,
+        openuk_network=swipe
     )
 
     create_crown_dependency_hospital(
