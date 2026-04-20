@@ -89,5 +89,6 @@ def seed_crown_dependencies():
     create_crown_dependency_hospital(
         country=Country.objects.get(boundary_identifier="M83000003"),
         organisation=NOBLES_HOSPITAL_ISLE_OF_MAN_ORGANISATION,
-        trust=NOBLES_HOSPITAL_ISLE_OF_MAN_NHS_TRUST
+        trust=NOBLES_HOSPITAL_ISLE_OF_MAN_NHS_TRUST,
+        openuk_network=None
     )

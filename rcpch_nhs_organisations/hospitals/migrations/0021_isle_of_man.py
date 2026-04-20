@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(
-            code=rcpch_nhs_organisations.hospitals.migrations.0021_isle_of_man.load,
+            code=load,
         ),
         migrations.AlterField(
             model_name='organisation',
