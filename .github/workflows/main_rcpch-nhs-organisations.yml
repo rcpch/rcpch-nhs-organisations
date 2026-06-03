@@ -17,13 +17,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           lfs: true # ensures large files are downloaded using Git LFS
 
       - name: Set up Python version
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1
         with:
           python-version: "3.11"
 
@@ -34,7 +34,7 @@ jobs:
         run: s/get-build-info > build_info.json
 
       - name: "Deploy to Azure Web App"
-        uses: azure/webapps-deploy@v2 # Update the version to v2
+        uses: azure/webapps-deploy@5cfb776471c748b351e1ebf5770e208a54ace016 # v2
         with:
           app-name: "RCPCH-NHS-organisations"
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_A76B7421A08D44778EBB49AB30B51B3D }}
@@ -46,10 +46,10 @@ jobs:
     needs: build-and-deploy
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python version
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1
         with:
           python-version: "3.11"
 
@@ -64,7 +64,7 @@ jobs:
         run: mkdocs build --config-file documentation/mkdocs.yml --verbose || exit 1
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: documentation/site
@@ -74,10 +74,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python version
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1
         with:
           python-version: "3.11"
 
@@ -95,7 +95,7 @@ jobs:
         run: ls -la documentation/site || echo "MkDocs build failed or output directory is missing!"
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: documentation/site
