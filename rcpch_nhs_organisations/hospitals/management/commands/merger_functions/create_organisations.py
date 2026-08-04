@@ -21,7 +21,7 @@ from rcpch_nhs_organisations.hospitals.constants import (
 logger = logging.getLogger("hospitals")
 
 
-def create_organisations(self, organisations):
+def create_organisations(self, organisations, dry_run=False):
     """
     Create organisations from a list of ODS codes by looking them up on the Spine.
     Also fetches the longitude and latitude of the organisation's postcode.
@@ -179,46 +179,51 @@ def create_organisations(self, organisations):
 
             # save the new organisation
             try:
-                self.stdout.write(
-                    f"Saving new organisation {spine_result['Name']} from Spine..."
-                )
+                if dry_run:
+                    self.stdout.write(
+                        f"Would save new organisation {spine_result['Name']} from Spine..."
+                    )
+                else:
+                    self.stdout.write(
+                        f"Saving new organisation {spine_result['Name']} from Spine..."
+                    )
 
-                new_organisation = Organisation.objects.create(
-                    ods_code=spine_result["OrgId"]["extension"],
-                    name=spine_result["Name"],
-                    address1=spine_result["GeoLoc"]["Location"]["AddrLn1"],
-                    address2=(
-                        spine_result["GeoLoc"]["Location"]["AddrLn2"]
-                        if "AddrLn2" in spine_result["GeoLoc"]["Location"]
-                        else None
-                    ),
-                    address3=(
-                        spine_result["GeoLoc"]["Location"]["AddrLn3"]
-                        if "AddrLn3" in spine_result["GeoLoc"]["Location"]
-                        else None
-                    ),
-                    telephone=None,  # no telephone number in Spine
-                    city=spine_result["GeoLoc"]["Location"]["Town"],
-                    county=spine_result["GeoLoc"]["Location"]["County"],
-                    postcode=spine_result["GeoLoc"]["Location"]["PostCode"],
-                    longitude=longitude,
-                    latitude=latitude,
-                    geocode_coordinates=new_point,
-                    published_at=spine_result["Date"][0]["Start"],
-                    integrated_care_board=icb,
-                    nhs_england_region=nhs_england_region,
-                    openuk_network=openuk_network,
-                    paediatric_diabetes_unit=pdu,
-                    london_borough=london_borough,
-                    trust=trust,
-                    local_health_board=local_health_board,
-                    country=country,
-                    active=(True if spine_result["Status"] == "Active" else False),
-                )
+                    new_organisation = Organisation.objects.create(
+                        ods_code=spine_result["OrgId"]["extension"],
+                        name=spine_result["Name"],
+                        address1=spine_result["GeoLoc"]["Location"]["AddrLn1"],
+                        address2=(
+                            spine_result["GeoLoc"]["Location"]["AddrLn2"]
+                            if "AddrLn2" in spine_result["GeoLoc"]["Location"]
+                            else None
+                        ),
+                        address3=(
+                            spine_result["GeoLoc"]["Location"]["AddrLn3"]
+                            if "AddrLn3" in spine_result["GeoLoc"]["Location"]
+                            else None
+                        ),
+                        telephone=None,  # no telephone number in Spine
+                        city=spine_result["GeoLoc"]["Location"]["Town"],
+                        county=spine_result["GeoLoc"]["Location"]["County"],
+                        postcode=spine_result["GeoLoc"]["Location"]["PostCode"],
+                        longitude=longitude,
+                        latitude=latitude,
+                        geocode_coordinates=new_point,
+                        published_at=spine_result["Date"][0]["Start"],
+                        integrated_care_board=icb,
+                        nhs_england_region=nhs_england_region,
+                        openuk_network=openuk_network,
+                        paediatric_diabetes_unit=pdu,
+                        london_borough=london_borough,
+                        trust=trust,
+                        local_health_board=local_health_board,
+                        country=country,
+                        active=(True if spine_result["Status"] == "Active" else False),
+                    )
 
-                self.stdout.write(
-                    f"New organisation {new_organisation} created from Spine."
-                )
+                    self.stdout.write(
+                        f"New organisation {new_organisation} created from Spine."
+                    )
             except Exception as e:
                 self.stderr.write(
                     f"Error saving organisation {spine_result['Name']} from Spine. Error: {e}"

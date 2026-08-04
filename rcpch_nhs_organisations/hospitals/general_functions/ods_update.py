@@ -126,7 +126,7 @@ def update_organisation_model_with_ORD_changes():
             ]
             organisation.telephone = ord_organisation_update["Contacts"]["Contact"][
                 "value"
-            ]
+            ] if hasattr(ord_organisation_update, "Contacts") else None
             organisation.save(
                 update_fields=["name", "address1", "address2", "city", "postcode"]
             )

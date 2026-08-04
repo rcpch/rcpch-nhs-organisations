@@ -49,11 +49,20 @@ class Command(BaseCommand):
             help="Optional parameter. Set True if Organisations are to be deleted. The default option is set to False.",
             default=False,
         )
+        parser.add_argument(
+            "-n",
+            "--dry-run",
+            action="store_const",
+            const=True,
+            help="Optional parameter. Set True to perform a dry run, i.e. no changes are made.",
+        )
 
     def handle(self, *args, **options):
         create = options["create"]
         delete = options["delete"]
         organisations = options["organisations"]
+        dry_run = options["dry_run"]
+
 
         if create and delete:
             self.stdout.write(
@@ -72,7 +81,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 B + "Finding organisation(s) on the Spine and creating..." + W
             )
-            create_organisations(self, organisations)
+            create_organisations(self, organisations, dry_run=dry_run)
         elif delete:
             self.stdout.write(B + "Deleting organisation(s)..." + W)
             delete_organisations(self, organisations)

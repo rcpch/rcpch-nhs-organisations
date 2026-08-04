@@ -138,6 +138,7 @@ nav:
     - 'researchers/api.md'
   - Developers:
     - 'developer/models.md'
+    - 'developer/temporal-history.md'
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
     - 'developer/seeding.md'
