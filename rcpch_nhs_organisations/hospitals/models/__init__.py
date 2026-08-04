@@ -46,6 +46,7 @@ from .paediatric_diabetes_unit import PaediatricDiabetesUnit
 from .paediatric_diabetes_unit_network_membership import (
     PaediatricDiabetesUnitNetworkMembership,
 )
+from .paediatric_diabetes_unit_succession import PaediatricDiabetesUnitSuccession
 from .paediatric_diabetes_unit_version import PaediatricDiabetesUnitVersion
 from .time_and_user_abstract_base_classes import TimeStampAbstractBaseClass
 from .trust import Trust
@@ -55,4 +56,5 @@ from .trust_integrated_care_board_membership import (
 from .trust_nhs_england_region_membership import (
     TrustNHSEnglandRegionMembership,
 )
+from .trust_succession import TrustSuccession
 from .trust_version import TrustVersion
