@@ -144,6 +144,7 @@ nav:
     - 'developer/boundaries.md'
     - 'developer/seeding.md'
     - 'developer/database_maintenance.md'
+    - 'developer/testing.md'
     - 'developer/contributing.md'
   - Contact:
     - 'contact/contact-rcpch.md'
