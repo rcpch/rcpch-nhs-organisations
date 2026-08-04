@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_organisation_changelist' %}">Organisations</a> &rsaquo;
+  Reassign to a new trust
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Reassign organisations to a new trust</h1>
+
+<p>This will close the current trust membership row for each selected organisation
+and open a new one pointing to the chosen trust, with the effective date you
+specify. The <code>Organisation.trust</code> foreign key on each organisation
+will also be updated. The change is recorded in the temporal history layer.</p>
+
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="ids" value="{{ ids }}">
+  <table>
+    {{ form.as_table }}
+  </table>
+  <p><input type="submit" value="Reassign"></p>
+  <p><a href="{% url 'admin:hospitals_organisation_changelist' %}">Cancel</a></p>
+</form>
+{% endblock %}
