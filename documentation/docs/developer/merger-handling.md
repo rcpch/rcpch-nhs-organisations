@@ -7,8 +7,10 @@ author: Dr Simon Chapman
 
 This document describes the different types of trust merger that occur in the NHS,
 what happens to the trusts and their child organisations in each case, and how each
-case is handled by the temporal history layer. It should be read alongside
-[temporal-history.md](temporal-history.md), which describes the schema.
+case is recorded by the temporal history layer. It should be read alongside
+[temporal-history.md](temporal-history.md), which describes the schema, and the
+[ODS management command](#using-the-ods-management-command) section below for the
+practical steps.
 
 Worked examples are drawn from real mergers to make the semantics concrete.
 
@@ -28,8 +30,8 @@ Hospital adopted RAL as its parent.
 | Acquiring trust (RAL) | Retains ODS code. No change to the trust row. |
 | Acquired trust (RVL) | Marked `active=False`. A `TrustSuccession` row is created: predecessor=RVL, successor=RAL, type=acquisition. |
 | Child organisations | Reassigned from RVL to RAL. An `OrganisationTrustMembership` row is closed (valid_to set) for RVL and a new one opened for RAL. The `Organisation.trust` FK is updated. |
-| Child ODS codes | Usually **retained** (Barnet keeps its org code; only the parent stem changes). If the ODS code does change, see Organisation succession below. |
-| ICB / NHS England region | May change if the acquiring trust is in a different ICB or region. If so, the relevant membership rows are closed and new ones opened. |
+| Child ODS codes | Usually **retained** (Barnet keeps its org code; only the parent stem changes). If the ODS code does change, see [Organisation succession](#organisation-succession) below. |
+| ICB / NHS England region | May change if the acquiring trust is in a different ICB or region. If so, the relevant membership rows are closed and new ones opened. See [Cross-boundary mergers](#cross-boundary-mergers) for the case where a merger spans an ICB boundary. |
 | OPEN UK network | May change. Handled the same way via `OrganisationOPENUKNetworkMembership`. |
 | PDU | Usually unchanged (the diabetes service continues), but can be reassigned via `OrganisationPaediatricDiabetesUnitMembership`. |
 
@@ -48,7 +50,7 @@ North Essex NHS Foundation Trust).
 | Predecessor trusts (RGQ, RDE) | Both marked `active=False`. Two `TrustSuccession` rows are created: RGQ → RJL and RDE → RJL, both type=merger. |
 | Successor trust (RJL) | A new `Trust` row is created with the new ODS code. A baseline `TrustVersion` row is created. |
 | Child organisations | All child orgs of RGQ and RDE are reassigned to RJL. `OrganisationTrustMembership` rows are closed for the old trusts and opened for RJL. |
-| Child ODS codes | May or may not change. If the ODS reissues org codes with the new parent stem, see Organisation succession below. |
+| Child ODS codes | May or may not change. If the ODS reissues org codes with the new parent stem, see [Organisation succession](#organisation-succession) below. |
 | ICB / NHS England region | The new trust (RJL) sits in one ICB and one region. Child orgs inherit these via new membership rows. |
 | OPEN UK network / PDU | As for acquisition. |
 
@@ -75,7 +77,7 @@ child organisations were split:
 | ICB / NHS England region | May differ between the successor trusts. Each child inherits its new parent's ICB and region. |
 | OPEN UK network / PDU | As for acquisition. |
 
-## Organisation succession — a gap in the current design
+## Organisation succession
 
 In the acquisition and full-merger cases, child organisations usually **retain
 their ODS code** — only the parent trust changes. This is handled cleanly by
@@ -88,46 +90,10 @@ The ODS treats this as a new organisation: the old code ceases to exist and a
 new code is created. But from an audit perspective, RJZ30 in 2014 is the *same
 physical hospital* as RYQ30 in 2012 — the audit data needs to trace that chain.
 
-The current design has `TrustSuccession` and `PaediatricDiabetesUnitSuccession`
-but **no `OrganisationSuccession`**. Without it, there is no way to record that
-RYQ30 and RJZ30 are the same hospital, and longitudinal audit data cannot follow
-a hospital across an ODS code change.
-
-### Recommendation: add `OrganisationSuccession`
-
-This should be added before the admin interface is built, since the admin needs
-to create these rows when handling a split. The model mirrors
-`TrustSuccession`:
-
-```python
-class OrganisationSuccession(TimeStampAbstractBaseClass):
-    predecessor = models.ForeignKey(
-        to=Organisation,
-        on_delete=models.PROTECT,
-        related_name="succession_predecessor_links",
-    )
-    successor = models.ForeignKey(
-        to=Organisation,
-        on_delete=models.PROTECT,
-        related_name="succession_successor_links",
-    )
-    succession_date = models.DateField()
-    succession_type = models.CharField(
-        max_length=20,
-        choices=[
-            ("merger", "Merger"),
-            ("acquisition", "Acquisition"),
-            ("rename", "Rename"),
-            ("closure", "Closure"),
-            ("split", "Split"),
-            ("code_change", "ODS code change"),
-        ],
-    )
-    notes = models.TextField(blank=True, default="")
-```
-
-The `code_change` type covers the case where an organisation's ODS code changes
-but it remains under the same parent trust (a pure rename/recode by ODS).
+This is recorded by the `OrganisationSuccession` table, which links a
+predecessor organisation to its successor with a date and a type. The
+`code_change` type covers the case where an organisation's ODS code changes but
+it remains under the same parent trust (a pure rename/recode by ODS).
 
 When an organisation succession occurs:
 
@@ -138,6 +104,43 @@ When an organisation succession occurs:
    UK network, PDU, London borough, LAD, LSOA) via new baseline membership rows.
 5. The new organisation's `OrganisationTrustMembership` points to the successor
    trust (RJZ), not the dissolved one (RYQ).
+
+## Cross-boundary mergers
+
+Most mergers happen within a single ICB and NHS England region, in which case
+the child organisations' ICB and region memberships simply follow the successor
+trust. A merger that crosses an ICB or region boundary is more nuanced.
+
+**Example:** In 2020, University Hospitals Bristol NHS Foundation Trust acquired
+Weston Area Health NHS Trust. UH Bristol was based within the Bristol, North
+Somerset and South Gloucestershire (BNSSG) ICB footprint; Weston General
+Hospital was part of Somerset ICB. After the merger, the combined trust
+(University Hospitals Bristol and Weston, UHBW, RA7) sat within BNSSG as its
+**host ICB**, but Somerset ICB retained commissioning responsibilities for
+Weston General Hospital as an **associate ICB**.
+
+The current schema models a single ICB per trust via
+`TrustIntegratedCareBoardMembership` (and a single ICB per organisation via
+`OrganisationIntegratedCareBoardMembership`). This is sufficient for the common
+case and keeps reporting simple: every trust and every organisation reports to
+exactly one ICB at any point in time.
+
+The host/associate distinction is **not** modelled. If it becomes necessary for
+commissioner reporting in future, it would be added as a separate concept (for
+example a `role` field on the membership, or a dedicated associate-ICB table)
+rather than by allowing two current ICB memberships per trust. For now, the
+convention is:
+
+- The merged trust's `TrustIntegratedCareBoardMembership` points to the **host**
+  ICB (BNSSG in the example).
+- Each child organisation's `OrganisationIntegratedCareBoardMembership` points
+  to the ICB that commissions *that organisation*. So Weston General Hospital
+  would point to Somerset, while the rest of UHBW's sites would point to BNSSG.
+
+This keeps the trust-level membership unambiguous (one host ICB) while allowing
+per-organisation commissioning accuracy, which is what audit reports need. The
+host/associate distinction at trust level is deferred until there is a concrete
+reporting requirement.
 
 ## Other relationship changes during a merger
 
@@ -179,54 +182,88 @@ A trust closes with no successor. The trust is marked `active=False`. No
 organisations are either closed too or reassigned to other trusts (which would
 be recorded as a split if they go to multiple successors).
 
-> **Note:** the current `TrustSuccession` schema requires a non-null `successor`
-> FK, so a pure closure with no successor cannot be recorded as a succession
-> row. This is intentional — a closure is simply the trust being marked
-> inactive. If a closed trust's children are redistributed, each redistribution
-> is recorded as a split succession with the relevant successor.
+> **Note:** the `TrustSuccession` schema requires a non-null `successor` FK, so
+> a pure closure with no successor cannot be recorded as a succession row. This
+> is intentional — a closure is simply the trust being marked inactive. If a
+> closed trust's children are redistributed, each redistribution is recorded as a
+> split succession with the relevant successor.
 
-## Admin actions needed
+## Using the ODS management command
 
-Based on the three merger types, the admin needs these actions:
+Mergers are applied through the `mergers` management command, which looks up
+organisations on the NHS Spine and creates or updates them locally. The command
+supports `--create` and `--delete` and a `--dry-run` flag that reports what
+would change without writing to the database.
 
-### For trusts
+### Detecting changes from ODS
 
-1. **Record trust acquisition.** A form with: predecessor trust, successor
-   trust, effective date. On submit: mark predecessor `active=False`, create
-   `TrustSuccession` (type=acquisition), and bulk-reassign all predecessor's
-   child organisations to the successor trust (close old
-   `OrganisationTrustMembership`, open new). Optionally also reassign ICB /
-   region / OPEN UK network if the successor is in different geographies.
+The `cron` management command calls the ODS `/sync` endpoint for changes in the
+last 30 days (or up to 185 days for a one-off backfill). Run with `--dry-run` to
+see what ODS has published before applying it:
 
-2. **Record full merger.** A form with: two or more predecessor trusts, a new
-   successor trust (created if it doesn't exist), effective date. On submit:
-   mark all predecessors `active=False`, create the successor trust + baseline
-   `TrustVersion`, create `TrustSuccession` rows for each predecessor →
-   successor, and bulk-reassign all child organisations.
+```bash
+python manage.py cron --service organisations --dry-run
+```
 
-3. **Record trust split.** A form with: predecessor trust, and a list of
-   (child organisation, successor trust, new ODS code) tuples. On submit: mark
-   predecessor `active=False`, create `TrustSuccession` rows for each successor,
-   and for each child organisation either reassign (if ODS code retained) or
-   create an organisation succession (if ODS code changed).
+This writes a markdown report to stdout listing, per affected entity, the field,
+old value, new value, and effective date. The same report is generated
+automatically by the scheduled GitHub Action for ODS change detection (see
+[temporal-history.md](temporal-history.md)). ODS does not surface succession
+relationships unambiguously, so the report is for review only — applying a
+merger is a manual step.
 
-### For organisations
+### Creating organisations from a merger
 
-4. **Reassign organisation trust.** A simple form with: new trust, effective
-   date. For the case where an org keeps its ODS code but changes parent. Closes
-   the old `OrganisationTrustMembership`, opens a new one, updates the FK.
+When a merger produces a new organisation (either a new child under an existing
+trust, or a new child under a newly created successor trust), create it from the
+Spine:
 
-5. **Record organisation succession.** A form with: predecessor organisation,
-   new ODS code, successor trust, effective date. For the case where an org gets
-   a new ODS code. Creates the new `Organisation` row, marks the old one
-   `active=False`, creates `OrganisationSuccession`, and transfers relationships.
+```bash
+python manage.py mergers --organisations RJZ30 RJ201 --create
+```
 
-### For PDUs
+This looks up each ODS code on the Spine, creates the `Organisation` row, and
+creates baseline temporal rows (`OrganisationVersion` plus the relevant
+`OrganisationTrustMembership` / `OrganisationIntegratedCareBoardMembership` /
+`OrganisationNHSEnglandRegionMembership` / `OrganisationOPENUKNetworkMembership`
+/ `OrganisationPaediatricDiabetesUnitMembership`) so the new organisation has
+history from creation day forward. Use `--dry-run` first to preview:
 
-6. **Record PDU merger / succession.** Analogous to trust succession. A form
-   with: predecessor PDU, successor PDU, effective date, type. On submit: mark
-   predecessor `active=False`, create `PaediatricDiabetesUnitSuccession`, and
-   bulk-reassign all child organisations' PDU memberships.
+```bash
+python manage.py mergers --organisations RJZ30 RJ201 --create --dry-run
+```
+
+### Recording the succession links
+
+The `mergers` command creates the organisation rows and their baseline
+memberships, but the succession links themselves (`TrustSuccession`,
+`OrganisationSuccession`, `PaediatricDiabetesUnitSuccession`) are recorded
+manually via the admin, because ODS succession semantics are occasionally
+ambiguous and a human should confirm the predecessor → successor mapping. See
+[User steps for implementing mergers](#user-steps-for-implementing-mergers)
+below.
+
+### Deleting organisations
+
+When an organisation ceases to exist (its ODS code is terminated), it can be
+deleted. The command prompts for confirmation and lists the organisation's
+relationships before deleting:
+
+```bash
+python manage.py mergers --organisations RYQ30 RYQ01 --delete
+```
+
+> **Caution:** deleting an organisation that is referenced by a succession row
+> is prevented by `on_delete=PROTECT`. Mark the organisation `active=False`
+> instead of deleting it if it is a predecessor in a succession, so that the
+> audit chain remains intact.
+
+## User steps for implementing mergers
+
+> This section is a placeholder. Step-by-step instructions for using the admin
+> interface to record each merger type (acquisition, full merger, split,
+> organisation succession, PDU succession) will be added once the admin actions
+> are implemented.
 
 ## Worked example: South London Healthcare NHS Trust (RYQ) dissolution
 
