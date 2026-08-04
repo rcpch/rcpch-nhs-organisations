@@ -212,6 +212,44 @@ automatically by the scheduled GitHub Action for ODS change detection (see
 relationships unambiguously, so the report is for review only — applying a
 merger is a manual step.
 
+### One-off backfill sync (up to 185 days)
+
+To catch up on recent mergers and changes that were published before the
+temporal layer was installed, run a one-off sync with the maximum time frame
+of 185 days. This surfaces every trust and organisation change in the last 6
+months — including mergers, renames, and address changes — as a dry-run
+report:
+
+```bash
+python manage.py cron --service organisations --dry-run --report-file ods_backfill_changes.md
+```
+
+Review the report to identify which trusts have merged, been renamed, or
+closed. Then record the successions and reassignments manually via the admin
+or the helper functions (see [User steps for implementing mergers](#user-steps-for-implementing-mergers)).
+
+For mergers older than 185 days, the ODS `/sync` endpoint cannot help. Source
+the dates from the NPDA's own records, from the ODS Trac bulk data files
+(see [NHS Digital ODS data downloads](https://digital.nhs.uk/services/organisation-data-service/data-downloads)),
+or from the issues pages of the NPDA and Epilepsy12 projects. The period
+from 2023 onwards is the priority for audit reporting.
+
+### Ongoing sync schedule
+
+After the one-off backfill, the ongoing cron only needs to sniff the last 30
+days and run monthly. The GitHub Action is scheduled weekly as a safety net,
+but the manual `cron` command can be run monthly:
+
+```bash
+python manage.py cron --service organisations
+```
+
+Run with `--dry-run` first to review before applying:
+
+```bash
+python manage.py cron --service organisations --dry-run
+```
+
 ### Creating organisations from a merger
 
 When a merger produces a new organisation (either a new child under an existing
@@ -339,10 +377,56 @@ up to date for future mergers.
 
 ## User steps for implementing mergers
 
-> This section is a placeholder. Step-by-step instructions for using the admin
-> interface to record each merger type (acquisition, full merger, split,
-> organisation succession, PDU succession) will be added once the admin actions
-> are implemented.
+> This section documents the current state of the admin interface. The admin
+> supports succession records and simple trust reassignments. Full merger
+> workflows (creating a new successor trust, bulk-reassigning children,
+> marking predecessors inactive with version rows) require the helper functions
+> via a shell or management command until more admin actions are built.
+
+### What the admin can do today
+
+- **Create succession rows.** The `TrustSuccession`, `OrganisationSuccession`,
+  and `PaediatricDiabetesUnitSuccession` admin pages have full create/edit
+  forms (predecessor dropdown, successor dropdown, date picker, type dropdown,
+  notes field). Use these to record the predecessor → successor link.
+- **Reassign an organisation's trust.** The "Reassign to a new trust" action
+  on the Organisation changelist opens a form (new trust + effective date) and
+  calls the `reassign_organisation_trust` helper, which closes the old
+  `OrganisationTrustMembership` row, opens a new one, and updates the FK.
+  This is the only relationship-reassignment action currently built; ICB /
+  region / OPEN UK / PDU reassignment actions can follow the same pattern.
+- **View history.** Each entity's change page shows read-only history inlines
+  (the `*Version` and `*Membership` timeline rows).
+
+### What the admin cannot do yet
+
+- **Create version rows when attributes change.** Editing a Trust's `active`
+  flag or name via the admin change page bypasses the temporal layer — it
+  overwrites the row without creating a `*Version` row. To mark a predecessor
+  trust inactive *with* a version row, use the helper in a shell:
+
+  ```python
+  from rcpch_nhs_organisations.hospitals.general_functions.membership import update_trust_attributes
+  update_trust_attributes(trust, effective_date='2023-04-01', active=False)
+  ```
+
+- **Create a new successor trust with a baseline version.** The admin Trust
+  add form creates the `Trust` row but does not create a `TrustVersion` row.
+  Use the `mergers --create` command (which does create baseline temporal
+  rows) or create the version row manually in a shell.
+
+- **Bulk-reassign all children of a dissolved trust.** The reassign-trust
+  action works on selected organisations, not on all children of a trust
+  automatically. For a full merger, select all the predecessor's children
+  in the changelist (using the trust filter) and apply the action.
+
+- **Record an organisation succession (ODS code change).** This requires
+  creating a new `Organisation` row, marking the old one inactive, creating
+  an `OrganisationSuccession` row, and transferring memberships — none of
+  which is a single admin action. Use the `mergers --create` command to
+  create the new organisation (with baseline temporal rows), then create
+  the `OrganisationSuccession` row via the admin, then reassign memberships
+  via shell helpers.
 
 ### PDU merger workflow
 

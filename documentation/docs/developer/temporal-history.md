@@ -383,8 +383,7 @@ succession entries that ODS does not surface.
 
 ## GitHub Action for ODS change detection
 
-A scheduled GitHub Action runs the ODS sync in `--dry-run` mode on a cron (e.g.
-weekly) and opens a GitHub issue detailing what *would* change if the sync were
+A scheduled GitHub Action runs the ODS sync in `--dry-run` mode on a cron (monthly) and opens a GitHub issue detailing what *would* change if the sync were
 applied. This gives the team a human-in-the-loop review step before any automatic
 write touches the temporal layer, and surfaces mergers / updates that ODS has
 published without anyone having to watch the API manually.

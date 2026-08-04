@@ -1,17 +1,20 @@
 name: ODS change detection
 
-# Runs the ODS sync in --dry-run mode on a schedule and opens a GitHub issue
-# detailing what would change if the sync were applied. This gives the team
-# a human-in-the-loop review step before any automatic write touches the
+# Runs the ODS sync in --dry-run mode on a monthly schedule and opens a GitHub
+# issue detailing what would change if the sync were applied. This gives the
+# team a human-in-the-loop review step before any automatic write touches the
 # temporal layer, and surfaces mergers / updates that ODS has published
 # without anyone having to watch the API manually.
+#
+# For a one-off backfill of up to 185 days of changes, run the cron command
+# manually with --dry-run --report-file (see merger-handling.md).
 #
 # See documentation/docs/developer/temporal-history.md for the design.
 
 on:
   schedule:
-    # 07:00 UTC every Monday
-    - cron: "0 7 * * 1"
+    # 07:00 UTC on the 1st of every month
+    - cron: "0 7 1 * *"
   # Allow manual runs from the Actions tab
   workflow_dispatch:
 
