@@ -258,12 +258,83 @@ python manage.py mergers --organisations RYQ30 RYQ01 --delete
 > instead of deleting it if it is a predecessor in a succession, so that the
 > audit chain remains intact.
 
+## PDU mergers
+
+Paediatric Diabetes Units (PDUs) can merge in the same ways trusts do: one
+PDU can acquire another, two PDUs can merge into a new PZ code, or a PDU can
+be split. PDU mergers are recorded with `PaediatricDiabetesUnitSuccession`
+and the child organisations' PDU membership is updated via
+`OrganisationPaediatricDiabetesUnitMembership`.
+
+Unlike trust mergers, PDU mergers do **not** change the child organisation's
+ODS code — the hospital keeps its ODS code, only the PZ code it reports to
+changes. So no `OrganisationSuccession` row is needed for a PDU merger; only
+the PDU membership rows are closed and reopened.
+
+### Worked example: PZ216 + PZ125 → PZ253 (January 2026)
+
+In January 2026, PZ216 (Tunbridge Wells Hospital) and PZ125 (Maidstone
+Hospital) merged to create PZ253 (Maidstone and Tunbridge Wells NHS Trust).
+
+| Element | What happens |
+|---|---|
+| Predecessor PDUs (PZ216, PZ125) | Both marked `active=False`. Two `PaediatricDiabetesUnitSuccession` rows are created: PZ216 → PZ253 and PZ125 → PZ253, both type=merger. |
+| Successor PDU (PZ253) | A new `PaediatricDiabetesUnit` row is created with the new PZ code. A baseline `PaediatricDiabetesUnitVersion` row is created. |
+| Child organisations | The organisations previously reporting to PZ216 and PZ125 (e.g. RWFTW, RWF03) are reassigned to PZ253. `OrganisationPaediatricDiabetesUnitMembership` rows are closed for the old PDUs and opened for PZ253. The `Organisation.paediatric_diabetes_unit` FK is updated. |
+| Child ODS codes | **Retained.** The hospitals keep their ODS codes; only the PDU membership changes. No `OrganisationSuccession` row is created. |
+| Paediatric Diabetes Network | The successor PDU inherits a network via `PaediatricDiabetesUnitNetworkMembership`. If the predecessor PDUs were in different networks, a decision is needed on which network the successor joins; this is recorded manually. |
+| Trust / ICB / region | Unchanged — a PDU merger does not move hospitals between trusts. |
+
+### Worked example: PZ086 + PZ131 → PZ254 (April 2026)
+
+In April 2026, PZ086 and PZ131 merged to create PZ254 (North West Anglia NHS
+Foundation Trust). The same pattern applies as above: both predecessors are
+marked `active=False`, two `PaediatricDiabetesUnitSuccession` rows link them
+to PZ254, and the child organisations' PDU memberships are reassigned to
+PZ254.
+
+### Relationship to the hardcoded `organisations` property
+
+The `PaediatricDiabetesUnit.organisations` property currently contains
+hardcoded special cases for past mergers (PZ003, PZ216, PZ125, PZ080,
+PZ141, and others). These map a PZ code to a fixed list of ODS codes
+because the membership was not modelled temporally. Once PDU mergers are
+recorded through the temporal layer, these hardcoded cases can be replaced
+by querying `OrganisationPaediatricDiabetesUnitMembership` as of the
+relevant date. The hardcoded cases should be removed as mergers are
+migrated into the temporal layer, to avoid two sources of truth.
+
 ## User steps for implementing mergers
 
 > This section is a placeholder. Step-by-step instructions for using the admin
 > interface to record each merger type (acquisition, full merger, split,
 > organisation succession, PDU succession) will be added once the admin actions
 > are implemented.
+
+### PDU merger workflow
+
+To record a PDU merger (e.g. PZ216 + PZ125 → PZ253):
+
+1. **Create the successor PDU** if it does not already exist, via the admin or
+   the `mergers` command. A baseline `PaediatricDiabetesUnitVersion` row is
+   created automatically.
+2. **Create the `PaediatricDiabetesUnitSuccession` rows** via the admin: one
+   row per predecessor PDU, all pointing to the successor PDU, with the
+   merger date and type=merger.
+3. **Mark the predecessor PDUs `active=False`** via the admin. A new
+   `PaediatricDiabetesUnitVersion` row is opened for each, snapshotting
+   `active=False`.
+4. **Reassign the child organisations' PDU memberships** to the successor PDU
+   via the admin reassignment action (or the `reassign_organisation_paediatric_diabetes_unit`
+   helper). This closes the old `OrganisationPaediatricDiabetesUnitMembership`
+   rows and opens new ones pointing to the successor PDU, with the merger date
+   as `valid_from`.
+5. **Set the successor PDU's network** via the admin (or the
+   `reassign_paediatric_diabetes_unit_network` helper), recording it in
+   `PaediatricDiabetesUnitNetworkMembership`.
+6. **Remove any hardcoded special case** for the predecessor PZ codes in the
+   `PaediatricDiabetesUnit.organisations` property, since the temporal layer
+   now holds the membership history.
 
 ## Worked example: South London Healthcare NHS Trust (RYQ) dissolution
 
