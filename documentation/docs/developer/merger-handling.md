@@ -327,10 +327,11 @@ would need to:
    temporal rows are in place.
 
 The merger dates and original establishment dates for these PDUs are not
-always readily available from ODS (the ODS `/sync` endpoint only surfaces
-the last 185 days). They would need to be sourced from the NPDA's own
-records, from the ODS Trac bulk dumps, or from the hardcoded comments in
-the `organisations` property itself (which include dates for some mergers).
+available from the ODS — PDUs are not tracked by the ODS at all. They are
+maintained manually by RCPCH. The ODS is used only for trusts, ICBs, and
+organisations. The dates would need to be sourced from the NPDA's own
+records or from the hardcoded comments in the `organisations` property
+itself (which include dates for some mergers).
 
 This backfill is a one-off project, not an ongoing pattern. Once it is
 done, the 30-day cron and the manual admin workflow keep the temporal layer
