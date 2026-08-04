@@ -304,6 +304,38 @@ by querying `OrganisationPaediatricDiabetesUnitMembership` as of the
 relevant date. The hardcoded cases should be removed as mergers are
 migrated into the temporal layer, to avoid two sources of truth.
 
+### Backfilling previous PDU mergers
+
+The temporal layer only records changes from installation day forward. To
+backfill the previous PDU mergers that are currently hardcoded in the
+`organisations` property, a one-off data migration or management command
+would need to:
+
+1. **Create the predecessor PDU rows** if they don't already exist (PZ216,
+   PZ125, PZ080, PZ141, PZ003, etc.), marked `active=False`.
+2. **Create baseline `PaediatricDiabetesUnitVersion` rows** for each
+   predecessor, with `valid_from` set to the date the PDU was originally
+   established and `valid_to` set to the merger date.
+3. **Create `PaediatricDiabetesUnitSuccession` rows** linking each
+   predecessor to its successor, with the merger date and type=merger.
+4. **Create `OrganisationPaediatricDiabetesUnitMembership` rows** for each
+   child organisation, with `valid_from` set to the date the org joined the
+   predecessor PDU and `valid_to` set to the merger date. Then create new
+   rows pointing to the successor PDU with `valid_from` = merger date and
+   `valid_to = NULL`.
+5. **Remove the hardcoded case** from the `organisations` property once the
+   temporal rows are in place.
+
+The merger dates and original establishment dates for these PDUs are not
+always readily available from ODS (the ODS `/sync` endpoint only surfaces
+the last 185 days). They would need to be sourced from the NPDA's own
+records, from the ODS Trac bulk dumps, or from the hardcoded comments in
+the `organisations` property itself (which include dates for some mergers).
+
+This backfill is a one-off project, not an ongoing pattern. Once it is
+done, the 30-day cron and the manual admin workflow keep the temporal layer
+up to date for future mergers.
+
 ## User steps for implementing mergers
 
 > This section is a placeholder. Step-by-step instructions for using the admin
