@@ -224,6 +224,85 @@ def create_organisations(self, organisations, dry_run=False):
                     self.stdout.write(
                         f"New organisation {new_organisation} created from Spine."
                     )
+
+                    # Create baseline temporal rows so the new organisation has
+                    # history from creation day forward. See
+                    # documentation/docs/developer/temporal-history.md.
+                    from django.utils import timezone
+                    from rcpch_nhs_organisations.hospitals.models import (
+                        OrganisationVersion,
+                        OrganisationTrustMembership,
+                        OrganisationLocalHealthBoardMembership,
+                        OrganisationIntegratedCareBoardMembership,
+                        OrganisationNHSEnglandRegionMembership,
+                        OrganisationOPENUKNetworkMembership,
+                        OrganisationPaediatricDiabetesUnitMembership,
+                    )
+
+                    baseline_date = timezone.now().date()
+                    OrganisationVersion.objects.create(
+                        organisation=new_organisation,
+                        valid_from=baseline_date,
+                        valid_to=None,
+                        name=new_organisation.name,
+                        address1=new_organisation.address1,
+                        address2=new_organisation.address2,
+                        address3=new_organisation.address3,
+                        telephone=new_organisation.telephone,
+                        city=new_organisation.city,
+                        county=new_organisation.county,
+                        postcode=new_organisation.postcode,
+                        latitude=new_organisation.latitude,
+                        longitude=new_organisation.longitude,
+                        geocode_coordinates=new_organisation.geocode_coordinates,
+                        active=new_organisation.active,
+                        published_at=new_organisation.published_at,
+                    )
+                    if new_organisation.trust is not None:
+                        OrganisationTrustMembership.objects.create(
+                            organisation=new_organisation,
+                            trust=new_organisation.trust,
+                            valid_from=baseline_date,
+                            valid_to=None,
+                        )
+                    if new_organisation.local_health_board is not None:
+                        OrganisationLocalHealthBoardMembership.objects.create(
+                            organisation=new_organisation,
+                            local_health_board=new_organisation.local_health_board,
+                            valid_from=baseline_date,
+                            valid_to=None,
+                        )
+                    if new_organisation.integrated_care_board is not None:
+                        OrganisationIntegratedCareBoardMembership.objects.create(
+                            organisation=new_organisation,
+                            integrated_care_board=new_organisation.integrated_care_board,
+                            valid_from=baseline_date,
+                            valid_to=None,
+                        )
+                    if new_organisation.nhs_england_region is not None:
+                        OrganisationNHSEnglandRegionMembership.objects.create(
+                            organisation=new_organisation,
+                            nhs_england_region=new_organisation.nhs_england_region,
+                            valid_from=baseline_date,
+                            valid_to=None,
+                        )
+                    if new_organisation.openuk_network is not None:
+                        OrganisationOPENUKNetworkMembership.objects.create(
+                            organisation=new_organisation,
+                            openuk_network=new_organisation.openuk_network,
+                            valid_from=baseline_date,
+                            valid_to=None,
+                        )
+                    if new_organisation.paediatric_diabetes_unit is not None:
+                        OrganisationPaediatricDiabetesUnitMembership.objects.create(
+                            organisation=new_organisation,
+                            paediatric_diabetes_unit=new_organisation.paediatric_diabetes_unit,
+                            valid_from=baseline_date,
+                            valid_to=None,
+                        )
+                    self.stdout.write(
+                        f"Baseline temporal rows created for {new_organisation}."
+                    )
             except Exception as e:
                 self.stderr.write(
                     f"Error saving organisation {spine_result['Name']} from Spine. Error: {e}"

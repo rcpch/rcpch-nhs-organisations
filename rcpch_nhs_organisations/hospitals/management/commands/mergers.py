@@ -50,11 +50,10 @@ class Command(BaseCommand):
             default=False,
         )
         parser.add_argument(
-            "-n",
             "--dry-run",
-            action="store_const",
-            const=True,
-            help="Optional parameter. Set True to perform a dry run, i.e. no changes are made.",
+            action="store_true",
+            default=False,
+            help="Report what would change without writing to the database.",
         )
 
     def handle(self, *args, **options):
@@ -62,7 +61,6 @@ class Command(BaseCommand):
         delete = options["delete"]
         organisations = options["organisations"]
         dry_run = options["dry_run"]
-
 
         if create and delete:
             self.stdout.write(
@@ -73,9 +71,14 @@ class Command(BaseCommand):
             self.stdout.write("Error: Must provide either --create or --delete.")
             return
 
-        if len(organisations) < 1:
+        if not organisations:
             self.stdout.write("Error: Argument requires one or more organisations.")
             return
+
+        if dry_run:
+            self.stdout.write(
+                B + "Dry run: no changes will be written." + W
+            )
 
         if create:
             self.stdout.write(
@@ -84,6 +87,6 @@ class Command(BaseCommand):
             create_organisations(self, organisations, dry_run=dry_run)
         elif delete:
             self.stdout.write(B + "Deleting organisation(s)..." + W)
-            delete_organisations(self, organisations)
+            delete_organisations(self, organisations, dry_run=dry_run)
 
         self.stdout.write(rcpch_ascii_art())
