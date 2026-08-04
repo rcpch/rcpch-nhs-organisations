@@ -29,6 +29,7 @@ from .organisation_open_uk_network_membership import (
 from .organisation_paediatric_diabetes_unit_membership import (
     OrganisationPaediatricDiabetesUnitMembership,
 )
+from .organisation_succession import OrganisationSuccession
 from .organisation_trust_membership import OrganisationTrustMembership
 from .organisation_version import OrganisationVersion
 from .organisation_london_borough_membership import (
