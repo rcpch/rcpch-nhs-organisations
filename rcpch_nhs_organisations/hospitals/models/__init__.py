@@ -14,10 +14,29 @@ from .nhs_england_region import NHSEnglandRegion, NHSEnglandRegionBoundaries
 from .nhs_england_region_version import NHSEnglandRegionVersion
 from .open_uk_network import OPENUKNetwork
 from .organisation import Organisation
+from .organisation_integrated_care_board_membership import (
+    OrganisationIntegratedCareBoardMembership,
+)
+from .organisation_local_health_board_membership import (
+    OrganisationLocalHealthBoardMembership,
+)
+from .organisation_nhs_england_region_membership import (
+    OrganisationNHSEnglandRegionMembership,
+)
+from .organisation_open_uk_network_membership import (
+    OrganisationOPENUKNetworkMembership,
+)
+from .organisation_paediatric_diabetes_unit_membership import (
+    OrganisationPaediatricDiabetesUnitMembership,
+)
+from .organisation_trust_membership import OrganisationTrustMembership
 from .organisation_version import OrganisationVersion
 from .paediatric_diabetes_network import PaediatricDiabetesNetwork
 from .paediatric_diabetes_network_version import PaediatricDiabetesNetworkVersion
 from .paediatric_diabetes_unit import PaediatricDiabetesUnit
+from .paediatric_diabetes_unit_network_membership import (
+    PaediatricDiabetesUnitNetworkMembership,
+)
 from .paediatric_diabetes_unit_version import PaediatricDiabetesUnitVersion
 from .time_and_user_abstract_base_classes import TimeStampAbstractBaseClass
 from .trust import Trust
