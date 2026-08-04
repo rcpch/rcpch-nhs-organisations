@@ -31,6 +31,15 @@ from .organisation_paediatric_diabetes_unit_membership import (
 )
 from .organisation_trust_membership import OrganisationTrustMembership
 from .organisation_version import OrganisationVersion
+from .organisation_london_borough_membership import (
+    OrganisationLondonBoroughMembership,
+)
+from .organisation_local_authority_district_membership import (
+    OrganisationLocalAuthorityDistrictMembership,
+)
+from .organisation_lower_layer_super_output_area_membership import (
+    OrganisationLowerLayerSuperOutputAreaMembership,
+)
 from .paediatric_diabetes_network import PaediatricDiabetesNetwork
 from .paediatric_diabetes_network_version import PaediatricDiabetesNetworkVersion
 from .paediatric_diabetes_unit import PaediatricDiabetesUnit
@@ -40,4 +49,10 @@ from .paediatric_diabetes_unit_network_membership import (
 from .paediatric_diabetes_unit_version import PaediatricDiabetesUnitVersion
 from .time_and_user_abstract_base_classes import TimeStampAbstractBaseClass
 from .trust import Trust
+from .trust_integrated_care_board_membership import (
+    TrustIntegratedCareBoardMembership,
+)
+from .trust_nhs_england_region_membership import (
+    TrustNHSEnglandRegionMembership,
+)
 from .trust_version import TrustVersion
