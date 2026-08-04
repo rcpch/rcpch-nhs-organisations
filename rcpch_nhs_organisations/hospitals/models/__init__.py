@@ -1,7 +1,9 @@
 from .country import Country, CountryBoundaries
 from .general_practice import GeneralPractice
 from .integrated_care_board import IntegratedCareBoard, IntegratedCareBoardBoundaries
+from .integrated_care_board_version import IntegratedCareBoardVersion
 from .local_health_board import LocalHealthBoard, LocalHealthBoardBoundaries
+from .local_health_board_version import LocalHealthBoardVersion
 from .local_authority import LocalAuthorityDistrict, LocalAuthorityDistrictBoundaries
 from .lower_layer_super_output_area import (
     LowerLayerSuperOutputArea,
@@ -9,10 +11,14 @@ from .lower_layer_super_output_area import (
 )
 from .london_borough import LondonBorough, LondonBoroughBoundaries
 from .nhs_england_region import NHSEnglandRegion, NHSEnglandRegionBoundaries
+from .nhs_england_region_version import NHSEnglandRegionVersion
 from .open_uk_network import OPENUKNetwork
 from .organisation import Organisation
 from .organisation_version import OrganisationVersion
 from .paediatric_diabetes_network import PaediatricDiabetesNetwork
+from .paediatric_diabetes_network_version import PaediatricDiabetesNetworkVersion
 from .paediatric_diabetes_unit import PaediatricDiabetesUnit
+from .paediatric_diabetes_unit_version import PaediatricDiabetesUnitVersion
 from .time_and_user_abstract_base_classes import TimeStampAbstractBaseClass
 from .trust import Trust
+from .trust_version import TrustVersion
