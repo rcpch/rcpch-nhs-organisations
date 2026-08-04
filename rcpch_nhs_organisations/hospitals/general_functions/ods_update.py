@@ -98,72 +98,203 @@ def match_trust(ods_code):
     return trust
 
 
-def update_organisation_model_with_ORD_changes():
+def _extract_ord_fields(ord_record):
     """
-    Calls ORD API for updates in the last 30 days.
-    Iterates response and searches database for organisation and trust matches against ODS code
-    If matches, updates with new details
+    Extract the mutable fields we care about from an ORD organisation record.
+    Returns a dict keyed by the field names used on the Organisation / Trust
+    models. Missing keys default to None.
     """
+    location = ord_record.get("GeoLoc", {}).get("Location", {})
+    contacts = ord_record.get("Contacts", {}).get("Contact", [])
+    # Contacts may be a single dict or a list of dicts; normalise to a list.
+    if isinstance(contacts, dict):
+        contacts = [contacts]
 
-    ord_updated_list = fetch_updated_organisations(time_frame=30)
+    telephone = None
+    website = None
+    for contact in contacts:
+        if contact.get("type") == "http":
+            website = contact.get("value")
+        else:
+            telephone = contact.get("value")
 
-    updates_exist = False
-    for index, org_link in enumerate(ord_updated_list):
+    return {
+        "name": ord_record.get("Name"),
+        "address1": location.get("AddrLn1"),
+        "address2": location.get("AddrLn2"),
+        "address3": location.get("AddrLn3"),
+        "city": location.get("Town"),
+        "county": location.get("County"),
+        "postcode": location.get("PostCode"),
+        "telephone": telephone,
+        "website": website,
+    }
+
+
+def _diff_fields(current, new, fields):
+    """
+    Compare the current entity's attributes against the new values from ORD.
+    Returns a dict of {field: (old, new)} for fields that differ.
+    """
+    changes = {}
+    for field in fields:
+        old_value = getattr(current, field, None)
+        new_value = new.get(field)
+        if new_value is not None and (old_value or None) != (new_value or None):
+            changes[field] = (old_value, new_value)
+    return changes
+
+
+def update_organisation_model_with_ORD_changes(
+    dry_run=False, stdout=None, time_frame=30
+):
+    """
+    Calls ORD API for updates in the last `time_frame` days.
+    Iterates the response and searches the database for organisation and trust
+    matches against ODS code. If matches, updates with new details.
+
+    When dry_run is False, attribute changes are routed through the temporal
+    helpers (update_organisation_attributes / update_trust_attributes) so that
+    the previous state is recorded in the *Version tables before being
+    overwritten. This is the sanctioned write path into the temporal layer.
+
+    When dry_run is True, no writes occur. A markdown report of what *would*
+    change is written to `stdout` (or the logger if stdout is None), listing
+    per affected entity the field, old value, new value, and the effective
+    date that would be applied. This is used by the GitHub Action for ODS
+    change detection (see documentation/docs/developer/temporal-history.md).
+
+    Returns True if any changes were found (or would be applied), False
+    otherwise. In dry-run mode this lets the caller decide whether to open a
+    GitHub issue.
+    """
+    from .membership import (
+        update_organisation_attributes,
+        update_trust_attributes,
+    )
+
+    ord_updated_list = fetch_updated_organisations(time_frame=time_frame)
+
+    report_lines = []
+    changes_found = False
+    effective_date = timezone.now().date()
+
+    for org_link in ord_updated_list:
         ods_code = extract_ods_code(org_link=org_link["OrgLink"])
         organisation = match_organisation(ods_code=ods_code)
         if organisation:
-            ord_organisation_update = get_organisation(org_link["OrgLink"])
-            organisation.name = ord_organisation_update["Name"]
-            organisation.address1 = ord_organisation_update["GeoLoc"]["Location"][
-                "AddrLn1"
-            ]
-            organisation.address2 = ord_organisation_update["GeoLoc"]["Location"][
-                "AddrLn2"
-            ]
-            organisation.city = ord_organisation_update["GeoLoc"]["Location"]["Town"]
-            organisation.postcode = ord_organisation_update["GeoLoc"]["Location"][
-                "PostCode"
-            ]
-            organisation.telephone = ord_organisation_update["Contacts"]["Contact"][
-                "value"
-            ] if hasattr(ord_organisation_update, "Contacts") else None
-            organisation.save(
-                update_fields=["name", "address1", "address2", "city", "postcode"]
+            ord_record = get_organisation(org_link["OrgLink"])
+            new_fields = _extract_ord_fields(ord_record)
+            changes = _diff_fields(
+                organisation,
+                new_fields,
+                [
+                    "name",
+                    "address1",
+                    "address2",
+                    "address3",
+                    "city",
+                    "county",
+                    "postcode",
+                    "telephone",
+                    "website",
+                ],
             )
-            log_text = f"{organisation} details have been updated."
-            logger.info(log_text)
-            updates_exist = True
+            if not changes:
+                continue
+            changes_found = True
+            if dry_run:
+                report_lines.append(
+                    f"### Organisation {ods_code} ({organisation.name})"
+                )
+                report_lines.append("")
+                report_lines.append(
+                    f"Effective date: {effective_date.isoformat()}"
+                )
+                report_lines.append("")
+                report_lines.append("| Field | Old | New |")
+                report_lines.append("|---|---|---|")
+                for field, (old, new) in changes.items():
+                    report_lines.append(f"| {field} | {old} | {new} |")
+                report_lines.append("")
+            else:
+                update_organisation_attributes(
+                    organisation, effective_date=effective_date, **{
+                        k: v[1] for k, v in changes.items()
+                    }
+                )
+                logger.info("Organisation %s details have been updated.", ods_code)
         else:
-            # there is no match with any organisations needing ODS changes and organisations in RCPCH
             trust = match_trust(ods_code=ods_code)
             if trust:
-                ord_trust_update = get_organisation(org_link["OrgLink"])
-                trust.name = ord_trust_update["Name"]
-                trust.address_line_1 = ord_trust_update["GeoLoc"]["Location"]["AddrLn1"]
-                try:
-                    line_two = ord_trust_update["GeoLoc"]["Location"]["AddrLn2"]
-                    trust.address_line_1 = line_two
-                except Exception:
-                    pass
+                ord_record = get_organisation(org_link["OrgLink"])
+                new_fields = _extract_ord_fields(ord_record)
+                # Trust uses address_line_1 / address_line_2 / town rather than
+                # address1 / address2 / city. Map the ORD fields across.
+                trust_new = {
+                    "name": new_fields.get("name"),
+                    "address_line_1": new_fields.get("address1"),
+                    "address_line_2": new_fields.get("address2"),
+                    "town": new_fields.get("city"),
+                    "postcode": new_fields.get("postcode"),
+                    "telephone": new_fields.get("telephone"),
+                    "website": new_fields.get("website"),
+                }
+                changes = _diff_fields(
+                    trust,
+                    trust_new,
+                    [
+                        "name",
+                        "address_line_1",
+                        "address_line_2",
+                        "town",
+                        "postcode",
+                        "telephone",
+                        "website",
+                    ],
+                )
+                if not changes:
+                    continue
+                changes_found = True
+                if dry_run:
+                    report_lines.append(
+                        f"### Trust {ods_code} ({trust.name})"
+                    )
+                    report_lines.append("")
+                    report_lines.append(
+                        f"Effective date: {effective_date.isoformat()}"
+                    )
+                    report_lines.append("")
+                    report_lines.append("| Field | Old | New |")
+                    report_lines.append("|---|---|---|")
+                    for field, (old, new) in changes.items():
+                        report_lines.append(f"| {field} | {old} | {new} |")
+                    report_lines.append("")
+                else:
+                    update_trust_attributes(
+                        trust, effective_date=effective_date, **{
+                            k: v[1] for k, v in changes.items()
+                        }
+                    )
+                    logger.info("Trust %s details have been updated.", ods_code)
 
-                trust.town = ord_trust_update["GeoLoc"]["Location"]["Town"]
-                trust.postcode = ord_trust_update["GeoLoc"]["Location"]["PostCode"]
-
-                for i in ord_trust_update["Contacts"]["Contact"]:
-                    if i["type"] == "http":
-                        trust.website = i["value"]
-                    else:
-                        trust.telephone = i["value"]
-                trust.save()
-                logging_text = f"{trust} details have been updated."
-                logger.info(logging_text)
-                updates_exist = True
-    if updates_exist:
-        logger.info("Updates have been made to existing records in the RCPCH database.")
+    if dry_run:
+        report = "\n".join(report_lines)
+        if stdout is not None:
+            stdout.write(report)
+        else:
+            logger.info("Dry-run report:\n%s", report)
     else:
-        logger.info(
-            "No updates have been made to existing records in the RCPCH database."
-        )
+        if changes_found:
+            logger.info(
+                "Updates have been made to existing records in the RCPCH database."
+            )
+        else:
+            logger.info(
+                "No updates have been made to existing records in the RCPCH database."
+            )
+
+    return changes_found
 
 
 def check_organisation_has_location_data():
