@@ -25,6 +25,7 @@
     margin: 1em 0;
     padding: 0.5em 1em;
     border-radius: 4px;
+    white-space: pre-line;
   }
   .ods-validation.found {
     background: #e8f5e9;
@@ -34,9 +35,12 @@
     background: #ffebee;
     border: 1px solid #f44336;
   }
-  .ods-validation.pending {
-    background: #e3f2fd;
-    border: 1px solid #2196f3;
+  .warning-banner {
+    background: #ffebee;
+    border: 2px solid #d32f2f;
+    border-radius: 4px;
+    padding: 1em;
+    margin: 1em 0;
   }
 </style>
 {% endblock %}
@@ -66,23 +70,31 @@ writes in one transaction:</p>
 
 {% if ods_validation %}
 <div class="ods-validation {{ ods_validation.status }}">
-  <strong>ODS validation for {{ ods_validation.ods_code }}:</strong>
+  <strong>ODS lookup for {{ ods_validation.ods_code }}:</strong>
   {{ ods_validation.message }}
 </div>
 {% endif %}
+
+<div class="warning-banner">
+  <strong>Before backfilling:</strong> verify that the name, dates, and
+  succession type are correct. The ODS <code>Name</code> field is the
+  <em>current</em> name, which may differ from the name at the time of the
+  merger. Check historical records if in doubt.
+</div>
 
 {% if form.non_field_errors %}
   <div class="errornote">{{ form.non_field_errors }}</div>
 {% endif %}
 
-<form method="post">
+<form method="post" id="backfill-merger-form">
   {% csrf_token %}
   <table>
     {{ form.as_table }}
   </table>
   <div class="submit-row">
-    <input type="submit" name="validate" value="Validate ODS code">
-    <input type="submit" name="backfill" value="Backfill merger" class="default">
+    <input type="submit" name="fetch_ods" value="Fetch from ODS" class="button">
+    <input type="submit" name="backfill" value="Backfill merger" class="default"
+           onclick="return confirm('Are you sure you want to backfill this merger?\n\nThis will:\n- Create or update the predecessor trust\n- Create version rows for the historical name and closure\n- Create a TrustSuccession row\n\nPlease verify that the name, dates, and succession type are correct before proceeding.\n\nChild organisation memberships must be backfilled separately.')">
     <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}" class="button">Cancel</a>
   </div>
 </form>

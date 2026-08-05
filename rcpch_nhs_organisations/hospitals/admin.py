@@ -857,39 +857,77 @@ class BackfillMergerAdminMixin:
         if request.method == "POST":
             form = BackfillMergerForm(request.POST)
             if form.is_valid():
-                # "Validate ODS code" button: fetch the ODS record and
-                # re-render the form with the validation result. Do not
-                # perform the backfill.
-                if "validate" in request.POST:
+                # "Fetch from ODS" button: fetch the predecessor's full ODS
+                # record and pre-fill the form fields (name, established
+                # date, succession date, successor). Do not perform the
+                # backfill.
+                if "fetch_ods" in request.POST:
                     pred_code = form.cleaned_data["predecessor_ods_code"]
                     try:
                         ord_record = get_organisation(
                             f"https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/{pred_code}"
                         )
                         ods_name = ord_record.get("Name", "")
+                        # Extract the legal start date (when the predecessor
+                        # was established) and legal end date (when it was
+                        # dissolved).
+                        legal_start = None
+                        legal_end = None
+                        for d in ord_record.get("Date", []):
+                            if d.get("Type") == "Legal":
+                                legal_start = d.get("Start")
+                                legal_end = d.get("End")
+                                break
+                        # Extract the succession date from the Succs block —
+                        # the first Successor event's Legal.Start.
+                        succ_date_str = None
+                        successor_code = None
+                        for succ in ord_record.get("Succs", {}).get("Succ", []):
+                            if succ.get("Type") == "Successor":
+                                for d in succ.get("Date", []):
+                                    if d.get("Type") == "Legal":
+                                        succ_date_str = d.get("Start")
+                                        break
+                                successor_code = succ.get("Target", {}).get("OrgId", {}).get("extension")
+                                break
+                        # Try to match the successor ODS code to a Trust in
+                        # our database.
+                        successor_obj = None
+                        if successor_code:
+                            successor_obj = Trust.objects.filter(ods_code=successor_code).first()
+                        # Build the pre-filled form.
+                        initial = dict(form.cleaned_data)
+                        initial["predecessor_name"] = ods_name
+                        if legal_start:
+                            initial["predecessor_established_date"] = legal_start
+                        if succ_date_str:
+                            initial["succession_date"] = succ_date_str
+                        if successor_obj:
+                            initial["successor"] = successor_obj
+                        form = BackfillMergerForm(initial=initial)
                         ods_validation = {
                             "status": "found",
                             "ods_code": pred_code,
                             "message": (
-                                f"Found in ODS: {ods_name}. "
-                                "The name has been pre-filled — adjust if the "
-                                "historical name was different."
+                                f"Fetched from ODS: {ods_name}. "
+                                f"Legal dates: {legal_start or 'unknown'} → {legal_end or 'unknown'}."
+                                + (f" Successor: {successor_code}." if successor_code else "")
+                                + (
+                                    f" Successor matched in database: {successor_obj}." if successor_obj else ""
+                                )
+                                + "\nWARNING: the name shown is the ODS current name, "
+                                "which may differ from the name at the time of the "
+                                "merger. Verify before backfilling."
                             ),
                         }
-                        # Pre-fill the name from ODS if the operator hasn't
-                        # already entered one.
-                        if not form.cleaned_data.get("predecessor_name"):
-                            form = BackfillMergerForm(
-                                initial=dict(form.cleaned_data, predecessor_name=ods_name)
-                            )
-                    except Exception:
+                    except Exception as e:
                         ods_validation = {
                             "status": "not-found",
                             "ods_code": pred_code,
                             "message": (
                                 "Not found in ODS, or the ODS API returned an "
                                 "error. You can still proceed — enter the "
-                                "historical name manually."
+                                "historical name and dates manually."
                             ),
                         }
                 elif "backfill" in request.POST:
