@@ -343,6 +343,92 @@ acquisition link from `RW6` to `RM3` on 2021-10-01.
 > mental model ("record a past state" vs "record a change from today"),
 > so it is left to the shell for now.
 
+## Part 3 — Backfilling the full succession history (implemented)
+
+The 185-day limit on `/sync` does not apply to `/organisations/{ods_code}` —
+the full organisation record always includes the complete `Succs` block,
+recording every predecessor and successor the entity has ever had, back to
+its origin. This makes it possible to recover the **full historical merger
+chain** for every entity in the database, regardless of when the mergers
+happened.
+
+### The `backfill_successions` command
+
+```
+python manage.py backfill_successions --entity trust --dry-run
+python manage.py backfill_successions --entity trust
+python manage.py backfill_successions --entity organisation --dry-run
+python manage.py backfill_successions --entity pdu --dry-run
+```
+
+The command iterates every entity of the given type in the database, fetches
+its full ODS record via `/organisations/{ods_code}`, reads the `Succs` block,
+and for each missing succession row:
+
+- In `--dry-run` mode: reports the missing row without creating it.
+- In non-dry-run mode: prompts the operator with `[y/n/s=skip]` for each row.
+  `y` creates the row, `n` refuses it, `s` skips it.
+
+### What the command recovers
+
+For each `Succ` entry in the ODS record:
+
+- The **predecessor and successor entities** (mapped from the `Type`:
+  `Successor` means this entity was absorbed into the target, so
+  predecessor=this, successor=target; `Predecessor` means this entity
+  absorbed the target, so predecessor=target, successor=this).
+- The **legal date** of the succession.
+- A **placeholder `succession_type` of `merger`** — ODS does not distinguish
+  merger/acquisition/split/closure, so the operator should review and correct
+  the type via the admin if needed.
+- A **notes** field recording that the row was backfilled from the ODS `Succs`
+  block.
+
+### What the command does not recover
+
+- The **succession type** (merger vs acquisition vs split vs closure). ODS
+  only has `Successor` / `Predecessor`. The command creates rows with
+  `succession_type="merger"` as a placeholder.
+- The **child organisation reassignments**. The `Succs` block tells us which
+  trusts merged, but not which organisations moved from which predecessor to
+  which successor. That's in the child organisations' own `Rels` blocks.
+- The **predecessor names at the time of the merger**. ODS does not keep
+  historical name snapshots.
+
+These require human review via the admin or the `backfill_*` helpers (see
+Part 2).
+
+### Worked example
+
+Running `python manage.py backfill_successions --entity trust --dry-run`
+would produce output like:
+
+```
+Backfilling successions for 137 trust(s)...
+
+  RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
+  Successor → RM3 (NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST)
+  Legal date: 2021-10-01
+  Suggested succession_type: merger (review and correct via the admin if needed)
+  [dry-run] would create succession row
+
+  RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
+  Successor → R0A (MANCHESTER UNIVERSITY NHS FOUNDATION TRUST)
+  Legal date: 2021-10-01
+  Suggested succession_type: merger (review and correct via the admin if needed)
+  [dry-run] would create succession row
+
+Summary:
+  Found (missing): 2
+done.
+```
+
+In non-dry-run mode, each row prompts:
+
+```
+Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01? [y/n/s=skip]
+```
+
 ## What this does not solve
 
 The 185-day window is the ODS API's hard limit. Changes older than 185 days
@@ -361,7 +447,13 @@ project.
   organisation record and surfaces it in the report alongside the effective
   date applied. Succession events from the `Succs` block are also surfaced.
 - ✅ **Step 3** — Review-gated apply for merger-driven changes (implemented).
-  Changes with succession events are not applied automatically; the operator
-  must agree or refuse via a review callback. Changes without succession
-  events are applied automatically.
-- ⬜ **Step 4** (future) — `--backfill` flag, if step 2 shows it is needed.
+  Changes with **recent** succession events (within the `time_frame` window)
+  are not applied automatically; the operator must agree or refuse via a
+  review callback. Changes with only old succession events (outside the
+  window) are applied automatically — a 12-year-old merger is part of the
+  permanent ODS record and should not gate a routine website update.
+- ✅ **Part 3** — `backfill_successions` command (implemented). Iterates every
+  entity in the database, fetches its full ODS record, reads the `Succs` block,
+  and reports or creates missing succession rows with a yes/no/skip prompt.
+  Recovers the full historical merger chain, not just the last 185 days.
+- ⬜ **Step 4** (future) — `--backfill` flag on `cron`, if needed.

@@ -124,7 +124,13 @@ ORD_TRUST_RECORD = {
 
 # A record with succession events (merger / acquisition / split) in the
 # Succs block, like the real ODS response for a trust that's been through
-# a merger. Used to test that the dry-run report surfaces the succession info.
+# a merger. Used to test that the dry-run report surfaces the succession info
+# and that the review-gating fires for recent mergers.
+#
+# The succession dates are set relative to today so they fall within the
+# default 30-day time_frame window — the review-gating only fires for
+# succession events whose legal date is within the window. A merger from
+# 2021 would not trigger the review for a 2026 sync run.
 ORD_TRUST_RECORD_WITH_SUCCESSION = {
     "Name": "New Trust Name",
     "LastChangeDate": "2021-10-15",
@@ -146,7 +152,7 @@ ORD_TRUST_RECORD_WITH_SUCCESSION = {
         "Succ": [
             {
                 "Type": "Successor",
-                "Date": [{"Type": "Legal", "Start": "2021-10-01"}],
+                "Date": [{"Type": "Legal", "Start": "__RECENT__"}],
                 "Target": {
                     "OrgId": {"extension": "RM3"},
                     "PrimaryRoleId": {"id": "RO197"},
@@ -154,7 +160,7 @@ ORD_TRUST_RECORD_WITH_SUCCESSION = {
             },
             {
                 "Type": "Predecessor",
-                "Date": [{"Type": "Legal", "Start": "2002-04-01"}],
+                "Date": [{"Type": "Legal", "Start": "__OLD__"}],
                 "Target": {
                     "OrgId": {"extension": "RMK"},
                     "PrimaryRoleId": {"id": "RO197"},
@@ -171,6 +177,25 @@ def _org_link(ods_code):
     # full organisation record fetched via get_organisation, not on the
     # /sync list item.
     return {"OrgLink": f"https://ods.example/Organisation/{ods_code}"}
+
+
+def _succession_record(recent_days_ago=7, old_years_ago=20):
+    """Return a copy of ORD_TRUST_RECORD_WITH_SUCCESSION with the
+    __RECENT__ and __OLD__ placeholders replaced by real dates relative to
+    today. The recent date falls within the default 30-day time_frame window
+    (so the review-gating fires); the old date falls well outside it."""
+    import copy, datetime as dt
+    record = copy.deepcopy(ORD_TRUST_RECORD_WITH_SUCCESSION)
+    today = dt.date.today()
+    recent = today - dt.timedelta(days=recent_days_ago)
+    old = today.replace(year=today.year - old_years_ago)
+    for succ in record["Succs"]["Succ"]:
+        for d in succ["Date"]:
+            if d["Start"] == "__RECENT__":
+                d["Start"] = recent.isoformat()
+            elif d["Start"] == "__OLD__":
+                d["Start"] = old.isoformat()
+    return record
 
 
 def _patch_ods(monkeypatch, org_links, records_by_ods_code):
@@ -483,7 +508,7 @@ def test_dry_run_report_surfaces_succession_events(
     _patch_ods(
         monkeypatch,
         org_links=[_org_link("RAA")],
-        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+        records_by_ods_code={"RAA": _succession_record()},
     )
     stdout = _FakeStdout()
     update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
@@ -495,7 +520,10 @@ def test_dry_run_report_surfaces_succession_events(
     assert "RM3" in report
     assert "Predecessor" in report
     assert "RMK" in report
-    assert "2021-10-01" in report
+    # The recent date is in the report.
+    import datetime as dt
+    recent = (dt.date.today() - dt.timedelta(days=7)).isoformat()
+    assert recent in report
     # The guidance to use the admin/backfill helpers is present.
     assert "backfill" in report
     # The LastChangeDate from the full record is surfaced.
@@ -534,7 +562,7 @@ def test_merger_driven_change_skipped_without_callback(
     _patch_ods(
         monkeypatch,
         org_links=[_org_link("RAA")],
-        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+        records_by_ods_code={"RAA": _succession_record()},
     )
     changes_found = update_organisation_model_with_ORD_changes(
         dry_run=False, review_callback=None
@@ -557,7 +585,7 @@ def test_merger_driven_change_applied_when_callback_accepts(
     _patch_ods(
         monkeypatch,
         org_links=[_org_link("RAA")],
-        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+        records_by_ods_code={"RAA": _succession_record()},
     )
 
     def accept_all(change):
@@ -582,7 +610,7 @@ def test_merger_driven_change_skipped_when_callback_refuses(
     _patch_ods(
         monkeypatch,
         org_links=[_org_link("RAA")],
-        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+        records_by_ods_code={"RAA": _succession_record()},
     )
 
     def refuse_all(change):
@@ -636,7 +664,7 @@ def test_review_callback_receives_change_details(
     _patch_ods(
         monkeypatch,
         org_links=[_org_link("RAA")],
-        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+        records_by_ods_code={"RAA": _succession_record()},
     )
 
     received = []
@@ -655,8 +683,56 @@ def test_review_callback_receives_change_details(
     assert change["ods_code"] == "RAA"
     assert change["name"] == "Old Trust Name"
     assert "name" in change["changes"]
-    assert len(change["succession_events"]) == 2
+    # Only the recent succession event is passed to the callback (the old one
+    # is outside the time_frame window and does not trigger the review).
+    assert len(change["succession_events"]) == 1
     assert change["succession_events"][0]["type"] == "Successor"
     assert change["succession_events"][0]["target_ods_code"] == "RM3"
-    assert change["succession_events"][0]["date"] == "2021-10-01"
+    import datetime as dt
+    recent = (dt.date.today() - dt.timedelta(days=7)).isoformat()
+    assert change["succession_events"][0]["date"] == recent
     assert change["ods_change_date"] == "2021-10-15"
+
+
+@pytest.mark.django_db
+def test_old_succession_event_does_not_trigger_review(
+    trust_with_baseline, monkeypatch
+):
+    """A succession event from 20 years ago is part of the entity's permanent
+    ODS record but should NOT trigger the review-gating — only recent
+    succession events (within the time_frame window) are plausibly related
+    to the change being applied."""
+    # Use a record where BOTH succession events are old (outside the window).
+    import copy, datetime as dt
+    record = copy.deepcopy(ORD_TRUST_RECORD_WITH_SUCCESSION)
+    today = dt.date.today()
+    old = today.replace(year=today.year - 20)
+    older = today.replace(year=today.year - 25)
+    for succ in record["Succs"]["Succ"]:
+        for d in succ["Date"]:
+            if d["Start"] == "__RECENT__":
+                d["Start"] = old.isoformat()
+            elif d["Start"] == "__OLD__":
+                d["Start"] = older.isoformat()
+
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": record},
+    )
+
+    callback_invoked = []
+
+    def callback(change):
+        callback_invoked.append(change)
+        return True
+
+    update_organisation_model_with_ORD_changes(
+        dry_run=False, review_callback=callback
+    )
+
+    # The callback was NOT invoked — both succession events are old.
+    assert callback_invoked == []
+    # The change was applied automatically.
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "New Trust Name"

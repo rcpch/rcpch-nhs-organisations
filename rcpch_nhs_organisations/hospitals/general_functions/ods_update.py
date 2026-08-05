@@ -1,4 +1,5 @@
 # python imports
+import datetime
 import requests
 from requests.exceptions import HTTPError
 import os
@@ -168,6 +169,37 @@ def _extract_succession_info(ord_record):
     return events
 
 
+def _recent_succession_events(succession_events, time_frame, reference_date=None):
+    """Filter succession events to only those whose legal date falls within
+    the ``time_frame`` window ending at ``reference_date`` (default: today).
+
+    A succession event that happened 12 years ago is part of the entity's
+    permanent ODS record — it will appear on every fetch of that entity, even
+    for a routine website update in 2026. Gating every change on every
+    succession event would force the operator to review routine updates that
+    have nothing to do with a merger that happened over a decade ago.
+
+    This filter restricts the review-gating to succession events whose legal
+    date is within the ``time_frame`` window (e.g. the last 185 days), so only
+    plausibly-related mergers trigger the review. The dry-run report still
+    surfaces *all* succession events for context.
+    """
+    if reference_date is None:
+        reference_date = timezone.now().date()
+    window_start = reference_date - timezone.timedelta(days=time_frame)
+    recent = []
+    for ev in succession_events:
+        if ev["date"] is None:
+            continue
+        try:
+            ev_date = datetime.date.fromisoformat(ev["date"])
+        except (ValueError, TypeError):
+            continue
+        if window_start <= ev_date <= reference_date:
+            recent.append(ev)
+    return recent
+
+
 def _diff_fields(current, new, fields):
     """
     Compare the current entity's attributes against the new values from ORD.
@@ -335,7 +367,15 @@ def update_organisation_model_with_ORD_changes(
                     report_lines.append(f"| {field} | {old} | {new} |")
                 report_lines.append("")
             else:
-                if succession_events:
+                # Only gate on succession events whose legal date falls
+                # within the time_frame window. A merger that happened 12
+                # years ago is part of the entity's permanent ODS record and
+                # will appear on every fetch; gating routine website updates
+                # on it would force the operator to review every change.
+                recent_succession_events = _recent_succession_events(
+                    succession_events, time_frame, reference_date=effective_date
+                )
+                if recent_succession_events:
                     # Merger-driven change: do not apply automatically.
                     # Prompt the operator via the review callback; skip if
                     # they refuse or if no callback is provided (e.g. running
@@ -346,13 +386,13 @@ def update_organisation_model_with_ORD_changes(
                         ods_code=ods_code,
                         name=organisation.name,
                         changes=changes,
-                        succession_events=succession_events,
+                        succession_events=recent_succession_events,
                         ods_change_date=ods_change_date,
                         effective_date=effective_date,
                     )
                     if not apply:
                         logger.warning(
-                            "Organisation %s has succession events; "
+                            "Organisation %s has recent succession events; "
                             "change skipped. Handle via the admin or the "
                             "backfill_* helpers.",
                             ods_code,
@@ -432,20 +472,23 @@ def update_organisation_model_with_ORD_changes(
                         report_lines.append(f"| {field} | {old} | {new} |")
                     report_lines.append("")
                 else:
-                    if succession_events:
+                    recent_succession_events = _recent_succession_events(
+                        succession_events, time_frame, reference_date=effective_date
+                    )
+                    if recent_succession_events:
                         apply = _review_succession_change(
                             review_callback,
                             entity_type="Trust",
                             ods_code=ods_code,
                             name=trust.name,
                             changes=changes,
-                            succession_events=succession_events,
+                            succession_events=recent_succession_events,
                             ods_change_date=ods_change_date,
                             effective_date=effective_date,
                         )
                         if not apply:
                             logger.warning(
-                                "Trust %s has succession events; "
+                                "Trust %s has recent succession events; "
                                 "change skipped. Handle via the admin or "
                                 "the backfill_* helpers.",
                                 ods_code,
