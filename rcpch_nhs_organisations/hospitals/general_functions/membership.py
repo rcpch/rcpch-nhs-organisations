@@ -735,3 +735,147 @@ def deactivate_paediatric_diabetes_unit(
         effective_date,
     )
     return new_version
+
+
+# ---------------------------------------------------------------------------
+# Backfill helpers (insert a historical state without snapshotting the current row)
+# ---------------------------------------------------------------------------
+# These are for recording historical states that were overwritten before the
+# temporal layer was installed. The forward-looking helpers (update_*, rename_*,
+# deactivate_*) snapshot the *current* entity row into the "old" version row,
+# which is wrong for a backfill: the old row would record the current name for
+# the period before the change date.
+#
+# The backfill helpers instead insert a version row with an explicit
+# [valid_from, valid_to) interval and explicit attribute values, without
+# touching the current entity row or the current version row. They are
+# idempotent: if a row already exists for the same interval, they update it
+# in place rather than creating a duplicate.
+#
+# These are not exposed in the admin — they are for shell use, documented in
+# temporal-history.md under "Backfilling historical states".
+
+
+def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
+    """Insert a historical TrustVersion row for the interval [valid_from, valid_to)
+    with the given attribute values, without touching the current entity row.
+
+    Use this to record a past state that was overwritten before the temporal
+    layer was installed. For example, to record that RM3 was called "Salford
+    Royal NHS Foundation Trust" from 2001-04-01 until it was renamed to
+    "Northern Care Alliance" on 2021-10-01:
+
+        backfill_trust_attributes(
+            trust,
+            valid_from=datetime.date(2001, 4, 1),
+            valid_to=datetime.date(2021, 10, 1),
+            name="Salford Royal NHS Foundation Trust",
+            active=True,
+        )
+
+    If a version row already exists for the same [valid_from, valid_to) interval,
+    it is updated in place rather than duplicated.
+
+    Args:
+        trust: the Trust the historical state belongs to.
+        valid_from: the date the historical state began.
+        valid_to: the date the historical state ended (the date of the next
+            change). Use None only if this is the current state (it almost
+            never is, for a backfill).
+        **fields: the historical attribute values (name, active, address, etc.).
+    """
+    TrustVersion = apps.get_model("hospitals", "TrustVersion")
+    snapshot = _snapshot_entity_fields(TrustVersion, trust)
+    snapshot.update(fields)
+    with transaction.atomic():
+        obj, created = TrustVersion.objects.update_or_create(
+            trust=trust,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            defaults=snapshot,
+        )
+    logger.info(
+        "Backfilled Trust %s version %s → %s (%s): %s",
+        trust.ods_code,
+        valid_from,
+        valid_to or "now",
+        "created" if created else "updated",
+        ", ".join(f"{k}={v!r}" for k, v in fields.items()),
+    )
+    return obj
+
+
+def backfill_organisation_attributes(organisation, valid_from, valid_to, **fields):
+    """Insert a historical OrganisationVersion row for the interval
+    [valid_from, valid_to) with the given attribute values, without touching the
+    current entity row. See backfill_trust_attributes for the full description.
+    """
+    OrganisationVersion = apps.get_model("hospitals", "OrganisationVersion")
+    snapshot = _snapshot_entity_fields(OrganisationVersion, organisation)
+    snapshot.update(fields)
+    with transaction.atomic():
+        obj, created = OrganisationVersion.objects.update_or_create(
+            organisation=organisation,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            defaults=snapshot,
+        )
+    logger.info(
+        "Backfilled Organisation %s version %s → %s (%s): %s",
+        organisation.ods_code,
+        valid_from,
+        valid_to or "now",
+        "created" if created else "updated",
+        ", ".join(f"{k}={v!r}" for k, v in fields.items()),
+    )
+    return obj
+
+
+def backfill_organisation_trust_membership(
+    organisation, trust, valid_from, valid_to
+):
+    """Insert a historical OrganisationTrustMembership row for the interval
+    [valid_from, valid_to), recording that the organisation was a member of the
+    given trust during that period.
+
+    Use this to record a past affiliation that was overwritten before the
+    temporal layer was installed. For example, to record that an organisation
+    was in Pennine Acute (RW6) from 2001-04-01 until it moved to Northern Care
+    Alliance (RM3) on 2021-10-01:
+
+        backfill_organisation_trust_membership(
+            organisation,
+            trust=pennine_acute,
+            valid_from=datetime.date(2001, 4, 1),
+            valid_to=datetime.date(2021, 10, 1),
+        )
+
+    If a membership row already exists for the same organisation, trust, and
+    [valid_from, valid_to) interval, it is updated in place rather than
+    duplicated.
+
+    Args:
+        organisation: the Organisation.
+        trust: the Trust the organisation was affiliated to during the period.
+        valid_from: the date the affiliation began.
+        valid_to: the date the affiliation ended (the date of the reassignment).
+    """
+    OrganisationTrustMembership = apps.get_model(
+        "hospitals", "OrganisationTrustMembership"
+    )
+    with transaction.atomic():
+        obj, created = OrganisationTrustMembership.objects.update_or_create(
+            organisation=organisation,
+            trust=trust,
+            valid_from=valid_from,
+            valid_to=valid_to,
+        )
+    logger.info(
+        "Backfilled Organisation %s → Trust %s membership %s → %s (%s)",
+        organisation.ods_code,
+        trust.ods_code,
+        valid_from,
+        valid_to or "now",
+        "created" if created else "updated",
+    )
+    return obj

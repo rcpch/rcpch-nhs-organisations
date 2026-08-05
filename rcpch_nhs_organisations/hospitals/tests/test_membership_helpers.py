@@ -30,6 +30,9 @@ from rcpch_nhs_organisations.hospitals.general_functions.membership import (
     deactivate_trust,
     deactivate_organisation,
     deactivate_paediatric_diabetes_unit,
+    backfill_trust_attributes,
+    backfill_organisation_attributes,
+    backfill_organisation_trust_membership,
 )
 
 Organisation = apps.get_model("hospitals", "Organisation")
@@ -789,3 +792,155 @@ def test_deactivate_trust_is_atomic_on_error(trust_a):
     assert current.active is True
     # No succession row.
     assert TrustSuccession.objects.count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Backfill helpers (insert a historical state without snapshotting the current row)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_inserts_historical_version(trust_a):
+    """backfill_trust_attributes inserts a version row with the given
+    attributes and interval, without touching the current entity row."""
+    # Create a baseline current version row.
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 1, 1),
+        valid_to=None,
+        name="Trust A (current)",
+        active=True,
+    )
+
+    # Backfill a historical state.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Trust A (old name)",
+        active=True,
+    )
+
+    # The historical row exists with the backfilled name.
+    historical = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert historical.name == "Trust A (old name)"
+    assert historical.active is True
+
+    # The current entity row is untouched.
+    trust_a.refresh_from_db()
+    assert trust_a.name == "Trust A"
+
+    # The current version row is untouched.
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.name == "Trust A (current)"
+
+    # As-of query returns the backfilled name for the historical period.
+    as_of = TrustVersion.objects.filter(
+        trust=trust_a,
+        valid_from__lte=datetime.date(2010, 1, 1),
+    ).filter(valid_to__gt=datetime.date(2010, 1, 1)).get()
+    assert as_of.name == "Trust A (old name)"
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_is_idempotent(trust_a):
+    """Calling backfill_trust_attributes twice with the same interval updates
+    the existing row rather than creating a duplicate."""
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Old Name",
+    )
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Corrected Old Name",
+    )
+    assert TrustVersion.objects.filter(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    ).count() == 1
+    row = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert row.name == "Corrected Old Name"
+
+
+@pytest.mark.django_db
+def test_backfill_organisation_trust_membership_inserts_historical_membership(
+    organisation, trust_a, trust_b
+):
+    """backfill_organisation_trust_membership records a past affiliation
+    without touching the current membership."""
+    # Current membership: organisation is in trust_b.
+    OrganisationTrustMembership.objects.create(
+        organisation=organisation,
+        trust=trust_b,
+        valid_from=datetime.date(2021, 10, 1),
+        valid_to=None,
+    )
+
+    # Backfill: organisation was in trust_a before the move.
+    backfill_organisation_trust_membership(
+        organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+
+    # The historical membership exists.
+    historical = OrganisationTrustMembership.objects.get(
+        organisation=organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+    )
+    assert historical.valid_to == datetime.date(2021, 10, 1)
+
+    # The current membership is untouched.
+    current = OrganisationTrustMembership.objects.get(
+        organisation=organisation, valid_to__isnull=True
+    )
+    assert current.trust == trust_b
+
+    # As-of query returns trust_a for the historical period.
+    from django.db.models import Q
+    as_of = OrganisationTrustMembership.objects.filter(
+        organisation=organisation,
+        valid_from__lte=datetime.date(2010, 1, 1),
+    ).filter(Q(valid_to__gt=datetime.date(2010, 1, 1))).get()
+    assert as_of.trust == trust_a
+
+
+@pytest.mark.django_db
+def test_backfill_organisation_trust_membership_is_idempotent(
+    organisation, trust_a
+):
+    """Calling backfill_organisation_trust_membership twice with the same
+    interval updates the existing row rather than creating a duplicate."""
+    backfill_organisation_trust_membership(
+        organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    backfill_organisation_trust_membership(
+        organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert OrganisationTrustMembership.objects.filter(
+        organisation=organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    ).count() == 1
