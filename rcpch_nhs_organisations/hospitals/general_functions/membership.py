@@ -756,6 +756,48 @@ def deactivate_paediatric_diabetes_unit(
 # temporal-history.md under "Backfilling historical states".
 
 
+def _backfill_version_row(
+    version_model, *, parent_field, parent, valid_from, valid_to, snapshot
+):
+    """Insert or update a version row, enforcing the single-current-row invariant.
+
+    If valid_to is None (the new row is intended to be the current state) and
+    a current row already exists with a different valid_from, the existing
+    current row is closed at the new row's valid_from date. This prevents two
+    open rows (valid_to=None) for the same entity.
+
+    If a row already exists for the exact same (parent, valid_from, valid_to)
+    tuple, it is updated in place rather than duplicated.
+    """
+    # If the new row is current (valid_to=None), handle the existing current row.
+    if valid_to is None:
+        existing_current = version_model.objects.filter(
+            **{parent_field: parent, "valid_to__isnull": True}
+        ).exclude(valid_from=valid_from).first()
+        if existing_current:
+            # If the existing current row starts AFTER the new row, it's a
+            # baseline artefact (e.g. from the baseline migration) that
+            # should be replaced — close it at the new row's valid_from and
+            # delete it, since it doesn't represent a real state change.
+            if existing_current.valid_from > valid_from:
+                existing_current.delete()
+            else:
+                # The existing current row starts before the new row — close
+                # it at the new row's valid_from, so the new row takes over
+                # as the current state from that date forward.
+                existing_current.valid_to = valid_from
+                existing_current.save(update_fields=["valid_to"])
+    # Insert or update the new row.
+    version_model.objects.update_or_create(
+        **{
+            parent_field: parent,
+            "valid_from": valid_from,
+            "valid_to": valid_to,
+            "defaults": snapshot,
+        }
+    )
+
+
 def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
     """Insert a historical TrustVersion row for the interval [valid_from, valid_to)
     with the given attribute values, without touching the current entity row.
@@ -776,33 +818,37 @@ def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
     If a version row already exists for the same [valid_from, valid_to) interval,
     it is updated in place rather than duplicated.
 
+    If valid_to is None (the new row is intended to be the current state) and
+    a current row already exists with a different valid_from, the existing
+    current row is closed at the new row's valid_from date. This prevents two
+    open rows (valid_to=None) for the same entity — the single-current-row
+    invariant.
+
     Args:
         trust: the Trust the historical state belongs to.
         valid_from: the date the historical state began.
         valid_to: the date the historical state ended (the date of the next
-            change). Use None only if this is the current state (it almost
-            never is, for a backfill).
+            change). Use None if this is the current state (e.g. backfilling
+            the operational start date of a trust that is still active under
+            the same name).
         **fields: the historical attribute values (name, active, address, etc.).
     """
     TrustVersion = apps.get_model("hospitals", "TrustVersion")
     snapshot = _snapshot_entity_fields(TrustVersion, trust)
     snapshot.update(fields)
     with transaction.atomic():
-        obj, created = TrustVersion.objects.update_or_create(
-            trust=trust,
-            valid_from=valid_from,
-            valid_to=valid_to,
-            defaults=snapshot,
+        _backfill_version_row(
+            TrustVersion, parent_field="trust", parent=trust,
+            valid_from=valid_from, valid_to=valid_to, snapshot=snapshot,
         )
     logger.info(
-        "Backfilled Trust %s version %s → %s (%s): %s",
+        "Backfilled Trust %s version %s → %s: %s",
         trust.ods_code,
         valid_from,
         valid_to or "now",
-        "created" if created else "updated",
         ", ".join(f"{k}={v!r}" for k, v in fields.items()),
     )
-    return obj
+    return TrustVersion.objects.get(trust=trust, valid_from=valid_from, valid_to=valid_to)
 
 
 def backfill_organisation_attributes(organisation, valid_from, valid_to, **fields):
@@ -814,21 +860,20 @@ def backfill_organisation_attributes(organisation, valid_from, valid_to, **field
     snapshot = _snapshot_entity_fields(OrganisationVersion, organisation)
     snapshot.update(fields)
     with transaction.atomic():
-        obj, created = OrganisationVersion.objects.update_or_create(
-            organisation=organisation,
-            valid_from=valid_from,
-            valid_to=valid_to,
-            defaults=snapshot,
+        _backfill_version_row(
+            OrganisationVersion, parent_field="organisation", parent=organisation,
+            valid_from=valid_from, valid_to=valid_to, snapshot=snapshot,
         )
     logger.info(
-        "Backfilled Organisation %s version %s → %s (%s): %s",
+        "Backfilled Organisation %s version %s → %s: %s",
         organisation.ods_code,
         valid_from,
         valid_to or "now",
-        "created" if created else "updated",
         ", ".join(f"{k}={v!r}" for k, v in fields.items()),
     )
-    return obj
+    return OrganisationVersion.objects.get(
+        organisation=organisation, valid_from=valid_from, valid_to=valid_to
+    )
 
 
 def backfill_organisation_trust_membership(

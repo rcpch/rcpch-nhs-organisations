@@ -944,3 +944,91 @@ def test_backfill_organisation_trust_membership_is_idempotent(
         valid_from=datetime.date(2001, 4, 1),
         valid_to=datetime.date(2021, 10, 1),
     ).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# Backfill with valid_to=None (replacing the current row)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_valid_to_none_replaces_current_row(trust_a):
+    """If valid_to=None is passed and a current row already exists with a
+    later valid_from (e.g. a baseline migration artefact), the existing
+    current row is deleted and the new row becomes the current state.
+
+    This is the case where an operator backfills the operational start date
+    of a trust that is still active under the same name — there should be
+    only one current row when the backfill is done, not two."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill the real start date, with valid_to=None (still current).
+    new_row = backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2012, 3, 20),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Only one current row exists.
+    current_count = TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count()
+    assert current_count == 1
+
+    # The current row is the backfilled one.
+    assert new_row.valid_from == datetime.date(2012, 3, 20)
+    assert new_row.valid_to is None
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_valid_to_none_closes_earlier_current_row(
+    trust_a
+):
+    """If valid_to=None is passed and a current row already exists with an
+    EARLIER valid_from, the existing current row is closed at the new row's
+    valid_from (not deleted — it represents a real prior state)."""
+    # Existing current row from 2010.
+    existing = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2010, 1, 1),
+        valid_to=None,
+        name="Old Name",
+        active=True,
+    )
+
+    # Backfill a new current state from 2020.
+    new_row = backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="New Name",
+        active=True,
+    )
+
+    # Only one current row exists.
+    current_count = TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count()
+    assert current_count == 1
+
+    # The new row is current.
+    assert new_row.valid_from == datetime.date(2020, 1, 1)
+    assert new_row.valid_to is None
+    assert new_row.name == "New Name"
+
+    # The old row was closed at the new row's valid_from.
+    existing.refresh_from_db()
+    assert existing.valid_to == datetime.date(2020, 1, 1)
+    assert existing.name == "Old Name"
