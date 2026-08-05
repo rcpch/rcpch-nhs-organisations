@@ -154,6 +154,27 @@ def _snapshot_entity_fields(version_model, entity):
     """
     excluded = {"id", "valid_from", "valid_to", "created_at", "updated_at"}
     snapshot = {}
+    for field in _snapshot_fields(version_model):
+        attname = field.attname
+        # Map the version model's attname back to the entity's attribute name.
+        # The version model mirrors the entity's field names, so attname is
+        # the same on both.
+        snapshot[attname] = getattr(entity, attname, None)
+    return snapshot
+
+
+def _snapshot_fields(version_model):
+    """
+    Return the list of concrete field objects on ``version_model`` that hold
+    snapshotted attributes. Excludes the parent FK, any other FKs (e.g. the
+    network snapshot on PaediatricDiabetesUnitVersion), and the bookkeeping
+    columns (id, valid_from, valid_to, created_at, updated_at).
+
+    Used by ``_snapshot_entity_fields`` and by the admin form builder so both
+    share one definition of "what is a snapshot field".
+    """
+    excluded = {"id", "valid_from", "valid_to", "created_at", "updated_at"}
+    fields = []
     for field in version_model._meta.get_fields():
         if field.name in excluded:
             continue
@@ -164,12 +185,8 @@ def _snapshot_entity_fields(version_model, entity):
             continue
         if not hasattr(field, "attname"):
             continue
-        attname = field.attname
-        # Map the version model's attname back to the entity's attribute name.
-        # The version model mirrors the entity's field names, so attname is
-        # the same on both.
-        snapshot[attname] = getattr(entity, attname, None)
-    return snapshot
+        fields.append(field)
+    return fields
 
 
 # ---------------------------------------------------------------------------
@@ -494,3 +511,227 @@ def update_paediatric_diabetes_network_attributes(paediatric_diabetes_network, e
         effective_date=effective_date,
         **fields,
     )
+
+
+# ---------------------------------------------------------------------------
+# Composite rename helpers (Layer 1 version write + Layer 3 succession row)
+# ---------------------------------------------------------------------------
+# These exist only for entities with a succession table (Trust and PDU).
+# A rename is a single business event that touches two layers: the entity's
+# own attributes change (Layer 1) *and* a succession row records *why* the
+# change happened, distinguishing a genuine rename by NHS England from a
+# silent operator correction. Membership tables are untouched — a rename
+# does not change any affiliation.
+# For entities without a succession table (Organisation, ICB, etc.) use the
+# plain update_<entity>_attributes() helpers instead.
+
+
+def rename_trust(trust, new_name, effective_date=None, notes=""):
+    """Rename a Trust, recording both a TrustVersion update and a
+    TrustSuccession row with succession_type='rename'.
+
+    The Trust row's denormalised ``name`` is updated so existing current-state
+    queries keep working. ``predecessor`` and ``successor`` on the succession
+    row both point at the same Trust instance, since the entity persists.
+
+    Args:
+        trust: the Trust being renamed.
+        new_name: the new name.
+        effective_date: the date the rename takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) TrustVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+    with transaction.atomic():
+        new_version = update_trust_attributes(
+            trust, effective_date=effective_date, name=new_name
+        )
+        TrustSuccession.objects.create(
+            predecessor=trust,
+            successor=trust,
+            succession_date=effective_date,
+            succession_type="rename",
+            notes=notes,
+        )
+    logger.info(
+        "Renamed Trust %s → %r (effective %s)",
+        trust.ods_code,
+        new_name,
+        effective_date,
+    )
+    return new_version
+
+
+def rename_paediatric_diabetes_unit(
+    paediatric_diabetes_unit, new_name, effective_date=None, notes=""
+):
+    """Rename a Paediatric Diabetes Unit, recording both a
+    PaediatricDiabetesUnitVersion update and a PaediatricDiabetesUnitSuccession
+    row with succession_type='rename'.
+
+    The PDU row's denormalised ``unit_name`` is updated so existing current-state
+    queries keep working. ``predecessor`` and ``successor`` on the succession
+    row both point at the same PDU instance, since the entity persists.
+
+    Args:
+        paediatric_diabetes_unit: the PDU being renamed.
+        new_name: the new unit_name.
+        effective_date: the date the rename takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) PaediatricDiabetesUnitVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    PaediatricDiabetesUnitSuccession = apps.get_model(
+        "hospitals", "PaediatricDiabetesUnitSuccession"
+    )
+    with transaction.atomic():
+        new_version = update_paediatric_diabetes_unit_attributes(
+            paediatric_diabetes_unit,
+            effective_date=effective_date,
+            unit_name=new_name,
+        )
+        PaediatricDiabetesUnitSuccession.objects.create(
+            predecessor=paediatric_diabetes_unit,
+            successor=paediatric_diabetes_unit,
+            succession_date=effective_date,
+            succession_type="rename",
+            notes=notes,
+        )
+    logger.info(
+        "Renamed PDU %s → %r (effective %s)",
+        paediatric_diabetes_unit.pz_code,
+        new_name,
+        effective_date,
+    )
+    return new_version
+
+
+# ---------------------------------------------------------------------------
+# Deactivation helpers (Layer 1 version write + Layer 3 closure succession row)
+# ---------------------------------------------------------------------------
+# A closure is an entity ceasing to operate with no successor — e.g. a hospital
+# closed through poor quality of care, or a trust dissolved with its children
+# redistributed (the redistribution itself is recorded as separate split
+# successions). Like a rename, a closure is a single business event that touches
+# two layers: the entity's `active` flag flips (Layer 1) *and* a succession row
+# with succession_type='closure' and successor=None records *why* (Layer 3).
+# Membership tables are untouched — a closure does not reassign any child;
+# child reassignment is recorded separately as split successions.
+#
+# For entities without a succession table (IntegratedCareBoard,
+# NHSEnglandRegion, LocalHealthBoard, PaediatricDiabetesNetwork) use the plain
+# update_<entity>_attributes(active=False) helpers instead — there is no
+# succession row to write.
+
+
+def deactivate_trust(trust, effective_date=None, notes=""):
+    """Deactivate a Trust (closure with no successor), recording both a
+    TrustVersion update with active=False and a TrustSuccession row with
+    succession_type='closure' and successor=None.
+
+    Args:
+        trust: the Trust being closed.
+        effective_date: the date the closure takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row (e.g. the
+            reason for closure).
+
+    Returns:
+        The new (current) TrustVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+    with transaction.atomic():
+        new_version = update_trust_attributes(
+            trust, effective_date=effective_date, active=False
+        )
+        TrustSuccession.objects.create(
+            predecessor=trust,
+            successor=None,
+            succession_date=effective_date,
+            succession_type="closure",
+            notes=notes,
+        )
+    logger.info(
+        "Deactivated Trust %s (effective %s)",
+        trust.ods_code,
+        effective_date,
+    )
+    return new_version
+
+
+def deactivate_organisation(organisation, effective_date=None, notes=""):
+    """Deactivate an Organisation (closure with no successor), recording both
+    an OrganisationVersion update with active=False and an OrganisationSuccession
+    row with succession_type='closure' and successor=None.
+
+    Args:
+        organisation: the Organisation being closed.
+        effective_date: the date the closure takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) OrganisationVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
+    with transaction.atomic():
+        new_version = update_organisation_attributes(
+            organisation, effective_date=effective_date, active=False
+        )
+        OrganisationSuccession.objects.create(
+            predecessor=organisation,
+            successor=None,
+            succession_date=effective_date,
+            succession_type="closure",
+            notes=notes,
+        )
+    logger.info(
+        "Deactivated Organisation %s (effective %s)",
+        organisation.ods_code,
+        effective_date,
+    )
+    return new_version
+
+
+def deactivate_paediatric_diabetes_unit(
+    paediatric_diabetes_unit, effective_date=None, notes=""
+):
+    """Deactivate a Paediatric Diabetes Unit (closure with no successor),
+    recording both a PaediatricDiabetesUnitVersion update with active=False and
+    a PaediatricDiabetesUnitSuccession row with succession_type='closure' and
+    successor=None.
+
+    Args:
+        paediatric_diabetes_unit: the PDU being closed.
+        effective_date: the date the closure takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) PaediatricDiabetesUnitVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    PaediatricDiabetesUnitSuccession = apps.get_model(
+        "hospitals", "PaediatricDiabetesUnitSuccession"
+    )
+    with transaction.atomic():
+        new_version = update_paediatric_diabetes_unit_attributes(
+            paediatric_diabetes_unit, effective_date=effective_date, active=False
+        )
+        PaediatricDiabetesUnitSuccession.objects.create(
+            predecessor=paediatric_diabetes_unit,
+            successor=None,
+            succession_date=effective_date,
+            succession_type="closure",
+            notes=notes,
+        )
+    logger.info(
+        "Deactivated PDU %s (effective %s)",
+        paediatric_diabetes_unit.pz_code,
+        effective_date,
+    )
+    return new_version

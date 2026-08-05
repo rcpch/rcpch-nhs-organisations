@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">{{ object }}</a> &rsaquo;
+  Rename…
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Rename {{ opts.verbose_name }}: {{ object }}</h1>
+
+<p>This performs two writes in one transaction:</p>
+<ol>
+  <li>closes the current version row and opens a new one with the new name
+      (Layer 1 — <code>{{ opts.model_name }}Version</code>);</li>
+  <li>creates a <code>{{ opts.model_name }}Succession</code> row with
+      <code>succession_type="rename"</code>, predecessor and successor both
+      pointing at this same {{ opts.verbose_name }} (Layer 3 — audit
+      metadata distinguishing a genuine rename from a silent correction).</li>
+</ol>
+<p>No membership tables are touched: a rename does not change any affiliation.</p>
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <p><input type="submit" value="Rename"></p>
+  <p><a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">Cancel</a></p>
+</form>
+{% endblock %}

@@ -25,6 +25,11 @@ from rcpch_nhs_organisations.hospitals.general_functions.membership import (
     reassign_paediatric_diabetes_unit_network,
     update_organisation_attributes,
     update_trust_attributes,
+    rename_trust,
+    rename_paediatric_diabetes_unit,
+    deactivate_trust,
+    deactivate_organisation,
+    deactivate_paediatric_diabetes_unit,
 )
 
 Organisation = apps.get_model("hospitals", "Organisation")
@@ -49,6 +54,14 @@ PaediatricDiabetesNetwork = apps.get_model("hospitals", "PaediatricDiabetesNetwo
 PaediatricDiabetesUnitNetworkMembership = apps.get_model(
     "hospitals", "PaediatricDiabetesUnitNetworkMembership"
 )
+TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+PaediatricDiabetesUnitSuccession = apps.get_model(
+    "hospitals", "PaediatricDiabetesUnitSuccession"
+)
+PaediatricDiabetesUnitVersion = apps.get_model(
+    "hospitals", "PaediatricDiabetesUnitVersion"
+)
+OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
 
 
 def _square_geom(easting, northing, side=200):
@@ -476,3 +489,303 @@ def test_reassign_is_atomic_on_error(organisation_with_baseline, trust_b):
         organisation=organisation_with_baseline, valid_to__isnull=True
     ).get()
     assert current.valid_to is None
+
+
+# ---------------------------------------------------------------------------
+# Composite rename helpers (Layer 1 version + Layer 3 succession)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_rename_trust_writes_version_and_succession(trust_a):
+    """rename_trust writes both a TrustVersion row and a TrustSuccession row
+    with succession_type='rename', in one transaction."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    new_version = rename_trust(
+        trust_a,
+        "Trust A (renamed)",
+        effective_date=datetime.date(2023, 4, 1),
+        notes="NHS England rename",
+    )
+
+    # Layer 1: version row written, old row closed.
+    assert new_version.is_current()
+    assert new_version.name == "Trust A (renamed)"
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+    old_version = TrustVersion.objects.get(trust=trust_a, name="Trust A")
+    assert old_version.valid_to == datetime.date(2023, 4, 1)
+
+    # Denormalised name on the Trust row updated.
+    trust_a.refresh_from_db()
+    assert trust_a.name == "Trust A (renamed)"
+
+    # Layer 3: succession row written, predecessor == successor == same trust.
+    succession = TrustSuccession.objects.get()
+    assert succession.predecessor_id == trust_a.pk
+    assert succession.successor_id == trust_a.pk
+    assert succession.succession_type == "rename"
+    assert succession.succession_date == datetime.date(2023, 4, 1)
+    assert succession.notes == "NHS England rename"
+
+    # Membership tables untouched.
+    assert OrganisationTrustMembership.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_rename_trust_defaults_effective_date_to_today(trust_a):
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    new_version = rename_trust(trust_a, "Trust A (renamed)")
+    assert new_version.valid_from == datetime.date.today()
+    succession = TrustSuccession.objects.get()
+    assert succession.succession_date == datetime.date.today()
+
+
+@pytest.mark.django_db
+def test_rename_trust_is_atomic_on_error(trust_a):
+    """If the succession row creation fails, the version write should roll back.
+    We simulate a failure by passing an empty new_name, which violates the
+    CharField's max_length=0 constraint... actually CharField allows empty.
+    Instead we patch the succession create to raise."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    from unittest.mock import patch
+    from django.db import IntegrityError
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.membership.apps.get_model"
+    ) as mock_get_model:
+        # Allow the update_trust_attributes call to succeed by returning the
+        # real TrustVersion model, but fail on the TrustSuccession lookup.
+        real_get_model = apps.get_model
+
+        def side_effect(app_label, model_name):
+            if model_name == "TrustSuccession":
+                raise IntegrityError("simulated failure")
+            return real_get_model(app_label, model_name)
+
+        mock_get_model.side_effect = side_effect
+        with pytest.raises(IntegrityError):
+            rename_trust(trust_a, "Trust A (renamed)", effective_date=datetime.date(2023, 4, 1))
+
+    # No version row should have been committed.
+    assert TrustVersion.objects.filter(trust=trust_a, name="Trust A (renamed)").count() == 0
+    # The original version row should still be current.
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.name == "Trust A"
+    # No succession row.
+    assert TrustSuccession.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_rename_paediatric_diabetes_unit_writes_version_and_succession(pdu_a):
+    """rename_paediatric_diabetes_unit writes both a PDU version row and a
+    PDU succession row with succession_type='rename'."""
+    PaediatricDiabetesUnitVersion.objects.create(
+        paediatric_diabetes_unit=pdu_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        active=True,
+    )
+
+    new_version = rename_paediatric_diabetes_unit(
+        pdu_a,
+        "New PDU Name",
+        effective_date=datetime.date(2023, 4, 1),
+    )
+
+    # Layer 1: version row written.
+    assert new_version.is_current()
+    assert new_version.unit_name == "New PDU Name"
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+
+    # Denormalised unit_name on the PDU row updated.
+    pdu_a.refresh_from_db()
+    assert pdu_a.unit_name == "New PDU Name"
+
+    # Layer 3: succession row written.
+    succession = PaediatricDiabetesUnitSuccession.objects.get()
+    assert succession.predecessor_id == pdu_a.pk
+    assert succession.successor_id == pdu_a.pk
+    assert succession.succession_type == "rename"
+    assert succession.succession_date == datetime.date(2023, 4, 1)
+
+
+# ---------------------------------------------------------------------------
+# Deactivation helpers (Layer 1 version write + Layer 3 closure succession row)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_deactivate_trust_writes_version_and_closure_succession(trust_a):
+    """deactivate_trust writes a TrustVersion row with active=False and a
+    TrustSuccession row with succession_type='closure' and successor=None."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    new_version = deactivate_trust(
+        trust_a,
+        effective_date=datetime.date(2023, 4, 1),
+        notes="Closed due to poor quality of care",
+    )
+
+    # Layer 1: version row written with active=False, old row closed.
+    assert new_version.is_current()
+    assert new_version.active is False
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+    old_version = TrustVersion.objects.get(trust=trust_a, name="Trust A", active=True)
+    assert old_version.valid_to == datetime.date(2023, 4, 1)
+
+    # Denormalised active flag on the Trust row updated.
+    trust_a.refresh_from_db()
+    assert trust_a.active is False
+
+    # Layer 3: closure succession row written, successor is None.
+    succession = TrustSuccession.objects.get()
+    assert succession.predecessor_id == trust_a.pk
+    assert succession.successor_id is None
+    assert succession.succession_type == "closure"
+    assert succession.succession_date == datetime.date(2023, 4, 1)
+    assert succession.notes == "Closed due to poor quality of care"
+
+    # Membership tables untouched.
+    assert OrganisationTrustMembership.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_deactivate_trust_defaults_effective_date_to_today(trust_a):
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    deactivate_trust(trust_a)
+    new_version = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert new_version.valid_from == datetime.date.today()
+    assert new_version.active is False
+    succession = TrustSuccession.objects.get()
+    assert succession.succession_date == datetime.date.today()
+
+
+@pytest.mark.django_db
+def test_deactivate_organisation_writes_version_and_closure_succession(
+    organisation_with_baseline,
+):
+    """deactivate_organisation writes an OrganisationVersion row with
+    active=False and an OrganisationSuccession row with
+    succession_type='closure' and successor=None."""
+    new_version = deactivate_organisation(
+        organisation_with_baseline,
+        effective_date=datetime.date(2023, 4, 1),
+        notes="Wessex House closed",
+    )
+
+    # Layer 1: version row written with active=False.
+    assert new_version.is_current()
+    assert new_version.active is False
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+
+    # Denormalised active flag updated.
+    organisation_with_baseline.refresh_from_db()
+    assert organisation_with_baseline.active is False
+
+    # Layer 3: closure succession row written, successor is None.
+    succession = OrganisationSuccession.objects.get()
+    assert succession.predecessor_id == organisation_with_baseline.pk
+    assert succession.successor_id is None
+    assert succession.succession_type == "closure"
+    assert succession.notes == "Wessex House closed"
+
+
+@pytest.mark.django_db
+def test_deactivate_paediatric_diabetes_unit_writes_version_and_closure_succession(
+    pdu_a,
+):
+    """deactivate_paediatric_diabetes_unit writes a PDU version row with
+    active=False and a PDU succession row with succession_type='closure'."""
+    PaediatricDiabetesUnitVersion.objects.create(
+        paediatric_diabetes_unit=pdu_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        active=True,
+    )
+
+    new_version = deactivate_paediatric_diabetes_unit(
+        pdu_a,
+        effective_date=datetime.date(2023, 4, 1),
+    )
+
+    # Layer 1: version row written with active=False.
+    assert new_version.is_current()
+    assert new_version.active is False
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+
+    # Denormalised active flag updated.
+    pdu_a.refresh_from_db()
+    assert pdu_a.active is False
+
+    # Layer 3: closure succession row written, successor is None.
+    succession = PaediatricDiabetesUnitSuccession.objects.get()
+    assert succession.predecessor_id == pdu_a.pk
+    assert succession.successor_id is None
+    assert succession.succession_type == "closure"
+
+
+@pytest.mark.django_db
+def test_deactivate_trust_is_atomic_on_error(trust_a):
+    """If the succession row creation fails, the version write should roll back."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    from unittest.mock import patch
+    from django.db import IntegrityError
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.membership.apps.get_model"
+    ) as mock_get_model:
+        real_get_model = apps.get_model
+
+        def side_effect(app_label, model_name):
+            if model_name == "TrustSuccession":
+                raise IntegrityError("simulated failure")
+            return real_get_model(app_label, model_name)
+
+        mock_get_model.side_effect = side_effect
+        with pytest.raises(IntegrityError):
+            deactivate_trust(trust_a, effective_date=datetime.date(2023, 4, 1))
+
+    # No version row should have been committed.
+    assert TrustVersion.objects.filter(trust=trust_a, active=False).count() == 0
+    # The original version row should still be current.
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.active is True
+    # No succession row.
+    assert TrustSuccession.objects.count() == 0

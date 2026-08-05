@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">{{ object }}</a> &rsaquo;
+  Deactivate…
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .deactivate-warning {
+    background: #fbe9e7;
+    border: 1px solid #d32f2f;
+    border-radius: 4px;
+    padding: 1em;
+    margin: 1em 0;
+  }
+  .deactivate-warning h2 {
+    color: #d32f2f;
+    margin-top: 0;
+  }
+  .submit-row input.deactivate-button {
+    background: #d32f2f;
+    color: white;
+    font-weight: bold;
+  }
+  .submit-row input.deactivate-button:hover {
+    background: #b71c1c;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="deactivate-warning">
+  <h2>⚠ Deactivate {{ opts.verbose_name }}: {{ object }}</h2>
+  <p>This is a <strong>closure with no successor</strong>. It performs two
+  writes in one transaction:</p>
+  <ol>
+    <li>closes the current version row and opens a new one with
+        <code>active=False</code>
+        (Layer 1 — <code>{{ opts.model_name }}Version</code>);</li>
+    <li>creates a <code>{{ opts.model_name }}Succession</code> row with
+        <code>succession_type="closure"</code> and <code>successor=None</code>,
+        recording <em>why</em> the entity closed (Layer 3 — audit
+        metadata).</li>
+  </ol>
+  <p>No membership tables are touched: a closure does not reassign any child.
+  If this entity's children need to move to another entity, that is a separate
+  <code>split</code> succession — record it after the closure.</p>
+  <p><strong>Once inactive, this {{ opts.verbose_name }} will be hidden from
+  default lists.</strong> Reactivation requires a new version row via the
+  attribute-edit action.</p>
+</div>
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <div class="submit-row">
+    <input type="submit" value="Deactivate {{ object }}" class="deactivate-button">
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

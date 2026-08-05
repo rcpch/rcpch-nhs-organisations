@@ -177,16 +177,20 @@ An organisation can also be renamed (new name, same ODS code). Handled by
 
 ### Closure
 
-A trust closes with no successor. The trust is marked `active=False`. No
-`TrustSuccession` row is created (there is no successor to link to). Its child
-organisations are either closed too or reassigned to other trusts (which would
-be recorded as a split if they go to multiple successors).
+A trust closes with no successor. The trust is marked `active=False` and a
+`TrustSuccession` row is created with `succession_type="closure"` and
+`successor=None`, recording *why* the trust closed (e.g. "closed through poor
+quality of care") in the `notes` field. Its child organisations are either
+closed too or reassigned to other trusts (which would be recorded as a split if
+they go to multiple successors).
 
-> **Note:** the `TrustSuccession` schema requires a non-null `successor` FK, so
-> a pure closure with no successor cannot be recorded as a succession row. This
-> is intentional — a closure is simply the trust being marked inactive. If a
-> closed trust's children are redistributed, each redistribution is recorded as a
-> split succession with the relevant successor.
+In the admin, use the **Deactivate…** action on the trust change page. It
+performs both writes in one transaction (Layer 1 version row with
+`active=False`, Layer 3 closure succession row) and requires a confirmation
+checkbox plus a free-text reason, because once inactive the trust is hidden
+from default lists. If a closed trust's children are redistributed, each
+redistribution is recorded as a separate split succession with the relevant
+successor.
 
 ## Using the ODS management command
 
@@ -400,16 +404,6 @@ up to date for future mergers.
 
 ### What the admin cannot do yet
 
-- **Create version rows when attributes change.** Editing a Trust's `active`
-  flag or name via the admin change page bypasses the temporal layer — it
-  overwrites the row without creating a `*Version` row. To mark a predecessor
-  trust inactive *with* a version row, use the helper in a shell:
-
-  ```python
-  from rcpch_nhs_organisations.hospitals.general_functions.membership import update_trust_attributes
-  update_trust_attributes(trust, effective_date='2023-04-01', active=False)
-  ```
-
 - **Create a new successor trust with a baseline version.** The admin Trust
   add form creates the `Trust` row but does not create a `TrustVersion` row.
   Use the `mergers --create` command (which does create baseline temporal
@@ -428,6 +422,13 @@ up to date for future mergers.
   the `OrganisationSuccession` row via the admin, then reassign memberships
   via shell helpers.
 
+> **Note:** The admin *can* now create version rows when attributes change
+> (via the "Edit attributes as of…" action), rename trusts and PDUs with a
+> succession row (via the "Rename…" action), and record closures with no
+> successor (via the "Deactivate…" action, which writes a closure succession
+> row with `successor=None`). The shell helpers are still available for
+> scripted or bulk operations.
+
 ### PDU merger workflow
 
 To record a PDU merger (e.g. PZ216 + PZ125 → PZ253):
@@ -438,9 +439,16 @@ To record a PDU merger (e.g. PZ216 + PZ125 → PZ253):
 2. **Create the `PaediatricDiabetesUnitSuccession` rows** via the admin: one
    row per predecessor PDU, all pointing to the successor PDU, with the
    merger date and type=merger.
-3. **Mark the predecessor PDUs `active=False`** via the admin. A new
-   `PaediatricDiabetesUnitVersion` row is opened for each, snapshotting
-   `active=False`.
+3. **Mark the predecessor PDUs `active=False`** via the admin **Deactivate…**
+   action. This writes a `PaediatricDiabetesUnitVersion` row with
+   `active=False` *and* a `PaediatricDiabetesUnitSuccession` row with
+   `succession_type="closure"` and `successor=None`, recording the closure
+   in the audit trail. (For a merger where the predecessor is being absorbed
+   rather than closed outright, the merger succession rows from step 2 serve
+   as the audit record; the Deactivate… action is for the `active=False`
+   flip. In practice, a predecessor in a merger is deactivated with
+   `succession_type="merger"` recorded in step 2, and the Deactivate…
+   action's closure row is for entities that close with no successor at all.)
 4. **Reassign the child organisations' PDU memberships** to the successor PDU
    via the admin reassignment action (or the `reassign_organisation_paediatric_diabetes_unit`
    helper). This closes the old `OrganisationPaediatricDiabetesUnitMembership`

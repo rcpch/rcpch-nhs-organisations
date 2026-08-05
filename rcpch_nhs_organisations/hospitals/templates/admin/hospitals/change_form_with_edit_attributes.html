@@ -1,0 +1,19 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block submit_buttons_bottom %}
+  {{ block.super }}
+  {% if has_edit_attributes_action or has_rename_action or has_deactivate_action %}
+  <div class="submit-row" style="margin-top: 1em;">
+    {% if has_edit_attributes_action %}
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_edit_attributes' original.pk %}" class="default button">Edit attributes as of…</a>
+    {% endif %}
+    {% if has_rename_action %}
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_rename' original.pk %}" class="default button">Rename…</a>
+    {% endif %}
+    {% if has_deactivate_action %}
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_deactivate' original.pk %}" class="button" style="color: #d32f2f; font-weight: bold;">Deactivate…</a>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endblock %}
