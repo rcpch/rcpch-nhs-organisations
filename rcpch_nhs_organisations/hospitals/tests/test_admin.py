@@ -701,7 +701,8 @@ def test_attribute_edit_form_excludes_active(superuser, trust_with_baseline):
 def test_trust_change_form_has_signposting_banner(superuser, trust_with_baseline):
     """The trust change page shows the signposting banner directing users to
     the rename / edit-attributes / deactivate actions rather than editing the
-    form directly."""
+    form directly. The merger-workflow note is NOT shown for trusts (it is
+    organisation-specific)."""
     from django.test import Client
 
     client = Client()
@@ -722,6 +723,8 @@ def test_trust_change_form_has_signposting_banner(superuser, trust_with_baseline
     assert b"Deactivate" in response.content
     # The "not date-dependent" guidance.
     assert b"not date-dependent" in response.content
+    # Merger workflow note absent (Trust is not an organisation).
+    assert b"merger work flow" not in response.content
 
 
 @pytest.mark.django_db
@@ -730,7 +733,9 @@ def test_organisation_change_form_has_signposting_banner(
 ):
     """The organisation change page shows the signposting banner. Organisation
     has the edit-attributes and deactivate actions but NOT the rename action
-    (no rename succession table for organisations)."""
+    (no rename succession table for organisations). It also shows the merger
+    workflow note directing users to the Trust/LHB tab for merger-driven
+    deactivations."""
     from django.test import Client
 
     client = Client()
@@ -747,6 +752,9 @@ def test_organisation_change_form_has_signposting_banner(
     assert b"Closing this" in response.content
     # Rename guidance absent (Organisation has no rename action).
     assert b"Changing the name?" not in response.content
+    # Merger workflow note present (Organisation only).
+    assert b"merger work flow" in response.content
+    assert b"Trust/Local Health Board tab" in response.content
 
 
 @pytest.mark.django_db
