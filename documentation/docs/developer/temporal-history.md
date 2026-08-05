@@ -567,131 +567,20 @@ explanatory message (pre-install-day state is not recoverable).
 
 ## Backfill strategy
 
-The temporal layer can only record from installation day forward. The backfill plan:
+The temporal layer can only record from installation day forward. Backfilling
+historical states — whether within the 185-day ODS recovery window or older —
+is covered in a separate document:
 
-1. **Baseline migration.** A one-off data migration creates a `*Version` row and a
-   `*Membership` row for every existing entity, with `valid_from = installation_date`
-   and `valid_to = None`. This is the baseline. From this point forward, every
-   change is captured.
-2. **185-day recovery.** Run the ODS sync with `time_frame=185` once. For each change
-   returned, write a `*Version` / `*Membership` row with the *old* state's
-   `valid_to = change_date` and a new row with `valid_from = change_date`. This
-   recovers the last 6 months of history.
-3. **Pre-install-day state.** Anything older than 185 days is not recoverable from
-   the ODS API. If audit data going back further needs to be re-run, this would
-   require a one-off import from ODS Trac bulk dumps — a separate project.
+- **[`backfill-plan.md`](backfill-plan.md)** — the ODS-driven recovery workflow
+  (exposing the `--time-frame` argument on the `cron` command, surfacing the
+  ODS `LastChangeDate` in the dry-run report) and the manual `backfill_*`
+  helper workflow for historical mergers and renames older than the recovery
+  window, with a worked example for the Northern Care Alliance acquisition
+  (1 October 2021).
 
 After backfill, the existing 30-day cron (`cron.py` →
 `update_organisation_model_with_ORD_changes`) continues to run, but now writes
 through the helper functions so that every change is captured in the temporal layer.
-
-### Backfilling historical states not captured by the ODS recovery
-
-The 185-day ODS recovery only goes back so far. For mergers and renames older
-than the recovery window, the historical state has been overwritten on the
-main entity row and is not in the version table. The admin actions (Edit
-attributes as of…, Rename…, Deactivate…) cannot backfill these, because they
-are forward-looking: they snapshot the *current* entity row into the "old"
-version row, so the closed row would record the current name for the period
-before the change date — which is wrong for a backfill.
-
-For these cases, use the `backfill_*` helpers in a Django shell. These insert
-a version row with an explicit `[valid_from, valid_to)` interval and explicit
-attribute values, without touching the current entity row or the current
-version row. They are idempotent: if a row already exists for the same
-interval, it is updated in place rather than duplicated.
-
-#### Worked example: Northern Care Alliance (1 October 2021)
-
-The Northern Care Alliance NHS Foundation Trust (`RM3`) was officially
-established on 1 October 2021. The legal merger occurred when Salford Royal
-NHS Foundation Trust (also `RM3` — the ODS code was retained) acquired The
-Pennine Acute Hospitals NHS Trust (`RW6`) and changed its corporate name to
-the Northern Care Alliance NHS Foundation Trust.
-
-Before the temporal layer was installed, the `Trust` row for `RM3` was
-overwritten in place when the rename happened, so the version table has no
-record of the "Salford Royal" name. To backfill it:
-
-```python
-import datetime
-from rcpch_nhs_organisations.hospitals.models import Trust, TrustSuccession
-from rcpch_nhs_organisations.hospitals.general_functions.membership import (
-    backfill_trust_attributes,
-    backfill_organisation_trust_membership,
-)
-
-nca = Trust.objects.get(ods_code="RM3")      # Northern Care Alliance (current)
-pennine = Trust.objects.get(ods_code="RW6")  # Pennine Acute (predecessor)
-
-# 1. Backfill the pre-merger name on RM3. Before 2021-10-01, RM3 was called
-#    "Salford Royal NHS Foundation Trust". The current version row (which
-#    records "Northern Care Alliance" from installation day forward) is
-#    untouched.
-backfill_trust_attributes(
-    nca,
-    valid_from=datetime.date(2001, 4, 1),   # Salford Royal's establishment
-    valid_to=datetime.date(2021, 10, 1),    # the rename date
-    name="Salford Royal NHS Foundation Trust",
-    active=True,
-)
-
-# 2. Backfill the acquisition succession row. RM3 (as Salford Royal) acquired
-#    RW6 (Pennine Acute) on 2021-10-01. This records *why* the rename happened.
-TrustSuccession.objects.create(
-    predecessor=pennine,
-    successor=nca,
-    succession_date=datetime.date(2021, 10, 1),
-    succession_type="acquisition",
-    notes=(
-        "Salford Royal NHS Foundation Trust acquired The Pennine Acute "
-        "Hospitals NHS Trust and changed its corporate name to the Northern "
-        "Care Alliance NHS Foundation Trust."
-    ),
-)
-
-# 3. Backfill the child organisations' trust memberships. The organisations
-#    that were in Pennine Acute (RW6) before the merger moved to Northern
-#    Care Alliance (RM3) on 2021-10-01. Their current membership row points
-#    to RM3 (correct for today); this backfills the historical RW6 row.
-for org in nca.trust_organisations.all():
-    backfill_organisation_trust_membership(
-        org,
-        trust=pennine,
-        valid_from=datetime.date(2001, 4, 1),   # or the org's original join date
-        valid_to=datetime.date(2021, 10, 1),    # the merger date
-    )
-
-# 4. (Optional) Deactivate Pennine Acute (RW6) with a backfilled closure date.
-#    If RW6 is still marked active=True, flip it with a backfilled version row
-#    and a closure succession row. Use the deactivate_trust helper but note it
-#    is forward-looking — for a backfilled closure, write the rows directly:
-from rcpch_nhs_organisations.hospitals.general_functions.membership import backfill_trust_attributes
-backfill_trust_attributes(
-    pennine,
-    valid_from=datetime.date(2021, 10, 1),
-    valid_to=None,                            # current state: inactive
-    name="Pennine Acute Hospitals NHS Trust",
-    active=False,
-)
-pennine.active = False
-pennine.save(update_fields=["active"])
-```
-
-After this, an as-of query for `RM3` on, say, 2015-01-01 returns
-"Salford Royal NHS Foundation Trust", and the succession table records the
-acquisition link from `RW6` to `RM3` on 2021-10-01.
-
-> **Why not the admin?** The admin actions are forward-looking: they close
-> the current version row and open a new one from the effective date,
-> snapshotting the current entity row into the closed row. For a backfill,
-> the closed row would record the *current* name for the period before the
-> change date, which is wrong. The `backfill_*` helpers avoid this by
-> inserting a row with an explicit interval and explicit values, without
-> snapshotting the current row. A future admin action could expose this,
-> but it requires a different form (two dates, not one) and a different
-> mental model ("record a past state" vs "record a change from today"),
-> so it is left to the shell for now.
 
 ## Implementation plan
 
