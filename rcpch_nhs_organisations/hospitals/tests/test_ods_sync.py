@@ -84,6 +84,7 @@ def trust_with_baseline(trust):
 # A fake ORD record for an organisation whose name and address have changed.
 ORD_ORG_RECORD = {
     "Name": "New Org Name",
+    "LastChangeDate": "2024-03-15",
     "GeoLoc": {
         "Location": {
             "AddrLn1": "2 New St",
@@ -104,6 +105,7 @@ ORD_ORG_RECORD = {
 
 ORD_TRUST_RECORD = {
     "Name": "New Trust Name",
+    "LastChangeDate": "2024-03-15",
     "GeoLoc": {
         "Location": {
             "AddrLn1": "2 New St",
@@ -120,12 +122,55 @@ ORD_TRUST_RECORD = {
     },
 }
 
+# A record with succession events (merger / acquisition / split) in the
+# Succs block, like the real ODS response for a trust that's been through
+# a merger. Used to test that the dry-run report surfaces the succession info.
+ORD_TRUST_RECORD_WITH_SUCCESSION = {
+    "Name": "New Trust Name",
+    "LastChangeDate": "2021-10-15",
+    "GeoLoc": {
+        "Location": {
+            "AddrLn1": "2 New St",
+            "AddrLn2": "Trust Suite",
+            "Town": "Newtown",
+            "PostCode": "NW1 1AA",
+        }
+    },
+    "Contacts": {
+        "Contact": [
+            {"type": "http", "value": "https://trust.example"},
+            {"type": "tel", "value": "0207 999 9999"},
+        ]
+    },
+    "Succs": {
+        "Succ": [
+            {
+                "Type": "Successor",
+                "Date": [{"Type": "Legal", "Start": "2021-10-01"}],
+                "Target": {
+                    "OrgId": {"extension": "RM3"},
+                    "PrimaryRoleId": {"id": "RO197"},
+                },
+            },
+            {
+                "Type": "Predecessor",
+                "Date": [{"Type": "Legal", "Start": "2002-04-01"}],
+                "Target": {
+                    "OrgId": {"extension": "RMK"},
+                    "PrimaryRoleId": {"id": "RO197"},
+                },
+                "forwardSuccession": True,
+            },
+        ]
+    },
+}
 
-def _org_link(ods_code, last_change_date="2024-03-15"):
-    return {
-        "OrgLink": f"https://ods.example/Organisation/{ods_code}",
-        "LastChangeDate": last_change_date,
-    }
+
+def _org_link(ods_code):
+    # The /sync endpoint returns only OrgLink — LastChangeDate is on the
+    # full organisation record fetched via get_organisation, not on the
+    # /sync list item.
+    return {"OrgLink": f"https://ods.example/Organisation/{ods_code}"}
 
 
 def _patch_ods(monkeypatch, org_links, records_by_ods_code):
@@ -370,7 +415,7 @@ def test_dry_run_report_surfaces_ods_change_date(
     decide whether to apply the change as forward-looking or as a backfill."""
     _patch_ods(
         monkeypatch,
-        org_links=[_org_link("RAA01", last_change_date="2024-03-15")],
+        org_links=[_org_link("RAA01")],
         records_by_ods_code={"RAA01": ORD_ORG_RECORD},
     )
     stdout = _FakeStdout()
@@ -387,11 +432,22 @@ def test_dry_run_report_handles_missing_ods_change_date(
 ):
     """If the ODS response omits LastChangeDate, the report shows 'unknown'
     rather than crashing."""
+    record_without_change_date = {
+        "Name": "New Org Name",
+        # No LastChangeDate key, as older API responses or partial records might omit.
+        "GeoLoc": {
+            "Location": {
+                "AddrLn1": "2 New St",
+                "Town": "Newtown",
+                "PostCode": "NW1 1AA",
+            }
+        },
+        "Contacts": {"Contact": []},
+    }
     _patch_ods(
         monkeypatch,
-        # No LastChangeDate key, as older test fixtures did.
-        org_links=[{"OrgLink": "https://ods.example/Organisation/RAA01"}],
-        records_by_ods_code={"RAA01": ORD_ORG_RECORD},
+        org_links=[_org_link("RAA01")],
+        records_by_ods_code={"RAA01": record_without_change_date},
     )
     stdout = _FakeStdout()
     update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
@@ -407,7 +463,7 @@ def test_dry_run_report_surfaces_ods_change_date_for_trust(
     """The trust dry-run report also surfaces the ODS LastChangeDate."""
     _patch_ods(
         monkeypatch,
-        org_links=[_org_link("RAA", last_change_date="2024-03-15")],
+        org_links=[_org_link("RAA")],
         records_by_ods_code={"RAA": ORD_TRUST_RECORD},
     )
     stdout = _FakeStdout()
@@ -415,3 +471,50 @@ def test_dry_run_report_surfaces_ods_change_date_for_trust(
 
     report = stdout.text
     assert "ODS last change date: 2024-03-15" in report
+
+
+@pytest.mark.django_db
+def test_dry_run_report_surfaces_succession_events(
+    trust_with_baseline, monkeypatch
+):
+    """The dry-run report surfaces the ODS Succs block so operators can see
+    whether a name/active change is the consequence of a merger and record
+    it manually rather than via the forward-looking sync."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    # The succession events are surfaced.
+    assert "succession events" in report
+    assert "Successor" in report
+    assert "RM3" in report
+    assert "Predecessor" in report
+    assert "RMK" in report
+    assert "2021-10-01" in report
+    # The guidance to use the admin/backfill helpers is present.
+    assert "backfill" in report
+    # The LastChangeDate from the full record is surfaced.
+    assert "ODS last change date: 2021-10-15" in report
+
+
+@pytest.mark.django_db
+def test_dry_run_report_no_succession_section_when_no_succs(
+    organisation_with_baseline, monkeypatch
+):
+    """If the ODS record has no Succs block, the report does not mention
+    succession events."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA01")],
+        records_by_ods_code={"RAA01": ORD_ORG_RECORD},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    assert "succession events" not in report

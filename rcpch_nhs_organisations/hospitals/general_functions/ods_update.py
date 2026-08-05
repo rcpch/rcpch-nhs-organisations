@@ -131,6 +131,43 @@ def _extract_ord_fields(ord_record):
     }
 
 
+def _extract_succession_info(ord_record):
+    """
+    Extract succession (merger / acquisition / split) information from an
+    ORD organisation record's ``Succs`` block.
+
+    The ODS ``Succs`` block records legal succession events. Each ``Succ`` has
+    a ``Type`` (``"Successor"`` = this org was absorbed into the target;
+    ``"Predecessor"`` = this org absorbed the target), a legal date, and a
+    target ODS code. This is surfaced in the dry-run report so operators can
+    see whether a name/active change is the consequence of a merger and, if so,
+    record it manually via the admin or the ``backfill_*`` helpers.
+
+    Returns a list of dicts, one per succession event:
+        {"type": "Successor", "date": "2021-10-01", "target_ods_code": "RM3"}
+    Returns an empty list if the record has no ``Succs`` block.
+    """
+    succs = ord_record.get("Succs", {}).get("Succ", [])
+    if isinstance(succs, dict):
+        succs = [succs]
+
+    events = []
+    for succ in succs:
+        succ_type = succ.get("Type")
+        target_ods_code = succ.get("Target", {}).get("OrgId", {}).get("extension")
+        # The date is in a list of {Type, Start} dicts; use the Legal date.
+        legal_date = None
+        for d in succ.get("Date", []):
+            if d.get("Type") == "Legal":
+                legal_date = d.get("Start")
+                break
+        if succ_type and target_ods_code:
+            events.append(
+                {"type": succ_type, "date": legal_date, "target_ods_code": target_ods_code}
+            )
+    return events
+
+
 def _diff_fields(current, new, fields):
     """
     Compare the current entity's attributes against the new values from ORD.
@@ -184,15 +221,20 @@ def update_organisation_model_with_ORD_changes(
 
     for org_link in ord_updated_list:
         ods_code = extract_ods_code(org_link=org_link["OrgLink"])
-        # The /sync endpoint returns LastChangeDate per organisation — the date
-        # the change actually happened on the ODS side. Surface it in the
-        # dry-run report so operators can decide whether to apply the change
-        # as forward-looking (effective today) or as a backfill (effective on
-        # the LastChangeDate). See backfill-plan.md.
-        ods_change_date = org_link.get("LastChangeDate")
         organisation = match_organisation(ods_code=ods_code)
         if organisation:
             ord_record = get_organisation(org_link["OrgLink"])
+            # LastChangeDate is on the full organisation record (fetched via
+            # get_organisation), NOT on the /sync list item (which only has
+            # OrgLink). Surface it in the dry-run report so operators can
+            # decide whether to apply the change as forward-looking (effective
+            # today) or as a backfill (effective on the LastChangeDate). See
+            # backfill-plan.md.
+            ods_change_date = ord_record.get("LastChangeDate")
+            # Succession (merger / acquisition / split) info from the Succs
+            # block. Surfaced in the dry-run report so operators can see
+            # whether a name/active change is the consequence of a merger.
+            succession_events = _extract_succession_info(ord_record)
             new_fields = _extract_ord_fields(ord_record)
             changes = _diff_fields(
                 organisation,
@@ -223,6 +265,22 @@ def update_organisation_model_with_ORD_changes(
                 report_lines.append(
                     f"Effective date applied: {effective_date.isoformat()}"
                 )
+                if succession_events:
+                    report_lines.append("")
+                    report_lines.append(
+                        "**This organisation has succession events "
+                        "(merger/acquisition/split) recorded in ODS:**"
+                    )
+                    for ev in succession_events:
+                        report_lines.append(
+                            f"- {ev['type']} → {ev['target_ods_code']} "
+                            f"(legal date: {ev['date'] or 'unknown'})"
+                        )
+                    report_lines.append(
+                        "If the change above is the consequence of this "
+                        "succession, record it via the admin or the "
+                        "`backfill_*` helpers, not the forward-looking sync."
+                    )
                 report_lines.append("")
                 report_lines.append("| Field | Old | New |")
                 report_lines.append("|---|---|---|")
@@ -240,9 +298,11 @@ def update_organisation_model_with_ORD_changes(
             trust = match_trust(ods_code=ods_code)
             if trust:
                 ord_record = get_organisation(org_link["OrgLink"])
-                new_fields = _extract_ord_fields(ord_record)
+                ods_change_date = ord_record.get("LastChangeDate")
+                succession_events = _extract_succession_info(ord_record)
                 # Trust uses address_line_1 / address_line_2 / town rather than
                 # address1 / address2 / city. Map the ORD fields across.
+                new_fields = _extract_ord_fields(ord_record)
                 trust_new = {
                     "name": new_fields.get("name"),
                     "address_line_1": new_fields.get("address1"),
@@ -279,6 +339,22 @@ def update_organisation_model_with_ORD_changes(
                     report_lines.append(
                         f"Effective date applied: {effective_date.isoformat()}"
                     )
+                    if succession_events:
+                        report_lines.append("")
+                        report_lines.append(
+                            "**This trust has succession events "
+                            "(merger/acquisition/split) recorded in ODS:**"
+                        )
+                        for ev in succession_events:
+                            report_lines.append(
+                                f"- {ev['type']} → {ev['target_ods_code']} "
+                                f"(legal date: {ev['date'] or 'unknown'})"
+                            )
+                        report_lines.append(
+                            "If the change above is the consequence of this "
+                            "succession, record it via the admin or the "
+                            "`backfill_*` helpers, not the forward-looking sync."
+                        )
                     report_lines.append("")
                     report_lines.append("| Field | Old | New |")
                     report_lines.append("|---|---|---|")

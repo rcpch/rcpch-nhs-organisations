@@ -98,36 +98,61 @@ python manage.py cron --service organisations --dry-run --time-frame 185
 python manage.py cron --service organisations --time-frame 185
 ```
 
-### Step 2: Surface the ODS `LastChangeDate` in the dry-run report (implemented)
+### Step 2: Surface the ODS `LastChangeDate` and succession events in the dry-run report (implemented)
 
-The dry-run report now includes the ODS `LastChangeDate` per organisation —
-the date the change actually happened on the ODS side — alongside the
-effective date that would be applied (today). This lets operators decide
-whether to apply a change as forward-looking (effective today) or as a
-backfill (effective on the `LastChangeDate`).
+The dry-run report now includes two pieces of context per organisation:
 
-The `/sync` endpoint already returns `LastChangeDate` in each organisation
-object (alongside `OrgLink`); the sync function now reads it and surfaces it
-in the report:
+1. **`LastChangeDate`** — the date the change actually happened on the ODS
+   side, read from the full organisation record (fetched via
+   `get_organisation`), not from the `/sync` list item (which only returns
+   `OrgLink`). This lets operators decide whether to apply a change as
+   forward-looking (effective today) or as a backfill (effective on the
+   `LastChangeDate`).
+
+2. **Succession events** — the `Succs` block from the ODS record, which
+   records legal succession (merger, acquisition, split). Each `Succ` has a
+   `Type` (`"Successor"` = this org was absorbed into the target;
+   `"Predecessor"` = this org absorbed the target), a legal date, and a
+   target ODS code. This is surfaced so operators can see whether a
+   name/active change is the consequence of a merger and, if so, record it
+   manually via the admin or the `backfill_*` helpers rather than via the
+   forward-looking sync.
+
+The report format:
 
 ```markdown
-### Organisation RAA01 (Old Org Name)
+### Trust RW6 (Pennine Acute Hospitals NHS Trust)
 
-ODS last change date: 2024-03-15
+ODS last change date: 2021-10-15
 Effective date applied: 2025-08-05
+
+**This trust has succession events (merger/acquisition/split) recorded in ODS:**
+- Successor → RM3 (legal date: 2021-10-01)
+- Predecessor → RMK (legal date: 2002-04-01)
+If the change above is the consequence of this succession, record it via the
+admin or the `backfill_*` helpers, not the forward-looking sync.
 
 | Field | Old | New |
 |---|---|---|
-| name | Old Org Name | New Org Name |
+| name | Pennine Acute Hospitals NHS Trust | New Name |
 ```
 
-If the ODS response omits `LastChangeDate` (older fixtures did), the report
-shows `unknown` rather than crashing.
+If the ODS response omits `LastChangeDate`, the report shows `unknown`. If
+the record has no `Succs` block, the succession section is omitted entirely.
 
 The non-dry-run path still applies the change with `effective_date=today`
 (the forward-looking helpers). To backfill a change at its historical date,
-read the report, note the `LastChangeDate`, and use the `backfill_*` helpers
-in a shell with that date — see Part 2 below.
+read the report, note the `LastChangeDate` and any succession events, and use
+the `backfill_*` helpers in a shell with that date — see Part 2 below.
+
+> **Why not auto-populate succession rows from the `Succs` block?** The ODS
+> `Succs` semantics are occasionally ambiguous — a single trust can have
+> multiple `Successor` entries (e.g. Pennine Acute has two: RM3 and R0A),
+> and the `Rels` block (operational/managed relationships) is distinct from
+> the `Succs` block (legal succession). Automatically creating succession
+> rows from this would sometimes be wrong. The succession tables are
+> populated manually via the admin; the report surfaces the ODS data so the
+> operator can make the decision.
 
 ### Step 3 (optional, future): A `--backfill` flag
 
