@@ -160,9 +160,12 @@ def update_organisation_model_with_ORD_changes(
 
     When dry_run is True, no writes occur. A markdown report of what *would*
     change is written to `stdout` (or the logger if stdout is None), listing
-    per affected entity the field, old value, new value, and the effective
-    date that would be applied. This is used by the GitHub Action for ODS
-    change detection (see documentation/docs/developer/temporal-history.md).
+    per affected entity the field, old value, new value, the ODS last change
+    date (when the change actually happened, surfaced from the /sync
+    endpoint), and the effective date that would be applied (today). This is
+    used by the GitHub Action for ODS change detection (see
+    documentation/docs/developer/temporal-history.md) and by the `--time-frame`
+    backfill workflow (see documentation/docs/developer/backfill-plan.md).
 
     Returns True if any changes were found (or would be applied), False
     otherwise. In dry-run mode this lets the caller decide whether to open a
@@ -181,6 +184,12 @@ def update_organisation_model_with_ORD_changes(
 
     for org_link in ord_updated_list:
         ods_code = extract_ods_code(org_link=org_link["OrgLink"])
+        # The /sync endpoint returns LastChangeDate per organisation — the date
+        # the change actually happened on the ODS side. Surface it in the
+        # dry-run report so operators can decide whether to apply the change
+        # as forward-looking (effective today) or as a backfill (effective on
+        # the LastChangeDate). See backfill-plan.md.
+        ods_change_date = org_link.get("LastChangeDate")
         organisation = match_organisation(ods_code=ods_code)
         if organisation:
             ord_record = get_organisation(org_link["OrgLink"])
@@ -209,7 +218,10 @@ def update_organisation_model_with_ORD_changes(
                 )
                 report_lines.append("")
                 report_lines.append(
-                    f"Effective date: {effective_date.isoformat()}"
+                    f"ODS last change date: {ods_change_date or 'unknown'}"
+                )
+                report_lines.append(
+                    f"Effective date applied: {effective_date.isoformat()}"
                 )
                 report_lines.append("")
                 report_lines.append("| Field | Old | New |")
@@ -262,7 +274,10 @@ def update_organisation_model_with_ORD_changes(
                     )
                     report_lines.append("")
                     report_lines.append(
-                        f"Effective date: {effective_date.isoformat()}"
+                        f"ODS last change date: {ods_change_date or 'unknown'}"
+                    )
+                    report_lines.append(
+                        f"Effective date applied: {effective_date.isoformat()}"
                     )
                     report_lines.append("")
                     report_lines.append("| Field | Old | New |")

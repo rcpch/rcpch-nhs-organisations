@@ -5,8 +5,10 @@
 This document covers two related but distinct backfill problems:
 
 1. **ODS-driven recovery** — changes within the 185-day ODS API window that
-   can be fetched automatically. The first step is exposing the `--time-frame`
-   argument on the `cron` management command (a proposal, not yet implemented).
+   can be fetched automatically. **Steps 1 and 2 are implemented** (the
+   `--time-frame` argument on the `cron` command, and the ODS `LastChangeDate`
+   surfaced in the dry-run report). Step 3 (a `--backfill` flag) is a future
+   enhancement.
 2. **Manual backfill** — mergers, renames, and closures older than the 185-day
    window that have been overwritten on the main entity row. The `backfill_*`
    helpers exist and are documented here with a worked example.
@@ -56,7 +58,7 @@ This is the function the GitHub Action already calls (with `time_frame=30`
 and `--dry-run`), but the longer window — which is the one that matters for
 backfill — is not exposed.
 
-### Step 1: Add a `--time-frame` argument to the `cron` command
+### Step 1: Add a `--time-frame` argument to the `cron` command (implemented)
 
 Pass it through to `update_organisation_model_with_ORD_changes`. Validate
 that it is between 1 and 185 (the ODS API limit). Default remains 30 so
@@ -78,12 +80,15 @@ def add_arguments(self, parser):
 
 def handle(self, *args, **options):
     time_frame = options["time_frame"]
-    if time_frame < 1 or time_frame > 185:
-        raise CommandError("--time-frame must be between 1 and 185 days.")
+    if time_frame < 1 or time_frame > ODS_MAX_TIME_FRAME_DAYS:
+        raise CommandError(
+            f"--time-frame must be between 1 and {ODS_MAX_TIME_FRAME_DAYS} days "
+            f"(the ODS API hard limit). Got {time_frame}."
+        )
     # ... pass time_frame through to update_organisation_model_with_ORD_changes ...
 ```
 
-This is a small, self-contained change. After it, both of these work:
+Both of these now work:
 
 ```bash
 # See the last 185 days of changes (no writes)
@@ -93,16 +98,17 @@ python manage.py cron --service organisations --dry-run --time-frame 185
 python manage.py cron --service organisations --time-frame 185
 ```
 
-### Step 2: Enrich the dry-run report with the change date
+### Step 2: Surface the ODS `LastChangeDate` in the dry-run report (implemented)
 
-The current dry-run report lists the field, old value, new value, and
-`effective_date` (which is hardcoded to today). For a backfill review, the
-operator needs to know **when** each change actually happened, so they can
-decide whether to apply it as a forward-looking change (effective today) or
-as a backfill (effective on the historical change date).
+The dry-run report now includes the ODS `LastChangeDate` per organisation —
+the date the change actually happened on the ODS side — alongside the
+effective date that would be applied (today). This lets operators decide
+whether to apply a change as forward-looking (effective today) or as a
+backfill (effective on the `LastChangeDate`).
 
-The ODS API response includes a `LastChangeDate` per organisation. The plan
-is to surface this in the report:
+The `/sync` endpoint already returns `LastChangeDate` in each organisation
+object (alongside `OrgLink`); the sync function now reads it and surfaces it
+in the report:
 
 ```markdown
 ### Organisation RAA01 (Old Org Name)
@@ -115,13 +121,13 @@ Effective date applied: 2025-08-05
 | name | Old Org Name | New Org Name |
 ```
 
-This requires `fetch_updated_organisations` to return the `LastChangeDate`
-alongside the `OrgLink` (it currently discards it), and
-`update_organisation_model_with_ORD_changes` to pass it through to the
-report. The non-dry-run path would still apply the change with
-`effective_date=today` (the forward-looking helpers), but the operator can
-read the report, see that a change actually happened on 2024-03-15, and
-decide to backfill it instead using the `backfill_*` helpers.
+If the ODS response omits `LastChangeDate` (older fixtures did), the report
+shows `unknown` rather than crashing.
+
+The non-dry-run path still applies the change with `effective_date=today`
+(the forward-looking helpers). To backfill a change at its historical date,
+read the report, note the `LastChangeDate`, and use the `backfill_*` helpers
+in a shell with that date — see Part 2 below.
 
 ### Step 3 (optional, future): A `--backfill` flag
 
@@ -283,22 +289,15 @@ example above). If audit data going back further needs to be re-run at scale,
 this would require a one-off import from ODS Trac bulk dumps — a separate
 project.
 
-## Files to change (Part 1)
+## Implementation status
 
-- `rcpch_nhs_organisations/hospitals/management/commands/cron.py` — add
-  `--time-frame` argument, validate 1-185, pass through.
-- `rcpch_nhs_organisations/hospitals/general_functions/ods_update.py` —
-  surface `LastChangeDate` in `fetch_updated_organisations` and in the
-  dry-run report (step 2).
-- `rcpch_nhs_organisations/hospitals/tests/test_ods_sync.py` — add tests
-  for the `--time-frame` argument and the `LastChangeDate` in the report.
-
-## Suggested order
-
-1. `--time-frame` argument on `cron` (small, no behaviour change for
-   existing callers). This is the first step and unblocks the rest.
-2. `LastChangeDate` in the dry-run report (medium, requires touching the ODS
-   response parsing).
-3. Document the manual backfill-from-report workflow (read the report, use
-   the `backfill_*` helpers for genuinely historical changes).
-4. (Future) `--backfill` flag, if step 2 shows it is needed.
+- ✅ **Step 1** — `--time-frame` argument on `cron` (implemented). Validates
+  1-185, defaults 30, passes through to the sync function.
+- ✅ **Step 2** — `LastChangeDate` in the dry-run report (implemented). The
+  sync function reads `LastChangeDate` from the `/sync` response and surfaces
+  it in the report alongside the effective date applied.
+- ⬜ **Step 3** — Document the manual backfill-from-report workflow in more
+  detail (read the report, use the `backfill_*` helpers for genuinely
+  historical changes). The worked example in Part 2 below already covers
+  this.
+- ⬜ **Step 4** (future) — `--backfill` flag, if step 2 shows it is needed.

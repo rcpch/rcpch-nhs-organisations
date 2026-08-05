@@ -121,8 +121,11 @@ ORD_TRUST_RECORD = {
 }
 
 
-def _org_link(ods_code):
-    return {"OrgLink": f"https://ods.example/Organisation/{ods_code}"}
+def _org_link(ods_code, last_change_date="2024-03-15"):
+    return {
+        "OrgLink": f"https://ods.example/Organisation/{ods_code}",
+        "LastChangeDate": last_change_date,
+    }
 
 
 def _patch_ods(monkeypatch, org_links, records_by_ods_code):
@@ -289,7 +292,8 @@ def test_dry_run_report_contains_old_and_new_values(
     assert "Old Org Name" in report
     assert "New Org Name" in report
     assert "| Field | Old | New |" in report
-    assert "Effective date:" in report
+    assert "Effective date applied:" in report
+    assert "ODS last change date: 2024-03-15" in report
 
 
 @pytest.mark.django_db
@@ -334,3 +338,80 @@ def test_dry_run_report_for_trust(trust_with_baseline, monkeypatch):
     assert "Trust RAA" in report
     assert "Old Trust Name" in report
     assert "New Trust Name" in report
+
+
+# ---------------------------------------------------------------------------
+# --time-frame argument and LastChangeDate surfacing (backfill workflow)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_time_frame_passed_through_to_fetch(organisation_with_baseline, monkeypatch):
+    """The time_frame parameter is passed through to fetch_updated_organisations."""
+    captured = {}
+
+    def fake_fetch(time_frame=30):
+        captured["time_frame"] = time_frame
+        return []
+
+    monkeypatch.setattr(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.fetch_updated_organisations",
+        fake_fetch,
+    )
+    update_organisation_model_with_ORD_changes(dry_run=True, time_frame=185)
+    assert captured["time_frame"] == 185
+
+
+@pytest.mark.django_db
+def test_dry_run_report_surfaces_ods_change_date(
+    organisation_with_baseline, monkeypatch
+):
+    """The dry-run report includes the ODS LastChangeDate so operators can
+    decide whether to apply the change as forward-looking or as a backfill."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA01", last_change_date="2024-03-15")],
+        records_by_ods_code={"RAA01": ORD_ORG_RECORD},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    assert "ODS last change date: 2024-03-15" in report
+    assert "Effective date applied:" in report
+
+
+@pytest.mark.django_db
+def test_dry_run_report_handles_missing_ods_change_date(
+    organisation_with_baseline, monkeypatch
+):
+    """If the ODS response omits LastChangeDate, the report shows 'unknown'
+    rather than crashing."""
+    _patch_ods(
+        monkeypatch,
+        # No LastChangeDate key, as older test fixtures did.
+        org_links=[{"OrgLink": "https://ods.example/Organisation/RAA01"}],
+        records_by_ods_code={"RAA01": ORD_ORG_RECORD},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    assert "ODS last change date: unknown" in report
+
+
+@pytest.mark.django_db
+def test_dry_run_report_surfaces_ods_change_date_for_trust(
+    trust_with_baseline, monkeypatch
+):
+    """The trust dry-run report also surfaces the ODS LastChangeDate."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA", last_change_date="2024-03-15")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    assert "ODS last change date: 2024-03-15" in report
