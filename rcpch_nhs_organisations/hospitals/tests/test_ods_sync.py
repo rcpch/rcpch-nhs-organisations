@@ -518,3 +518,145 @@ def test_dry_run_report_no_succession_section_when_no_succs(
 
     report = stdout.text
     assert "succession events" not in report
+
+
+# ---------------------------------------------------------------------------
+# Review-gated apply for merger-driven changes (succession events present)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_merger_driven_change_skipped_without_callback(
+    trust_with_baseline, monkeypatch
+):
+    """A change with succession events is skipped when no review_callback is
+    provided (e.g. running from a script). The change is not applied."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+    )
+    changes_found = update_organisation_model_with_ORD_changes(
+        dry_run=False, review_callback=None
+    )
+
+    assert changes_found is True  # a change was found, but...
+    # ...it was not applied.
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "Old Trust Name"
+    # No new version row was created.
+    assert TrustVersion.objects.filter(trust=trust_with_baseline).count() == 1
+
+
+@pytest.mark.django_db
+def test_merger_driven_change_applied_when_callback_accepts(
+    trust_with_baseline, monkeypatch
+):
+    """When the review_callback returns True, the change is applied as a
+    forward-looking change."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+    )
+
+    def accept_all(change):
+        return True
+
+    changes_found = update_organisation_model_with_ORD_changes(
+        dry_run=False, review_callback=accept_all
+    )
+
+    assert changes_found is True
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "New Trust Name"
+    # A new version row was created.
+    assert TrustVersion.objects.filter(trust=trust_with_baseline).count() == 2
+
+
+@pytest.mark.django_db
+def test_merger_driven_change_skipped_when_callback_refuses(
+    trust_with_baseline, monkeypatch
+):
+    """When the review_callback returns False, the change is skipped."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+    )
+
+    def refuse_all(change):
+        return False
+
+    changes_found = update_organisation_model_with_ORD_changes(
+        dry_run=False, review_callback=refuse_all
+    )
+
+    assert changes_found is True  # found, but refused
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "Old Trust Name"
+    assert TrustVersion.objects.filter(trust=trust_with_baseline).count() == 1
+
+
+@pytest.mark.django_db
+def test_non_merger_change_applied_without_review(
+    trust_with_baseline, monkeypatch
+):
+    """A change without succession events is applied automatically, without
+    invoking the review callback."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD},  # no Succs block
+    )
+
+    callback_invoked = []
+
+    def callback(change):
+        callback_invoked.append(change)
+        return True
+
+    update_organisation_model_with_ORD_changes(
+        dry_run=False, review_callback=callback
+    )
+
+    # The callback was NOT invoked (no succession events).
+    assert callback_invoked == []
+    # The change was applied.
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "New Trust Name"
+
+
+@pytest.mark.django_db
+def test_review_callback_receives_change_details(
+    trust_with_baseline, monkeypatch
+):
+    """The review callback receives a dict with the entity details, changes,
+    and succession events so the operator can make an informed decision."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD_WITH_SUCCESSION},
+    )
+
+    received = []
+
+    def callback(change):
+        received.append(change)
+        return False  # refuse so nothing is applied
+
+    update_organisation_model_with_ORD_changes(
+        dry_run=False, review_callback=callback
+    )
+
+    assert len(received) == 1
+    change = received[0]
+    assert change["entity_type"] == "Trust"
+    assert change["ods_code"] == "RAA"
+    assert change["name"] == "Old Trust Name"
+    assert "name" in change["changes"]
+    assert len(change["succession_events"]) == 2
+    assert change["succession_events"][0]["type"] == "Successor"
+    assert change["succession_events"][0]["target_ods_code"] == "RM3"
+    assert change["succession_events"][0]["date"] == "2021-10-01"
+    assert change["ods_change_date"] == "2021-10-15"

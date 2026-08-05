@@ -182,8 +182,45 @@ def _diff_fields(current, new, fields):
     return changes
 
 
+def _review_succession_change(
+    review_callback,
+    *,
+    entity_type,
+    ods_code,
+    name,
+    changes,
+    succession_events,
+    ods_change_date,
+    effective_date,
+):
+    """Invoke the review callback for a merger-driven change.
+
+    If ``review_callback`` is None (e.g. running from a script or the GitHub
+    Action), return False so the change is skipped — merger-driven changes
+    must not be applied without human review.
+
+    If the callback returns True, the change is applied as a forward-looking
+    change (effective today). If it returns False, the change is skipped
+    with a warning, so the operator can handle it via the merger workflow or
+    the ``backfill_*`` helpers.
+    """
+    if review_callback is None:
+        return False
+    return review_callback(
+        {
+            "entity_type": entity_type,
+            "ods_code": ods_code,
+            "name": name,
+            "changes": changes,
+            "succession_events": succession_events,
+            "ods_change_date": ods_change_date,
+            "effective_date": effective_date,
+        }
+    )
+
+
 def update_organisation_model_with_ORD_changes(
-    dry_run=False, stdout=None, time_frame=30
+    dry_run=False, stdout=None, time_frame=30, review_callback=None
 ):
     """
     Calls ORD API for updates in the last `time_frame` days.
@@ -203,6 +240,16 @@ def update_organisation_model_with_ORD_changes(
     used by the GitHub Action for ODS change detection (see
     documentation/docs/developer/temporal-history.md) and by the `--time-frame`
     backfill workflow (see documentation/docs/developer/backfill-plan.md).
+
+    When a change has ODS succession events (merger / acquisition / split)
+    and dry_run is False, the change is **not applied automatically**. Instead
+    `review_callback` is invoked with a dict describing the entity, the
+    changes, and the succession events. If the callback returns True the
+    change is applied as a forward-looking change (effective today); if it
+    returns False (or if review_callback is None) the change is skipped with
+    a warning, so the operator can handle it via the merger workflow or the
+    `backfill_*` helpers. Changes without succession events are applied
+    automatically as before.
 
     Returns True if any changes were found (or would be applied), False
     otherwise. In dry-run mode this lets the caller decide whether to open a
@@ -288,6 +335,29 @@ def update_organisation_model_with_ORD_changes(
                     report_lines.append(f"| {field} | {old} | {new} |")
                 report_lines.append("")
             else:
+                if succession_events:
+                    # Merger-driven change: do not apply automatically.
+                    # Prompt the operator via the review callback; skip if
+                    # they refuse or if no callback is provided (e.g. running
+                    # from a script).
+                    apply = _review_succession_change(
+                        review_callback,
+                        entity_type="Organisation",
+                        ods_code=ods_code,
+                        name=organisation.name,
+                        changes=changes,
+                        succession_events=succession_events,
+                        ods_change_date=ods_change_date,
+                        effective_date=effective_date,
+                    )
+                    if not apply:
+                        logger.warning(
+                            "Organisation %s has succession events; "
+                            "change skipped. Handle via the admin or the "
+                            "backfill_* helpers.",
+                            ods_code,
+                        )
+                        continue
                 update_organisation_attributes(
                     organisation, effective_date=effective_date, **{
                         k: v[1] for k, v in changes.items()
@@ -362,6 +432,25 @@ def update_organisation_model_with_ORD_changes(
                         report_lines.append(f"| {field} | {old} | {new} |")
                     report_lines.append("")
                 else:
+                    if succession_events:
+                        apply = _review_succession_change(
+                            review_callback,
+                            entity_type="Trust",
+                            ods_code=ods_code,
+                            name=trust.name,
+                            changes=changes,
+                            succession_events=succession_events,
+                            ods_change_date=ods_change_date,
+                            effective_date=effective_date,
+                        )
+                        if not apply:
+                            logger.warning(
+                                "Trust %s has succession events; "
+                                "change skipped. Handle via the admin or "
+                                "the backfill_* helpers.",
+                                ods_code,
+                            )
+                            continue
                     update_trust_attributes(
                         trust, effective_date=effective_date, **{
                             k: v[1] for k, v in changes.items()

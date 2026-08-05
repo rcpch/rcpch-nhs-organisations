@@ -154,7 +154,45 @@ the `backfill_*` helpers in a shell with that date — see Part 2 below.
 > populated manually via the admin; the report surfaces the ODS data so the
 > operator can make the decision.
 
-### Step 3 (optional, future): A `--backfill` flag
+### Step 3 (implemented): Review-gated apply for merger-driven changes
+
+When a change has ODS succession events (merger / acquisition / split) and
+the sync is run **without** `--dry-run`, the change is **not applied
+automatically**. Instead a `review_callback` is invoked with the entity
+details, the proposed changes, and the succession events. The operator must
+agree (apply as a forward-looking change, effective today) or refuse (skip,
+so the change can be handled via the merger workflow or the `backfill_*`
+helpers).
+
+The `cron` management command wires up an interactive callback that prints
+the details and prompts:
+
+```
+Review: Trust RW6 (Pennine Acute Hospitals NHS Trust)
+ODS last change date: 2021-10-15
+Effective date applied: 2025-08-05
+
+Succession events recorded in ODS:
+  - Successor → RM3 (legal date: 2021-10-01)
+  - Predecessor → RMK (legal date: 2002-04-01)
+
+Proposed changes:
+  name: 'Pennine Acute Hospitals NHS Trust' → 'New Name'
+
+If this change is the consequence of the merger above, refuse and handle
+it via the admin or the backfill_* helpers.
+
+Apply this change as a forward-looking change? [y/N]
+```
+
+If no callback is provided (e.g. running from a script or the GitHub
+Action, which uses `--dry-run` anyway), merger-driven changes are **skipped**
+with a warning — they must not be applied without human review.
+
+Changes **without** succession events are applied automatically as before —
+the review only gates merger-driven changes.
+
+### Step 4 (optional, future): A `--backfill` flag
 
 If step 2 shows that most 185-day changes are genuinely historical (i.e. the
 change date is in the past, not today), a future `--backfill` flag could
@@ -318,11 +356,12 @@ project.
 
 - ✅ **Step 1** — `--time-frame` argument on `cron` (implemented). Validates
   1-185, defaults 30, passes through to the sync function.
-- ✅ **Step 2** — `LastChangeDate` in the dry-run report (implemented). The
-  sync function reads `LastChangeDate` from the `/sync` response and surfaces
-  it in the report alongside the effective date applied.
-- ⬜ **Step 3** — Document the manual backfill-from-report workflow in more
-  detail (read the report, use the `backfill_*` helpers for genuinely
-  historical changes). The worked example in Part 2 below already covers
-  this.
+- ✅ **Step 2** — `LastChangeDate` and succession events in the dry-run report
+  (implemented). The sync function reads `LastChangeDate` from the full
+  organisation record and surfaces it in the report alongside the effective
+  date applied. Succession events from the `Succs` block are also surfaced.
+- ✅ **Step 3** — Review-gated apply for merger-driven changes (implemented).
+  Changes with succession events are not applied automatically; the operator
+  must agree or refuse via a review callback. Changes without succession
+  events are applied automatically.
 - ⬜ **Step 4** (future) — `--backfill` flag, if step 2 shows it is needed.
