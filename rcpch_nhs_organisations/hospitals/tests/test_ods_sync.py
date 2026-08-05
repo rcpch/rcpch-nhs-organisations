@@ -736,3 +736,123 @@ def test_old_succession_event_does_not_trigger_review(
     # The change was applied automatically.
     trust_with_baseline.refresh_from_db()
     assert trust_with_baseline.name == "New Trust Name"
+
+
+# ---------------------------------------------------------------------------
+# Non-merger changes applied at ODS LastChangeDate (not today)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_non_merger_change_applied_at_ods_date(
+    organisation_with_baseline, monkeypatch
+):
+    """A non-merger change (no succession events) is applied at the ODS
+    LastChangeDate, not today, so the version row records when the change
+    actually happened."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA01")],
+        records_by_ods_code={"RAA01": ORD_ORG_RECORD},  # LastChangeDate=2024-03-15
+    )
+    update_organisation_model_with_ORD_changes(dry_run=False)
+
+    organisation_with_baseline.refresh_from_db()
+    assert organisation_with_baseline.name == "New Org Name"
+
+    # The new version row's valid_from is the ODS date, not today.
+    new_version = OrganisationVersion.objects.get(
+        organisation=organisation_with_baseline, valid_to__isnull=True
+    )
+    assert new_version.valid_from == datetime.date(2024, 3, 15)
+
+    # The old version row was closed at the ODS date.
+    old_version = OrganisationVersion.objects.get(
+        organisation=organisation_with_baseline, name="Old Org Name"
+    )
+    assert old_version.valid_to == datetime.date(2024, 3, 15)
+
+
+@pytest.mark.django_db
+def test_non_merger_trust_change_applied_at_ods_date(
+    trust_with_baseline, monkeypatch
+):
+    """A non-merger trust change is applied at the ODS LastChangeDate."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": ORD_TRUST_RECORD},  # LastChangeDate=2024-03-15
+    )
+    update_organisation_model_with_ORD_changes(dry_run=False)
+
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "New Trust Name"
+
+    new_version = TrustVersion.objects.get(
+        trust=trust_with_baseline, valid_to__isnull=True
+    )
+    assert new_version.valid_from == datetime.date(2024, 3, 15)
+
+
+@pytest.mark.django_db
+def test_non_merger_change_falls_back_to_today_if_no_ods_date(
+    organisation_with_baseline, monkeypatch
+):
+    """If the ODS record omits LastChangeDate, the change is applied at today's
+    date as a fallback."""
+    record_without_date = {
+        "Name": "New Org Name",
+        "GeoLoc": {"Location": {"AddrLn1": "2 New St", "Town": "Newtown", "PostCode": "NW1 1AA"}},
+        "Contacts": {"Contact": []},
+    }
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA01")],
+        records_by_ods_code={"RAA01": record_without_date},
+    )
+    update_organisation_model_with_ORD_changes(dry_run=False)
+
+    new_version = OrganisationVersion.objects.get(
+        organisation=organisation_with_baseline, valid_to__isnull=True
+    )
+    assert new_version.valid_from == datetime.date.today()
+
+
+@pytest.mark.django_db
+def test_dry_run_report_shows_backfill_date_for_non_merger(
+    organisation_with_baseline, monkeypatch
+):
+    """The dry-run report shows the ODS date as the effective date for
+    non-merger changes (with 'backfilled at ODS change date' annotation)."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA01")],
+        records_by_ods_code={"RAA01": ORD_ORG_RECORD},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    assert "Effective date applied: 2024-03-15" in report
+    assert "backfilled at ODS change date" in report
+
+
+@pytest.mark.django_db
+def test_dry_run_report_shows_forward_looking_date_for_merger(
+    trust_with_baseline, monkeypatch
+):
+    """The dry-run report shows today's date as the effective date for
+    merger-driven changes (with 'forward-looking — merger-driven change
+    requires review' annotation)."""
+    _patch_ods(
+        monkeypatch,
+        org_links=[_org_link("RAA")],
+        records_by_ods_code={"RAA": _succession_record()},
+    )
+    stdout = _FakeStdout()
+    update_organisation_model_with_ORD_changes(dry_run=True, stdout=stdout)
+
+    report = stdout.text
+    assert "Effective date if applied:" in report
+    assert "forward-looking" in report
+    assert "requires review" in report

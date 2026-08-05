@@ -156,13 +156,20 @@ the `backfill_*` helpers in a shell with that date — see Part 2 below.
 
 ### Step 3 (implemented): Review-gated apply for merger-driven changes
 
-When a change has ODS succession events (merger / acquisition / split) and
-the sync is run **without** `--dry-run`, the change is **not applied
-automatically**. Instead a `review_callback` is invoked with the entity
-details, the proposed changes, and the succession events. The operator must
-agree (apply as a forward-looking change, effective today) or refuse (skip,
-so the change can be handled via the merger workflow or the `backfill_*`
-helpers).
+When a change has **recent** ODS succession events (merger / acquisition /
+ssplit, within the `time_frame` window) and the sync is run **without**
+`--dry-run`, the change is **not applied automatically**. Instead a
+`review_callback` is invoked with the entity details, the proposed changes,
+and the succession events. The operator must agree (apply as a forward-looking
+change, effective today) or refuse (skip, so the change can be handled via
+the merger workflow or the `backfill_*` helpers).
+
+Old succession events (outside the `time_frame` window) do **not** trigger the
+review — a 12-year-old merger is part of the entity's permanent ODS record
+and should not gate a routine website update.
+
+Changes **without** recent succession events are applied automatically at the
+ODS `LastChangeDate` (see Step 2a below), not today.
 
 The `cron` management command wires up an interactive callback that prints
 the details and prompts:
@@ -189,8 +196,22 @@ If no callback is provided (e.g. running from a script or the GitHub
 Action, which uses `--dry-run` anyway), merger-driven changes are **skipped**
 with a warning — they must not be applied without human review.
 
-Changes **without** succession events are applied automatically as before —
-the review only gates merger-driven changes.
+### Step 2a (implemented): Non-merger changes applied at ODS LastChangeDate
+
+Non-merger changes (address, website, telephone, etc. — the majority of
+what the sync sees) are applied at the ODS `LastChangeDate`, not today.
+This means the version row records when the change actually happened on the
+ODS side, so the audit trail is accurate. For example, if ODS recorded a
+website change on 2024-03-15 and the sync runs on 2025-08-05, the new
+`TrustVersion` row will have `valid_from=2024-03-15`, not `2025-08-05`.
+
+If the ODS record omits `LastChangeDate`, the change falls back to today's
+date.
+
+This uses the `update_*_attributes` helper (which updates the entity row in
+place and closes/opens version rows) with `effective_date` set to the ODS
+date — not the `backfill_*` helpers, which are for inserting historical
+states without touching the current entity row.
 
 ### Step 4 (optional, future): A `--backfill` flag
 
@@ -446,12 +467,15 @@ project.
   (implemented). The sync function reads `LastChangeDate` from the full
   organisation record and surfaces it in the report alongside the effective
   date applied. Succession events from the `Succs` block are also surfaced.
+- ✅ **Step 2a** — Non-merger changes applied at ODS `LastChangeDate`
+  (implemented). Address, website, telephone, and other routine changes are
+  applied at the ODS date, not today, so the version row records when the
+  change actually happened.
 - ✅ **Step 3** — Review-gated apply for merger-driven changes (implemented).
   Changes with **recent** succession events (within the `time_frame` window)
   are not applied automatically; the operator must agree or refuse via a
   review callback. Changes with only old succession events (outside the
-  window) are applied automatically — a 12-year-old merger is part of the
-  permanent ODS record and should not gate a routine website update.
+  window) are applied automatically at the ODS date.
 - ✅ **Part 3** — `backfill_successions` command (implemented). Iterates every
   entity in the database, fetches its full ODS record, reads the `Succs` block,
   and reports or creates missing succession rows with a yes/no/skip prompt.

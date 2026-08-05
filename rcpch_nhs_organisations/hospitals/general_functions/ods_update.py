@@ -169,6 +169,17 @@ def _extract_succession_info(ord_record):
     return events
 
 
+def _parse_ods_date(date_str):
+    """Parse an ODS date string (YYYY-MM-DD) into a datetime.date.
+    Returns None if the string is None or cannot be parsed."""
+    if not date_str:
+        return None
+    try:
+        return datetime.date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        return None
+
+
 def _recent_succession_events(succession_events, time_frame, reference_date=None):
     """Filter succession events to only those whose legal date falls within
     the ``time_frame`` window ending at ``reference_date`` (default: today).
@@ -333,6 +344,8 @@ def update_organisation_model_with_ORD_changes(
             if not changes:
                 continue
             changes_found = True
+            # Parse the ODS LastChangeDate for use as the backfill valid_from.
+            ods_change_date_parsed = _parse_ods_date(ods_change_date)
             if dry_run:
                 report_lines.append(
                     f"### Organisation {ods_code} ({organisation.name})"
@@ -341,9 +354,23 @@ def update_organisation_model_with_ORD_changes(
                 report_lines.append(
                     f"ODS last change date: {ods_change_date or 'unknown'}"
                 )
-                report_lines.append(
-                    f"Effective date applied: {effective_date.isoformat()}"
+                # For non-merger changes, the change will be backfilled at the
+                # ODS date. For merger-driven changes, it would be applied at
+                # today (forward-looking) if the operator agrees.
+                recent_succession_events = _recent_succession_events(
+                    succession_events, time_frame, reference_date=effective_date
                 )
+                if recent_succession_events:
+                    report_lines.append(
+                        f"Effective date if applied: {effective_date.isoformat()} "
+                        "(forward-looking — merger-driven change requires review)"
+                    )
+                else:
+                    applied_date = ods_change_date_parsed or effective_date
+                    report_lines.append(
+                        f"Effective date applied: {applied_date.isoformat()} "
+                        "(backfilled at ODS change date)"
+                    )
                 if succession_events:
                     report_lines.append("")
                     report_lines.append(
@@ -379,7 +406,9 @@ def update_organisation_model_with_ORD_changes(
                     # Merger-driven change: do not apply automatically.
                     # Prompt the operator via the review callback; skip if
                     # they refuse or if no callback is provided (e.g. running
-                    # from a script).
+                    # from a script). If accepted, apply at today's date
+                    # (forward-looking) — the operator should use the
+                    # backfill_* helpers if the historical date matters.
                     apply = _review_succession_change(
                         review_callback,
                         entity_type="Organisation",
@@ -398,11 +427,24 @@ def update_organisation_model_with_ORD_changes(
                             ods_code,
                         )
                         continue
-                update_organisation_attributes(
-                    organisation, effective_date=effective_date, **{
-                        k: v[1] for k, v in changes.items()
-                    }
-                )
+                    update_organisation_attributes(
+                        organisation, effective_date=effective_date, **{
+                            k: v[1] for k, v in changes.items()
+                        }
+                    )
+                else:
+                    # Non-merger change (address, website, telephone, etc.):
+                    # apply at the ODS LastChangeDate so the version row records
+                    # when the change actually happened, not today. We use the
+                    # forward-looking update_*_attributes helper (which updates
+                    # the entity row in place and closes/opens version rows) but
+                    # with effective_date set to the ODS date.
+                    applied_date = ods_change_date_parsed or effective_date
+                    update_organisation_attributes(
+                        organisation, effective_date=applied_date, **{
+                            k: v[1] for k, v in changes.items()
+                        }
+                    )
                 logger.info("Organisation %s details have been updated.", ods_code)
         else:
             trust = match_trust(ods_code=ods_code)
@@ -438,6 +480,7 @@ def update_organisation_model_with_ORD_changes(
                 if not changes:
                     continue
                 changes_found = True
+                ods_change_date_parsed = _parse_ods_date(ods_change_date)
                 if dry_run:
                     report_lines.append(
                         f"### Trust {ods_code} ({trust.name})"
@@ -446,9 +489,20 @@ def update_organisation_model_with_ORD_changes(
                     report_lines.append(
                         f"ODS last change date: {ods_change_date or 'unknown'}"
                     )
-                    report_lines.append(
-                        f"Effective date applied: {effective_date.isoformat()}"
+                    recent_succession_events = _recent_succession_events(
+                        succession_events, time_frame, reference_date=effective_date
                     )
+                    if recent_succession_events:
+                        report_lines.append(
+                            f"Effective date if applied: {effective_date.isoformat()} "
+                            "(forward-looking — merger-driven change requires review)"
+                        )
+                    else:
+                        applied_date = ods_change_date_parsed or effective_date
+                        report_lines.append(
+                            f"Effective date applied: {applied_date.isoformat()} "
+                            "(backfilled at ODS change date)"
+                        )
                     if succession_events:
                         report_lines.append("")
                         report_lines.append(
@@ -494,11 +548,19 @@ def update_organisation_model_with_ORD_changes(
                                 ods_code,
                             )
                             continue
-                    update_trust_attributes(
-                        trust, effective_date=effective_date, **{
-                            k: v[1] for k, v in changes.items()
-                        }
-                    )
+                        update_trust_attributes(
+                            trust, effective_date=effective_date, **{
+                                k: v[1] for k, v in changes.items()
+                            }
+                        )
+                    else:
+                        # Non-merger change: apply at the ODS LastChangeDate.
+                        applied_date = ods_change_date_parsed or effective_date
+                        update_trust_attributes(
+                            trust, effective_date=applied_date, **{
+                                k: v[1] for k, v in changes.items()
+                            }
+                        )
                     logger.info("Trust %s details have been updated.", ods_code)
 
     if dry_run:
