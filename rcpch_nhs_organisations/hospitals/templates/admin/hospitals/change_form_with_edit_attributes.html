@@ -1,6 +1,25 @@
 {% extends "admin/change_form.html" %}
 {% load static %}
 
+{% block field_sets %}
+  {% if original and has_edit_attributes_action %}
+  <div class="signposting-banner" style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; padding: 1em; margin-bottom: 1em;">
+    <p style="margin: 0 0 0.5em 0;"><strong>Before editing this record directly:</strong></p>
+    <ul style="margin: 0; padding-left: 1.5em;">
+      {% if has_rename_action %}
+      <li><strong>Changing the name?</strong> Use the <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_rename' original.pk %}">Rename…</a> action. It records the change in the temporal history layer with a dated succession row, so audit reports can reconstruct the name as it was on any past date.</li>
+      {% endif %}
+      <li><strong>Changing an attribute from a specific date?</strong> (address, telephone, website, coordinates, etc.) Use the <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_edit_attributes' original.pk %}">Edit attributes as of…</a> action. It closes the current version row and opens a new one dated to the change, so the temporal layer captures when the change took effect.</li>
+      <li><strong>Only edit this form directly if the change is not date-dependent</strong> — for example, fixing a typo in a field that has always had the wrong value, where there is no "before" date to record. Direct edits overwrite the current row without creating a version row, so they are invisible to the audit history.</li>
+      {% if has_deactivate_action %}
+      <li><strong>Closing this {{ opts.verbose_name }}?</strong> Use the <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_deactivate' original.pk %}" style="color: #d32f2f; font-weight: bold;">Deactivate…</a> action. Do not uncheck <code>active</code> on this form — it will not record the closure in the succession table.<strong> NOTE that if this organisation is deactivating as part of a Trust or Local Health Board merger or changing its parent, use the merger work flow in the Trust/Local Health Board tab.</strong></li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
+
 {% block submit_buttons_bottom %}
   {{ block.super }}
   {% if has_edit_attributes_action or has_rename_action or has_deactivate_action %}

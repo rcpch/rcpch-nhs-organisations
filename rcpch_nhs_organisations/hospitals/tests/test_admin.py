@@ -690,3 +690,91 @@ def test_attribute_edit_form_excludes_active(superuser, trust_with_baseline):
     assert response.status_code == 200
     # The form should not have an `active` field.
     assert b'name="active"' not in response.content
+
+
+# ---------------------------------------------------------------------------
+# Signposting banner on the change form
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_trust_change_form_has_signposting_banner(superuser, trust_with_baseline):
+    """The trust change page shows the signposting banner directing users to
+    the rename / edit-attributes / deactivate actions rather than editing the
+    form directly."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_change", args=[trust_with_baseline.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    # The banner is present.
+    assert b"Before editing this record directly" in response.content
+    # Rename guidance (Trust has the rename action).
+    assert b"Changing the name?" in response.content
+    assert b"Rename" in response.content
+    # Edit-attributes guidance.
+    assert b"Changing an attribute from a specific date?" in response.content
+    assert b"Edit attributes as of" in response.content
+    # Deactivate guidance (Trust has the deactivate action).
+    assert b"Closing this" in response.content
+    assert b"Deactivate" in response.content
+    # The "not date-dependent" guidance.
+    assert b"not date-dependent" in response.content
+
+
+@pytest.mark.django_db
+def test_organisation_change_form_has_signposting_banner(
+    superuser, organisation_with_baseline
+):
+    """The organisation change page shows the signposting banner. Organisation
+    has the edit-attributes and deactivate actions but NOT the rename action
+    (no rename succession table for organisations)."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse(
+        "admin:hospitals_organisation_change", args=[organisation_with_baseline.pk]
+    )
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Before editing this record directly" in response.content
+    # Edit-attributes guidance present.
+    assert b"Changing an attribute from a specific date?" in response.content
+    # Deactivate guidance present (Organisation has the deactivate action).
+    assert b"Closing this" in response.content
+    # Rename guidance absent (Organisation has no rename action).
+    assert b"Changing the name?" not in response.content
+
+
+@pytest.mark.django_db
+def test_icb_change_form_has_signposting_banner(superuser):
+    """The ICB change page shows the signposting banner with edit-attributes
+    guidance only — ICB has no rename or deactivate action."""
+    from django.test import Client
+
+    icb = IntegratedCareBoard.objects.create(
+        boundary_identifier="E10000099",
+        name="Test ICB",
+        bng_e=400000,
+        bng_n=400000,
+        long=-1.0,
+        lat=53.0,
+        globalid="guid-icb-test",
+        geom=_square_geom(400000, 400000),
+        ods_code="A99",
+    )
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_integratedcareboard_change", args=[icb.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Before editing this record directly" in response.content
+    # Edit-attributes guidance present.
+    assert b"Changing an attribute from a specific date?" in response.content
+    # Rename guidance absent.
+    assert b"Changing the name?" not in response.content
+    # Deactivate guidance absent.
+    assert b"Closing this" not in response.content
