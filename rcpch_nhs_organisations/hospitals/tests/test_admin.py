@@ -786,3 +786,412 @@ def test_icb_change_form_has_signposting_banner(superuser):
     assert b"Changing the name?" not in response.content
     # Deactivate guidance absent.
     assert b"Closing this" not in response.content
+
+
+# ---------------------------------------------------------------------------
+# Backfill attributes admin action
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_backfill_attributes_action_registered_on_trust():
+    """The TrustAdmin has the backfill attributes mixin wired up."""
+    trust_admin = TrustAdmin(Trust, AdminSite())
+    assert trust_admin.version_model is TrustVersion
+    assert trust_admin.backfill_helper is not None
+
+
+@pytest.mark.django_db
+def test_backfill_attributes_action_registered_on_organisation():
+    """The OrganisationAdmin has the backfill attributes mixin wired up."""
+    organisation_admin = OrganisationAdmin(Organisation, AdminSite())
+    assert organisation_admin.version_model is OrganisationVersion
+    assert organisation_admin.backfill_helper is not None
+
+
+@pytest.mark.django_db
+def test_backfill_attributes_view_renders_form_on_get(superuser, trust_with_baseline):
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_attributes", args=[trust_with_baseline.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Backfill" in response.content
+    assert b"Valid from" in response.content
+    assert b"Valid to" in response.content
+
+
+@pytest.mark.django_db
+def test_backfill_attributes_view_creates_version_row_on_post(
+    superuser, trust_with_baseline
+):
+    """Submitting the backfill form creates a historical version row without
+    touching the current entity row."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_attributes", args=[trust_with_baseline.pk])
+    response = client.post(
+        url,
+        {
+            "name": "Salford Royal NHS Foundation Trust",
+            "active": "on",
+            "valid_from": "2001-04-01",
+            "valid_to": "2021-10-01",
+        },
+    )
+    assert response.status_code == 302
+
+    # The historical version row exists.
+    historical = TrustVersion.objects.get(
+        trust=trust_with_baseline,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert historical.name == "Salford Royal NHS Foundation Trust"
+
+    # The current entity row is untouched.
+    trust_with_baseline.refresh_from_db()
+    assert trust_with_baseline.name == "Trust A"
+
+
+# ---------------------------------------------------------------------------
+# Backfill trust membership admin action
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_backfill_trust_membership_action_registered_on_organisation():
+    """The OrganisationAdmin has the backfill trust membership mixin."""
+    organisation_admin = OrganisationAdmin(Organisation, AdminSite())
+    # The mixin adds the URL and the changeform context flag.
+    assert hasattr(organisation_admin, "backfill_trust_membership_view")
+
+
+@pytest.mark.django_db
+def test_backfill_trust_membership_view_renders_form_on_get(
+    superuser, organisation_with_baseline
+):
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse(
+        "admin:hospitals_organisation_backfill_trust_membership",
+        args=[organisation_with_baseline.pk],
+    )
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Backfill" in response.content
+    assert b"Trust" in response.content
+    assert b"Valid from" in response.content
+
+
+@pytest.mark.django_db
+def test_backfill_trust_membership_view_creates_membership_row(
+    superuser, organisation_with_baseline, trust_b
+):
+    """Submitting the form creates a historical OrganisationTrustMembership row."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse(
+        "admin:hospitals_organisation_backfill_trust_membership",
+        args=[organisation_with_baseline.pk],
+    )
+    response = client.post(
+        url,
+        {
+            "trust": trust_b.pk,
+            "valid_from": "2001-04-01",
+            "valid_to": "2021-10-01",
+        },
+    )
+    assert response.status_code == 302
+
+    # The historical membership exists.
+    from rcpch_nhs_organisations.hospitals.models import OrganisationTrustMembership
+    historical = OrganisationTrustMembership.objects.get(
+        organisation=organisation_with_baseline,
+        trust=trust_b,
+        valid_from=datetime.date(2001, 4, 1),
+    )
+    assert historical.valid_to == datetime.date(2021, 10, 1)
+
+
+# ---------------------------------------------------------------------------
+# Backfill merger wizard (Trust only)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def trust_successor():
+    return Trust.objects.create(ods_code="RM3", name="Northern Care Alliance")
+
+
+@pytest.mark.django_db
+def test_backfill_merger_action_registered_on_trust():
+    """The TrustAdmin has the backfill merger mixin."""
+    trust_admin = TrustAdmin(Trust, AdminSite())
+    assert hasattr(trust_admin, "backfill_merger_view")
+
+
+@pytest.mark.django_db
+def test_backfill_merger_view_renders_form_on_get(superuser, trust_successor):
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Backfill merger" in response.content
+    assert b"Predecessor ODS code" in response.content
+    assert b"child organisation" in response.content  # the warning banner
+
+
+@pytest.mark.django_db
+def test_backfill_merger_creates_predecessor_and_succession(superuser, trust_successor):
+    """The wizard creates the predecessor trust (if new), backfills its
+    closure, and creates the succession row — all in one transaction."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+    response = client.post(
+        url,
+        {
+            "predecessor_ods_code": "RW6",
+            "predecessor_name": "Pennine Acute Hospitals NHS Trust",
+            "predecessor_established_date": "2002-04-01",
+            "successor": trust_successor.pk,
+            "succession_date": "2021-10-01",
+            "succession_type": "acquisition",
+            "notes": "Salford Royal acquired Pennine Acute",
+            "backfill": "Backfill merger",
+        },
+    )
+    assert response.status_code == 302
+
+    # Predecessor trust was created.
+    predecessor = Trust.objects.get(ods_code="RW6")
+    assert predecessor.name == "Pennine Acute Hospitals NHS Trust"
+    assert predecessor.active is False
+
+    # Predecessor has a historical name version row (2001 → 2021).
+    historical_name = TrustVersion.objects.get(
+        trust=predecessor,
+        valid_from=datetime.date(2002, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert historical_name.name == "Pennine Acute Hospitals NHS Trust"
+    assert historical_name.active is True
+
+    # Predecessor has a closure version row (2021 → now).
+    closure = TrustVersion.objects.get(
+        trust=predecessor, valid_to__isnull=True
+    )
+    assert closure.active is False
+    assert closure.valid_from == datetime.date(2021, 10, 1)
+
+    # Succession row was created.
+    succession = TrustSuccession.objects.get(
+        predecessor=predecessor, successor=trust_successor
+    )
+    assert succession.succession_type == "acquisition"
+    assert succession.succession_date == datetime.date(2021, 10, 1)
+    assert succession.notes == "Salford Royal acquired Pennine Acute"
+
+
+@pytest.mark.django_db
+def test_backfill_merger_uses_existing_predecessor(superuser, trust_successor, trust_a):
+    """If the predecessor already exists in the database, the wizard does not
+    create a duplicate — it backfills the historical name and closure."""
+    from django.test import Client
+
+    # trust_a already exists as "Trust A" with a baseline version row.
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+    response = client.post(
+        url,
+        {
+            "predecessor_ods_code": "RAA",
+            "predecessor_name": "Old Trust Name",
+            "predecessor_established_date": "2001-04-01",
+            "successor": trust_successor.pk,
+            "succession_date": "2021-10-01",
+            "succession_type": "merger",
+            "notes": "",
+            "backfill": "Backfill merger",
+        },
+    )
+    assert response.status_code == 302
+
+    # No duplicate trust was created.
+    assert Trust.objects.filter(ods_code="RAA").count() == 1
+    trust_a.refresh_from_db()
+    assert trust_a.active is False
+
+    # Historical name backfilled.
+    historical = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert historical.name == "Old Trust Name"
+    assert historical.active is True
+
+    # Closure backfilled.
+    closure = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert closure.active is False
+
+    # Succession row.
+    assert TrustSuccession.objects.filter(
+        predecessor=trust_a, successor=trust_successor
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_merger_skips_name_backfill_if_no_established_date(
+    superuser, trust_successor
+):
+    """If the predecessor established date is not provided, the historical name
+    backfill is skipped — only the closure and succession row are created."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+    response = client.post(
+        url,
+        {
+            "predecessor_ods_code": "RW6",
+            "predecessor_name": "Pennine Acute Hospitals NHS Trust",
+            "predecessor_established_date": "",  # blank
+            "successor": trust_successor.pk,
+            "succession_date": "2021-10-01",
+            "succession_type": "acquisition",
+            "notes": "",
+            "backfill": "Backfill merger",
+        },
+    )
+    assert response.status_code == 302
+
+    predecessor = Trust.objects.get(ods_code="RW6")
+    # Only the closure version row exists (no historical name row).
+    versions = TrustVersion.objects.filter(trust=predecessor)
+    assert versions.count() == 1
+    assert versions.first().active is False
+    assert versions.first().valid_from == datetime.date(2021, 10, 1)
+
+
+@pytest.mark.django_db
+def test_backfill_merger_validate_button_does_not_backfill(superuser, trust_successor):
+    """The 'Validate ODS code' button fetches the ODS record but does not
+    perform the backfill."""
+    from django.test import Client
+    from unittest.mock import patch
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+
+    fake_record = {"Name": "Pennine Acute Hospitals NHS Trust", "Status": "Active"}
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.get_organisation",
+        return_value=fake_record,
+    ):
+        response = client.post(
+            url,
+            {
+                "predecessor_ods_code": "RW6",
+                "predecessor_name": "Pennine Acute Hospitals NHS Trust",
+                "predecessor_established_date": "",
+                "successor": trust_successor.pk,
+                "succession_date": "2021-10-01",
+                "succession_type": "merger",
+                "notes": "",
+                "validate": "Validate ODS code",
+            },
+        )
+
+    assert response.status_code == 200  # re-renders, does not redirect
+    assert b"found" in response.content
+    assert b"Pennine Acute" in response.content
+    # No trust or succession was created.
+    assert not Trust.objects.filter(ods_code="RW6").exists()
+    assert TrustSuccession.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_backfill_merger_validate_handles_not_found(superuser, trust_successor):
+    """If the ODS API returns an error, the validation message shows 'not found'
+    but the form is still usable."""
+    from django.test import Client
+    from unittest.mock import patch
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.get_organisation",
+        side_effect=Exception("404"),
+    ):
+        response = client.post(
+            url,
+            {
+                "predecessor_ods_code": "ZZZ",
+                "predecessor_name": "Some Trust",
+                "predecessor_established_date": "",
+                "successor": trust_successor.pk,
+                "succession_date": "2021-10-01",
+                "succession_type": "merger",
+                "notes": "",
+                "validate": "Validate ODS code",
+            },
+        )
+
+    assert response.status_code == 200
+    assert b"not-found" in response.content
+
+
+@pytest.mark.django_db
+def test_backfill_buttons_on_change_form(superuser, trust_with_baseline):
+    """The trust change page renders the backfill buttons."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_change", args=[trust_with_baseline.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Backfill attributes" in response.content
+    assert b"Backfill merger" in response.content
+
+
+@pytest.mark.django_db
+def test_backfill_buttons_on_organisation_change_form(
+    superuser, organisation_with_baseline
+):
+    """The organisation change page renders the backfill buttons (attributes
+    and trust membership, but not merger)."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse(
+        "admin:hospitals_organisation_change", args=[organisation_with_baseline.pk]
+    )
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Backfill attributes" in response.content
+    assert b"Backfill trust membership" in response.content
+    assert b"Backfill merger" not in response.content

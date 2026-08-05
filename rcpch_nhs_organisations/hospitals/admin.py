@@ -44,6 +44,8 @@ from .general_functions.membership import (
     deactivate_organisation,
     deactivate_paediatric_diabetes_unit,
     deactivate_trust,
+    backfill_organisation_attributes,
+    backfill_trust_attributes,
 )
 
 
@@ -532,6 +534,468 @@ class DeactivateAdminMixin:
 
 
 # ---------------------------------------------------------------------------
+# Mixin: "Backfill attributes…" action (historical state, two dates)
+# ---------------------------------------------------------------------------
+
+
+def _build_backfill_attribute_form(version_model):
+    """Build a Django Form class for backfilling a historical state.
+
+    Unlike the attribute-edit form (which has one effective_date and snapshots
+    the current entity row), the backfill form has valid_from and valid_to and
+    lets the operator enter explicit historical values. The `active` field is
+    included here (unlike the attribute-edit form) because a backfill may need
+    to record that an entity was active in the past.
+    """
+    from .general_functions.membership import _snapshot_fields
+
+    field_dict = {}
+    for field in _snapshot_fields(version_model):
+        form_field = field.formfield()
+        if form_field is not None:
+            field_dict[field.name] = form_field
+    field_dict["valid_from"] = forms.DateField(
+        label="Valid from",
+        help_text="The date this historical state began.",
+    )
+    field_dict["valid_to"] = forms.DateField(
+        required=False,
+        label="Valid to",
+        help_text=(
+            "The date this historical state ended (the date of the next "
+            "change). Leave blank if this is the current state."
+        ),
+    )
+    return type("BackfillAttributeForm", (forms.Form,), field_dict)
+
+
+_backfill_attribute_form_cache = {}
+
+
+def _get_backfill_attribute_form(version_model):
+    key = version_model.__name__
+    if key not in _backfill_attribute_form_cache:
+        _backfill_attribute_form_cache[key] = _build_backfill_attribute_form(version_model)
+    return _backfill_attribute_form_cache[key]
+
+
+class BackfillAttributesAdminMixin:
+    """Adds a "Backfill attributes…" action to a ModelAdmin.
+
+    This is for recording a historical state that was overwritten before the
+    temporal layer was installed — e.g. a trust's pre-merger name, or an
+    organisation's old address. Unlike the attribute-edit action (which is
+    forward-looking and snapshots the current entity row), the backfill action
+    lets the operator enter explicit historical values with a
+    [valid_from, valid_to) interval.
+
+    Concrete admins must set:
+        version_model      — the *Version model class (e.g. TrustVersion)
+        backfill_helper    — the backfill_<entity>_attributes callable
+    """
+
+    version_model = None
+    backfill_helper = None
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/backfill-attributes/",
+                self.admin_site.admin_view(self.backfill_attributes_view),
+                name=f"{self.model._meta.app_label}_{self.model._meta.model_name}_backfill_attributes",
+            ),
+        ]
+        return custom_urls + urls
+
+    def backfill_attributes_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+
+        obj = get_object_or_404(self.model, pk=object_id)
+        FormClass = _get_backfill_attribute_form(self.version_model)
+        opts = self.model._meta
+
+        if request.method == "POST":
+            form = FormClass(request.POST)
+            if form.is_valid():
+                valid_from = form.cleaned_data.pop("valid_from")
+                valid_to = form.cleaned_data.pop("valid_to")
+                # Only pass fields that have a value.
+                fields = {
+                    k: v for k, v in form.cleaned_data.items() if v is not None
+                }
+                self.backfill_helper(
+                    obj, valid_from=valid_from, valid_to=valid_to, **fields
+                )
+                self.message_user(
+                    request,
+                    f"Backfilled {opts.verbose_name} attributes "
+                    f"({valid_from} → {valid_to or 'now'}).",
+                )
+                return redirect(
+                    f"admin:{opts.app_label}_{opts.model_name}_change",
+                    object_id,
+                )
+        else:
+            initial = {
+                f.name: getattr(obj, f.name, None)
+                for f in self.version_model._meta.get_fields()
+                if hasattr(f, "attname")
+            }
+            form = FormClass(initial=initial)
+
+        return render(
+            request,
+            "admin/hospitals/backfill_attributes.html",
+            {
+                "form": form,
+                "object": obj,
+                "opts": opts,
+            },
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_backfill_attributes_action"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+# ---------------------------------------------------------------------------
+# Mixin: "Backfill trust membership…" action (Organisation only)
+# ---------------------------------------------------------------------------
+
+
+class BackfillTrustMembershipForm(forms.Form):
+    trust = forms.ModelChoiceField(
+        queryset=Trust.objects.all(),
+        label="Trust",
+        help_text="The trust the organisation was affiliated to during this period.",
+    )
+    valid_from = forms.DateField(
+        label="Valid from",
+        help_text="The date the affiliation began.",
+    )
+    valid_to = forms.DateField(
+        required=False,
+        label="Valid to",
+        help_text=(
+            "The date the affiliation ended (the date of the reassignment). "
+            "Leave blank if this is the current affiliation."
+        ),
+    )
+
+
+class BackfillTrustMembershipAdminMixin:
+    """Adds a "Backfill trust membership…" action to the Organisation admin.
+
+    This is for recording a historical trust affiliation that was overwritten
+    before the temporal layer was installed — e.g. an organisation that was
+    in Pennine Acute (RW6) before it moved to Northern Care Alliance (RM3)
+    on 2021-10-01.
+    """
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/backfill-trust-membership/",
+                self.admin_site.admin_view(self.backfill_trust_membership_view),
+                name=f"{self.model._meta.app_label}_{self.model._meta.model_name}_backfill_trust_membership",
+            ),
+        ]
+        return custom_urls + urls
+
+    def backfill_trust_membership_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+        from .general_functions.membership import backfill_organisation_trust_membership
+
+        obj = get_object_or_404(self.model, pk=object_id)
+        opts = self.model._meta
+
+        if request.method == "POST":
+            form = BackfillTrustMembershipForm(request.POST)
+            if form.is_valid():
+                trust = form.cleaned_data["trust"]
+                valid_from = form.cleaned_data["valid_from"]
+                valid_to = form.cleaned_data["valid_to"]
+                backfill_organisation_trust_membership(
+                    obj, trust=trust, valid_from=valid_from, valid_to=valid_to
+                )
+                self.message_user(
+                    request,
+                    f"Backfilled trust membership: {obj} → {trust} "
+                    f"({valid_from} → {valid_to or 'now'}).",
+                )
+                return redirect(
+                    f"admin:{opts.app_label}_{opts.model_name}_change",
+                    object_id,
+                )
+        else:
+            form = BackfillTrustMembershipForm()
+
+        return render(
+            request,
+            "admin/hospitals/backfill_trust_membership.html",
+            {
+                "form": form,
+                "object": obj,
+                "opts": opts,
+            },
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_backfill_trust_membership_action"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+# ---------------------------------------------------------------------------
+# Mixin: "Backfill merger…" wizard (Trust only)
+# ---------------------------------------------------------------------------
+
+
+class BackfillMergerForm(forms.Form):
+    predecessor_ods_code = forms.CharField(
+        max_length=10,
+        label="Predecessor ODS code",
+        help_text=(
+            "The ODS code of the trust that was absorbed / closed / renamed. "
+            "This trust may or may not be in the database."
+        ),
+    )
+    predecessor_name = forms.CharField(
+        max_length=100,
+        label="Predecessor name",
+        help_text=(
+            "The predecessor's name at the time of the merger. If the "
+            "predecessor is in the database, this will be backfilled as a "
+            "historical version row. If not, it will be used to create the "
+            "predecessor row."
+        ),
+    )
+    predecessor_established_date = forms.DateField(
+        required=False,
+        label="Predecessor established date",
+        help_text=(
+            "The date the predecessor was established (for backfilling its "
+            "historical name). Leave blank if unknown — the name backfill "
+            "will be skipped."
+        ),
+    )
+    successor = forms.ModelChoiceField(
+        queryset=Trust.objects.all(),
+        label="Successor",
+        help_text="The trust that took over from the predecessor.",
+    )
+    succession_date = forms.DateField(
+        label="Succession date",
+        help_text="The date the merger / acquisition / split took effect.",
+    )
+    succession_type = forms.ChoiceField(
+        choices=[
+            ("merger", "Merger"),
+            ("acquisition", "Acquisition"),
+            ("split", "Split"),
+            ("closure", "Closure"),
+            ("rename", "Rename"),
+        ],
+        initial="merger",
+        label="Succession type",
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Notes",
+        help_text="Optional free-text notes about the merger.",
+    )
+
+
+class BackfillMergerAdminMixin:
+    """Adds a "Backfill merger…" wizard to the Trust admin.
+
+    This is for recording a historical merger, acquisition, or split that
+    happened before the temporal layer was installed. It performs the
+    following writes in one transaction:
+
+    1. Creates the predecessor Trust row if it does not already exist (with
+       active=False and a baseline version row).
+    2. If the predecessor exists, backfills its historical name (if provided)
+       and its closure (active=False from the succession date).
+    3. Creates a TrustSuccession row linking predecessor → successor.
+
+    It does NOT backfill child organisation memberships — the operator must
+    record those separately using the "Backfill trust membership…" action on
+    each organisation. A banner in the UI reminds the operator of this.
+
+    The "Validate ODS code" button fetches the predecessor's ODS record to
+    pre-fill the name and confirm the code exists. This is informational —
+    the operator is the source of truth for the historical name.
+    """
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/backfill-merger/",
+                self.admin_site.admin_view(self.backfill_merger_view),
+                name=f"{self.model._meta.app_label}_{self.model._meta.model_name}_backfill_merger",
+            ),
+        ]
+        return custom_urls + urls
+
+    def backfill_merger_view(self, request, object_id):
+        import datetime
+        from django.shortcuts import get_object_or_404
+        from django.db import transaction
+        from .general_functions.membership import backfill_trust_attributes
+        from .general_functions.ods_update import get_organisation
+
+        obj = get_object_or_404(self.model, pk=object_id)
+        opts = self.model._meta
+        ods_validation = None
+
+        if request.method == "POST":
+            form = BackfillMergerForm(request.POST)
+            if form.is_valid():
+                # "Validate ODS code" button: fetch the ODS record and
+                # re-render the form with the validation result. Do not
+                # perform the backfill.
+                if "validate" in request.POST:
+                    pred_code = form.cleaned_data["predecessor_ods_code"]
+                    try:
+                        ord_record = get_organisation(
+                            f"https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/{pred_code}"
+                        )
+                        ods_name = ord_record.get("Name", "")
+                        ods_validation = {
+                            "status": "found",
+                            "ods_code": pred_code,
+                            "message": (
+                                f"Found in ODS: {ods_name}. "
+                                "The name has been pre-filled — adjust if the "
+                                "historical name was different."
+                            ),
+                        }
+                        # Pre-fill the name from ODS if the operator hasn't
+                        # already entered one.
+                        if not form.cleaned_data.get("predecessor_name"):
+                            form = BackfillMergerForm(
+                                initial=dict(form.cleaned_data, predecessor_name=ods_name)
+                            )
+                    except Exception:
+                        ods_validation = {
+                            "status": "not-found",
+                            "ods_code": pred_code,
+                            "message": (
+                                "Not found in ODS, or the ODS API returned an "
+                                "error. You can still proceed — enter the "
+                                "historical name manually."
+                            ),
+                        }
+                elif "backfill" in request.POST:
+                    # Perform the backfill.
+                    pred_code = form.cleaned_data["predecessor_ods_code"]
+                    pred_name = form.cleaned_data["predecessor_name"]
+                    pred_established = form.cleaned_data.get("predecessor_established_date")
+                    successor = form.cleaned_data["successor"]
+                    succ_date = form.cleaned_data["succession_date"]
+                    succ_type = form.cleaned_data["succession_type"]
+                    notes = form.cleaned_data.get("notes", "")
+
+                    predecessor = Trust.objects.filter(ods_code=pred_code).first()
+
+                    with transaction.atomic():
+                        if predecessor is None:
+                            # Create the predecessor trust row.
+                            predecessor = Trust.objects.create(
+                                ods_code=pred_code,
+                                name=pred_name,
+                                active=False,
+                            )
+                            # If we know when the predecessor was established,
+                            # create a historical name version row too.
+                            if pred_established:
+                                TrustVersion.objects.create(
+                                    trust=predecessor,
+                                    valid_from=pred_established,
+                                    valid_to=succ_date,
+                                    name=pred_name,
+                                    active=True,
+                                )
+                            # Closure version row: inactive from the
+                            # succession date forward.
+                            TrustVersion.objects.create(
+                                trust=predecessor,
+                                valid_from=succ_date,
+                                valid_to=None,
+                                name=pred_name,
+                                active=False,
+                            )
+                        else:
+                            # Predecessor exists — backfill the historical
+                            # name (if we know when it was established) and
+                            # the closure.
+                            if pred_established:
+                                backfill_trust_attributes(
+                                    predecessor,
+                                    valid_from=pred_established,
+                                    valid_to=succ_date,
+                                    name=pred_name,
+                                    active=True,
+                                )
+                            # Backfill the closure (inactive from the
+                            # succession date forward).
+                            backfill_trust_attributes(
+                                predecessor,
+                                valid_from=succ_date,
+                                valid_to=None,
+                                active=False,
+                            )
+                            predecessor.active = False
+                            predecessor.save(update_fields=["active"])
+
+                        # Create the succession row.
+                        TrustSuccession.objects.create(
+                            predecessor=predecessor,
+                            successor=successor,
+                            succession_date=succ_date,
+                            succession_type=succ_type,
+                            notes=notes,
+                        )
+
+                    self.message_user(
+                        request,
+                        f"Backfilled merger: {predecessor} → {successor} "
+                        f"({succ_type}, {succ_date}). Remember to backfill "
+                        f"child organisation memberships separately.",
+                        level="WARNING",
+                    )
+                    return redirect(
+                        f"admin:{opts.app_label}_{opts.model_name}_change",
+                        object_id,
+                    )
+        else:
+            # Default the successor to the current trust.
+            form = BackfillMergerForm(initial={"successor": obj.pk})
+
+        return render(
+            request,
+            "admin/hospitals/backfill_merger.html",
+            {
+                "form": form,
+                "object": obj,
+                "opts": opts,
+                "ods_validation": ods_validation,
+            },
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_backfill_merger_action"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+# ---------------------------------------------------------------------------
 # Reassign trust admin action
 # ---------------------------------------------------------------------------
 
@@ -549,11 +1013,12 @@ class ReassignTrustForm(forms.Form):
     )
 
 
-class OrganisationAdmin(AttributeEditAdminMixin, DeactivateAdminMixin, admin.ModelAdmin):
+class OrganisationAdmin(AttributeEditAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillTrustMembershipAdminMixin, admin.ModelAdmin):
     version_model = OrganisationVersion
     from .general_functions.membership import update_organisation_attributes
     update_helper = staticmethod(update_organisation_attributes)
     deactivate_helper = staticmethod(deactivate_organisation)
+    backfill_helper = staticmethod(backfill_organisation_attributes)
 
     list_display = ("ods_code", "name", "active")
     search_fields = ("ods_code", "name")
@@ -642,12 +1107,13 @@ class PaediatricDiabetesUnitAdmin(
     ]
 
 
-class TrustAdmin(AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, admin.ModelAdmin):
+class TrustAdmin(AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillMergerAdminMixin, admin.ModelAdmin):
     version_model = TrustVersion
     from .general_functions.membership import update_trust_attributes
     update_helper = staticmethod(update_trust_attributes)
     rename_helper = staticmethod(rename_trust)
     deactivate_helper = staticmethod(deactivate_trust)
+    backfill_helper = staticmethod(backfill_trust_attributes)
     name_field = "name"
 
     list_display = ("ods_code", "name", "active")

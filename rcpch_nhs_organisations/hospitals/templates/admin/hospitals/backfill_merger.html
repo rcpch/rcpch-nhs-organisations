@@ -1,0 +1,89 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">{{ object }}</a> &rsaquo;
+  Backfill merger…
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .info-banner {
+    background: #fff3e0;
+    border: 1px solid #ff9800;
+    border-radius: 4px;
+    padding: 1em;
+    margin: 1em 0;
+  }
+  .ods-validation {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-radius: 4px;
+  }
+  .ods-validation.found {
+    background: #e8f5e9;
+    border: 1px solid #4caf50;
+  }
+  .ods-validation.not-found {
+    background: #ffebee;
+    border: 1px solid #f44336;
+  }
+  .ods-validation.pending {
+    background: #e3f2fd;
+    border: 1px solid #2196f3;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Backfill merger for Trust {{ object }}</h1>
+
+<p>This records a <strong>historical merger, acquisition, or split</strong> that
+happened before the temporal layer was installed. It performs the following
+writes in one transaction:</p>
+<ol>
+  <li>Creates the predecessor <code>Trust</code> row if it does not already
+      exist (with <code>active=False</code> and a baseline version row).</li>
+  <li>If the predecessor exists, backfills its historical name (if provided)
+      and its closure (<code>active=False</code> from the succession date).</li>
+  <li>Creates a <code>TrustSuccession</code> row linking predecessor → successor
+      with the date, type, and notes you provide.</li>
+</ol>
+
+<div class="info-banner">
+  <strong>Note:</strong> This action does <strong>not</strong> backfill the
+  child organisations' trust memberships. If the predecessor had child
+  organisations that moved to the successor, you must record those separately
+  using the <strong>Backfill trust membership…</strong> action on each
+  organisation's admin page.
+</div>
+
+{% if ods_validation %}
+<div class="ods-validation {{ ods_validation.status }}">
+  <strong>ODS validation for {{ ods_validation.ods_code }}:</strong>
+  {{ ods_validation.message }}
+</div>
+{% endif %}
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <div class="submit-row">
+    <input type="submit" name="validate" value="Validate ODS code">
+    <input type="submit" name="backfill" value="Backfill merger" class="default">
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}
