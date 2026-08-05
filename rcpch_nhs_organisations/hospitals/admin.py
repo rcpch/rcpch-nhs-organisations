@@ -205,6 +205,7 @@ def _build_attribute_form(version_model):
             field_dict[field.name] = form_field
     field_dict["effective_date"] = forms.DateField(
         initial=timezone.now,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Effective date",
         help_text="The date the attribute change takes effect.",
     )
@@ -411,6 +412,7 @@ class RenameForm(forms.Form):
     )
     effective_date = forms.DateField(
         initial=timezone.now,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Effective date",
         help_text="The date the rename takes effect.",
     )
@@ -433,6 +435,7 @@ class RenameForm(forms.Form):
 class DeactivateForm(forms.Form):
     effective_date = forms.DateField(
         initial=timezone.now,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Effective date",
         help_text="The date the closure takes effect.",
     )
@@ -555,11 +558,13 @@ def _build_backfill_attribute_form(version_model):
         if form_field is not None:
             field_dict[field.name] = form_field
     field_dict["valid_from"] = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Valid from",
         help_text="The date this historical state began.",
     )
     field_dict["valid_to"] = forms.DateField(
         required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Valid to",
         help_text=(
             "The date this historical state ended (the date of the next "
@@ -672,11 +677,13 @@ class BackfillTrustMembershipForm(forms.Form):
         help_text="The trust the organisation was affiliated to during this period.",
     )
     valid_from = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Valid from",
         help_text="The date the affiliation began.",
     )
     valid_to = forms.DateField(
         required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Valid to",
         help_text=(
             "The date the affiliation ended (the date of the reassignment). "
@@ -775,6 +782,7 @@ class BackfillMergerForm(forms.Form):
     )
     predecessor_established_date = forms.DateField(
         required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Predecessor established date",
         help_text=(
             "The date the predecessor was established (for backfilling its "
@@ -788,6 +796,7 @@ class BackfillMergerForm(forms.Form):
         help_text="The trust that took over from the predecessor.",
     )
     succession_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Succession date",
         help_text="The date the merger / acquisition / split took effect.",
     )
@@ -1046,6 +1055,7 @@ class ReassignTrustForm(forms.Form):
     )
     effective_date = forms.DateField(
         initial=timezone.now,
+        widget=forms.DateInput(attrs={"type": "date"}),
         label="Effective date",
         help_text="The date the reassignment takes effect.",
     )
