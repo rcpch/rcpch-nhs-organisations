@@ -464,8 +464,8 @@ def test_dry_run_predecessor_event_reports_name_prompt(trust_a, trust_b):
     output = out.getvalue()
     assert "[dry-run] would create succession row" in output
     assert "[dry-run] would close" in output
-    assert "[dry-run] would prompt for" in output
-    assert "pre-merger name" in output
+    assert "[dry-run] Pass 2 would backfill" in output
+    assert "establishment/name" in output
     # Nothing is actually written.
     assert TrustSuccession.objects.count() == 0
 
@@ -656,3 +656,272 @@ def test_multiple_succession_events(trust_a, trust_b, trust_c):
     # Both rows have trust_a as predecessor (it was absorbed into both).
     rows = TrustSuccession.objects.filter(predecessor=trust_a)
     assert {r.successor for r in rows} == {trust_b, trust_c}
+
+
+# ---------------------------------------------------------------------------
+# Merger-type detection (true merger vs acquisition) and Pass 2 backfill
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_true_merger_no_name_prompt_establishment_row(trust_a, trust_b):
+    """A true merger (new entity created on the merger date; Legal.Start ==
+    event date) does NOT prompt for a pre-merger name. Pass 2 backfills an
+    establishment row at Legal.Start with the successor's current name,
+    replacing the baseline-migration row.
+
+    Mirrors R1L (Essex Partnership) created from RRD + RWN on 2017-04-01.
+    """
+    # trust_a is the successor (new entity), trust_b is the predecessor.
+    # trust_a's ODS record has Legal.Start == 2017-04-01 (the merger date).
+    # Set the entity row's name to the realistic value — the command reads
+    # the successor's current name from the entity row, not the ODS record.
+    trust_a.name = "Essex Partnership University NHS Foundation Trust"
+    trust_a.save(update_fields=["name"])
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Essex Partnership University NHS Foundation Trust",
+            succs=[_succ("Predecessor", "RBB", "2017-04-01")],
+            legal_start="2017-04-01",
+        ),
+        "RBB": _ods_record("RBB", "North Essex Partnership University NHS FT"),
+    }
+    # Only one input is expected (the main y/n/s prompt). If Pass 2 prompted
+    # for a name, the side_effect list would run out and raise StopIteration.
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y"]
+    ):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    # Succession row created with type=merger.
+    row = TrustSuccession.objects.get()
+    assert row.predecessor == trust_b
+    assert row.successor == trust_a
+    assert row.succession_type == "merger"
+    assert row.succession_date == datetime.date(2017, 4, 1)
+    # Predecessor closed.
+    trust_b.refresh_from_db()
+    assert trust_b.active is False
+    # Establishment row backfilled at Legal.Start with the current name.
+    est = TrustVersion.objects.get(
+        trust=trust_a, valid_from=datetime.date(2017, 4, 1), valid_to=None
+    )
+    assert est.name == "Essex Partnership University NHS Foundation Trust"
+    assert est.active is True
+    # No name prompt was issued (true mergers don't prompt).
+    assert "Enter the pre-merger name" not in out.getvalue()
+    assert "establishment" in out.getvalue().lower()
+
+
+@pytest.mark.django_db
+def test_acquisition_prompts_for_name_with_db_default(trust_a, trust_b):
+    """An acquisition (existing entity absorbs another; Legal.Start <
+    event date) prompts for the pre-merger name. If the operator has already
+    entered the pre-merger name via the admin (a TrustVersion row with
+    valid_to == ev_date), the prompt is pre-populated and pressing Enter
+    accepts the default.
+
+    Mirrors RM3 (Northern Care Alliance) acquiring RW6 (Pennine Acute) on
+    2021-10-01, where RM3 was established 2001-04-01 as Salford Royal.
+    """
+    # Pre-populate the version table with the pre-merger name, as the
+    # operator would have done via the admin.
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Salford Royal NHS Foundation Trust",
+        active=True,
+    )
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Northern Care Alliance NHS Foundation Trust",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+            legal_start="2001-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Pennine Acute Hospitals NHS Trust"),
+    }
+    # First input: "y" to the main prompt. Second input: blank (accept the
+    # pre-populated default).
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", ""]
+    ):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    row = TrustSuccession.objects.get()
+    assert row.predecessor == trust_b
+    assert row.successor == trust_a
+    assert row.succession_type == "acquisition"
+    # The pre-merger name row was backfilled (the existing row is reused /
+    # updated in place by update_or_create on (parent, valid_from, valid_to)).
+    name_row = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert name_row.name == "Salford Royal NHS Foundation Trust"
+    # The output mentions the name backfill (the prompt text itself goes to
+    # stdin/stdout via input() and is not captured in the command's stdout).
+    assert "Backfilled" in out.getvalue()
+    assert "Salford Royal" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_acquisition_name_prompt_blank_skips_backfill(trust_a, trust_b):
+    """If the operator types nothing and there is no pre-populated default,
+    the name backfill is skipped but the succession row and predecessor
+    closure still proceed."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Northern Care Alliance NHS Foundation Trust",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+            legal_start="2001-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Pennine Acute Hospitals NHS Trust"),
+    }
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", ""]
+    ):
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    row = TrustSuccession.objects.get()
+    assert row.succession_type == "acquisition"
+    trust_b.refresh_from_db()
+    assert trust_b.active is False
+    # No name-change version row was backfilled for the successor.
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_iteration_order_independence(trust_a, trust_b):
+    """The name/establishment backfill must run regardless of whether the
+    predecessor or successor is iterated first. If the predecessor (trust_b)
+    is iterated first, its Successor event creates the succession row; when
+    trust_a is iterated, its Predecessor event finds the row exists and
+    continues — but Pass 2 must still backfill the establishment row for
+    trust_a.
+
+    This test uses ods_codes that sort the predecessor before the successor
+    (RBB < RAA is false, so we swap: predecessor RAA, successor RBB) to force
+    the ordering. trust_b is the new-entity successor with Legal.Start ==
+    event date.
+    """
+    # Set the successor's entity-row name to the realistic value — the
+    # command reads the successor's current name from the entity row.
+    trust_b.name = "Essex Partnership University NHS Foundation Trust"
+    trust_b.save(update_fields=["name"])
+    records = {
+        # RAA is the predecessor, iterated first (alphabetical).
+        "RAA": _ods_record(
+            "RAA", "North Essex Partnership University NHS FT",
+            succs=[_succ("Successor", "RBB", "2017-04-01")],
+        ),
+        # RBB is the successor (new entity), iterated second.
+        "RBB": _ods_record(
+            "RBB", "Essex Partnership University NHS Foundation Trust",
+            succs=[_succ("Predecessor", "RAA", "2017-04-01")],
+            legal_start="2017-04-01",
+        ),
+    }
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", "y"]
+    ):
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    # One succession row (deduplicated — both events produce the same row).
+    assert TrustSuccession.objects.count() == 1
+    row = TrustSuccession.objects.get()
+    assert row.predecessor == trust_a
+    assert row.successor == trust_b
+    assert row.succession_type == "merger"
+    # Establishment row backfilled for the successor despite the predecessor
+    # being iterated first.
+    est = TrustVersion.objects.get(
+        trust=trust_b, valid_from=datetime.date(2017, 4, 1), valid_to=None
+    )
+    assert est.name == "Essex Partnership University NHS Foundation Trust"
+    assert est.active is True
+
+
+@pytest.mark.django_db
+def test_acquisition_bridges_baseline_gap(trust_a, trust_b):
+    """When Pass 2 backfills a pre-merger name row for an acquisition, it
+    also inserts a bridging row covering [succession_date, baseline_date) so
+    the version timeline is continuous and as-of queries don't crash on the
+    gap.
+
+    Mirrors RC9 (Luton and Dunstable) acquiring RC1 (Bedford) on 2020-04-01
+    and being renamed to Bedfordshire Hospitals, where the baseline migration
+    ran on 2025-01-01.
+    """
+    # Simulate the baseline migration: a current version row for trust_a
+    # starting at the baseline date.
+    baseline_date = datetime.date(2025, 1, 1)
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=baseline_date,
+        valid_to=None,
+        name="Bedfordshire Hospitals NHS Foundation Trust",
+        active=True,
+    )
+    trust_a.name = "Bedfordshire Hospitals NHS Foundation Trust"
+    trust_a.save(update_fields=["name"])
+
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Bedfordshire Hospitals NHS Foundation Trust",
+            succs=[_succ("Predecessor", "RBB", "2020-04-01")],
+            legal_start="2000-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Bedford Hospital NHS Trust"),
+    }
+    # Inputs: "y" (create), "Luton and Dunstable..." (pre-merger name).
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", "Luton and Dunstable University Hospital NHS Foundation Trust"]
+    ):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    # Pre-merger name row.
+    pre = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2000, 4, 1),
+        valid_to=datetime.date(2020, 4, 1),
+    )
+    assert pre.name == "Luton and Dunstable University Hospital NHS Foundation Trust"
+    # Bridging row covering [2020-04-01, 2025-01-01).
+    bridge = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 4, 1),
+        valid_to=baseline_date,
+    )
+    assert bridge.name == "Bedfordshire Hospitals NHS Foundation Trust"
+    assert bridge.active is True
+    # Baseline row still present (current).
+    current = TrustVersion.objects.get(
+        trust=trust_a, valid_from=baseline_date, valid_to=None
+    )
+    assert current.name == "Bedfordshire Hospitals NHS Foundation Trust"
+    # The output mentions the bridge.
+    assert "Bridged gap" in out.getvalue()

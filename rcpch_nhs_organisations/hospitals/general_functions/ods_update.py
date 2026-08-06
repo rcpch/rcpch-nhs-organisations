@@ -145,8 +145,10 @@ def _extract_succession_info(ord_record):
     record it manually via the admin or the ``backfill_*`` helpers.
 
     Returns a list of dicts, one per succession event:
-        {"type": "Successor", "date": "2021-10-01", "target_ods_code": "RM3"}
-    Returns an empty list if the record has no ``Succs`` block.
+        {"type": "Successor", "date": datetime.date(2021, 10, 1), "target_ods_code": "RM3"}
+    ``date`` is a ``datetime.date`` (parsed from the ODS ISO-8601 string), or
+    ``None`` if the ``Succ`` block has no Legal date. Returns an empty list if
+    the record has no ``Succs`` block.
     """
     succs = ord_record.get("Succs", {}).get("Succ", [])
     if isinstance(succs, dict):
@@ -157,11 +159,15 @@ def _extract_succession_info(ord_record):
         succ_type = succ.get("Type")
         target_ods_code = succ.get("Target", {}).get("OrgId", {}).get("extension")
         # The date is in a list of {Type, Start} dicts; use the Legal date.
+        # ODS returns ISO-8601 strings (e.g. "2021-10-01"); parse to datetime.date
+        # so consumers don't have to. None is preserved if no Legal date is present.
         legal_date = None
         for d in succ.get("Date", []):
             if d.get("Type") == "Legal":
                 legal_date = d.get("Start")
                 break
+        if legal_date:
+            legal_date = datetime.date.fromisoformat(legal_date)
         if succ_type and target_ods_code:
             events.append(
                 {"type": succ_type, "date": legal_date, "target_ods_code": target_ods_code}
@@ -280,11 +286,15 @@ def _recent_succession_events(succession_events, time_frame, reference_date=None
     window_start = reference_date - timezone.timedelta(days=time_frame)
     recent = []
     for ev in succession_events:
-        if ev["date"] is None:
+        ev_date = ev["date"]
+        if ev_date is None:
             continue
-        try:
-            ev_date = datetime.date.fromisoformat(ev["date"])
-        except (ValueError, TypeError):
+        if isinstance(ev_date, str):
+            try:
+                ev_date = datetime.date.fromisoformat(ev_date)
+            except ValueError:
+                continue
+        elif not isinstance(ev_date, datetime.date):
             continue
         if window_start <= ev_date <= reference_date:
             recent.append(ev)

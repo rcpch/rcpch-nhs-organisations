@@ -689,7 +689,7 @@ def test_review_callback_receives_change_details(
     assert change["succession_events"][0]["type"] == "Successor"
     assert change["succession_events"][0]["target_ods_code"] == "RM3"
     import datetime as dt
-    recent = (dt.date.today() - dt.timedelta(days=7)).isoformat()
+    recent = dt.date.today() - dt.timedelta(days=7)
     assert change["succession_events"][0]["date"] == recent
     assert change["ods_change_date"] == "2021-10-15"
 

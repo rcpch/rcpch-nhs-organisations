@@ -340,9 +340,19 @@ For each `Succ` entry in the ODS record:
   predecessor=this, successor=target; `Predecessor` means this entity
   absorbed the target, so predecessor=target, successor=this).
 - The **legal date** of the succession.
-- A **placeholder `succession_type` of `merger`** — ODS does not distinguish
-  merger/acquisition/split/closure, so the operator should review and correct
-  the type via the admin if needed.
+- The **succession type** (`merger` or `acquisition`), detected by
+  comparing the successor's own `Legal.Start` (when it was established) to
+  the event's legal date:
+  - `Legal.Start == event date` → `merger` (a new entity was created fresh
+    on the merger date; e.g. R1L Essex Partnership from RRD + RWN on
+    2017-04-01, R0A Manchester University from RW3 + RM2 on 2017-10-01).
+  - `Legal.Start < event date` → `acquisition` (an existing entity absorbed
+    another and may have been renamed; e.g. RM3 Northern Care Alliance
+    acquired RW6 Pennine Acute on 2021-10-01).
+  - `Legal.Start` missing or after the event date → `merger` as a fallback;
+    the command logs a warning for the operator to review via the admin.
+  `split` and `closure` are not auto-detected by this command: `closure` is
+  set by the deactivate helpers, and `split` has no real-world cases yet.
 - A **notes** field recording that the row was backfilled from the ODS `Succs`
   block.
 - **Closure of the predecessor.** Every ODS succession type (merger /
@@ -354,23 +364,67 @@ For each `Succ` entry in the ODS record:
   helper, so the write path is identical. If the predecessor is already
   inactive (e.g. from a previous run), only the succession row is created —
   the command is idempotent.
-- **Successor name change (operator-supplied).** For a `Predecessor` event
-  (this entity absorbed the target and is the continuing entity), the
-  command prompts the operator for the successor's pre-merger name. ODS
-  overwrites the successor's `Name` in place when a rename happens, so the
-  old name is not recoverable from the API — the operator must look it up in
-  ODS Trac or another source. If supplied, a name-change `*Version` row is
-  backfilled for the successor covering `[Legal.Start, succession_date)`.
-  If the operator leaves the prompt blank (or stdin is closed), the name
-  backfill is skipped and the successor's name history is left as-is. This
-  only applies to `Predecessor` events — for a `Successor` event, this entity
-  is the predecessor being closed, not the continuing entity.
+- **Successor establishment / name backfill (Pass 2).** The command runs in
+  two passes: Pass 1 creates all missing succession rows and closes
+  predecessors; Pass 2 backfills the successor's establishment or name-change
+  row. The two-pass design decouples the backfill from iteration order — a
+  predecessor iterated before its successor would otherwise create the
+  succession row and leave nothing for the successor's iteration to do, so
+  the backfill would never run.
+  - For a **true merger** (`Legal.Start == event date`): no name prompt — a
+    new entity never had a different name. Pass 2 backfills an establishment
+    row at `Legal.Start` with the successor's current name, replacing the
+    baseline-migration row that starts at the baseline date.
+  - For an **acquisition** (`Legal.Start < event date`): Pass 2 prompts for
+    the successor's pre-merger name, **pre-populated from the version table**
+    if the operator has already entered it via the admin (the `*Version` row
+    whose `valid_to == event date`). ODS overwrites the successor's `Name` in
+    place when a rename happens, so the old name is not recoverable from the
+    API — the operator must look it up in ODS Trac or another source. If
+    supplied (or accepted via the default), a name-change `*Version` row is
+    backfilled for the successor covering `[Legal.Start, succession_date)`.
+    If the operator leaves the prompt blank (or stdin is closed) and there is
+    no pre-populated default, the name backfill is skipped. This only applies
+    to `Predecessor` events — for a `Successor` event, this entity is the
+    predecessor being closed, not the continuing entity.
+    The prompt signposts what was acquired (the predecessor trust(s) and the
+    date) so the operator can decide whether a rename happened. If the name
+    was unchanged (e.g. R0A acquired part of RW6 but was not renamed), the
+    operator leaves the prompt blank.
+    **The current name is read from the ODS record**, not the entity row —
+    ODS always has the post-merger name, while the entity row may be stale
+    (if the `cron` sync hasn't run since the rename). If the two differ, the
+    command logs a warning and updates the entity row to match ODS so the
+    database is consistent with the version rows being written.
+    If ODS does not expose a `Legal.Start` for the successor, the command
+    falls back to the `valid_from` of the pre-populated version row; if
+    neither is available, the operator is prompted for the establishment
+    date (look it up in ODS Trac or another source), since it is needed to
+    date the name-change row.
+  - **Bridging the baseline gap.** When Pass 2 backfills a name-change row
+    for an acquisition, it also inserts a **bridging row** covering
+    `[succession_date, baseline_date)` with the successor's current name,
+    so the version timeline is continuous. Without this, there would be a
+    gap between the merger date and the baseline migration date where no
+    version row exists — an as-of query for a date in that interval would
+    find no row and crash. The bridging row is only inserted if the merger
+    date is before the baseline date (which is always true for backfilled
+    events). The true-merger path does not need a bridging row: the
+    establishment row replaces the baseline row and covers everything from
+    the merger date forward.
 
 ### What the command does not recover
 
-- The **succession type** (merger vs acquisition vs split vs closure). ODS
-  only has `Successor` / `Predecessor`. The command creates rows with
-  `succession_type="merger"` as a placeholder.
+- The **succession type for `Successor` events.** When the command iterates
+  a predecessor (a `Successor` event), it does not have the successor's ODS
+  record to hand, so it cannot compare `Legal.Start` to the event date. It
+  falls back to `succession_type="merger"` as a placeholder; the operator
+  should review and correct via the admin. (The type only matters for the
+  name/establishment backfill in Pass 2, which runs on `Predecessor` events
+  where the successor's ODS record is available.)
+- `split` and `closure` types. `closure` is set by the deactivate helpers
+  (admin "Deactivate…" action); `split` has no real-world cases yet. Neither
+  is auto-detected by this command.
 - The **child organisation reassignments**. The `Succs` block tells us which
   trusts merged, but not which organisations moved from which predecessor to
   which successor. That's in the child organisations' own `Rels` blocks —
@@ -381,9 +435,61 @@ For each `Succ` entry in the ODS record:
   the operator skips, the name must be backfilled separately via the admin or
   the `backfill_*` helpers (see Part 2).
 
-The succession type and successor name require human review via the admin or
-the `backfill_*` helpers (see Part 2). The child organisation reassignments
-are now recoverable via `backfill_trust_memberships` (see Part 4).
+The child organisation reassignments are now recoverable via
+`backfill_trust_memberships` (see Part 4).
+
+### Known acquisitions with a pre-merger name change
+
+The table below lists NHS trusts that were formed by **acquisition** (an
+existing trust absorbed another and changed its name in the process), where
+the pre-merger name differs from the current name and is not recoverable from
+ODS. These are the rows the operator will be prompted for in Pass 2; the
+pre-merger name should be confirmed against ODS Trac or another authoritative
+source and entered at the prompt (or pre-populated via the admin beforehand).
+The `Legal.Start` column is the successor's own establishment date from the
+ODS `Date` block — the start of the name-change interval `[Legal.Start,
+succession_date)`. If ODS does not expose a `Legal.Start`, the command falls
+back to the `valid_from` of the pre-populated version row; if neither is
+available, the operator is prompted for the establishment date (look it up in
+ODS Trac or another source), since it is needed to date the name-change row.
+
+Trusts formed by a **true merger** (a new entity with a new ODS code) are not
+listed here — a new entity never had a different name, so no prompt is issued
+and an establishment row is backfilled silently. A trust that was *created*
+by a true merger and *later* acquired another trust appears in both paths:
+an establishment row for the merger date, and a name prompt for the later
+acquisition. For example, R0A (Manchester University NHS Foundation Trust)
+was created on 2017-10-01 from RW3 + RM2 (true merger, establishment row) and
+later acquired RW6 (Pennine Acute) on 2021-10-01 (acquisition, name prompt).
+
+| Successor (current name) | Pre-merger name | Legal.Start | Notes |
+|---|---|---|---|
+| Bedfordshire Hospitals NHS Foundation Trust | Luton and Dunstable University Hospital (RC9) | 2020-04-01 | acquired Bedford Hospital NHS Trust (RC1) |
+| Birmingham Women's and Children's NHS Foundation Trust | Birmingham Children's Hospital NHS Foundation Trust | 2017-02-01 | acquired Birmingham Women's NHS Foundation Trust (RLU) |
+| East Suffolk and North Essex NHS Foundation Trust | Colchester Hospital University NHS Foundation Trust | 2018-07-01 | acquired The Ipswich Hospital NHS Trust (RGQ) |
+| Gloucestershire Health and Care NHS Foundation Trust | 2gether NHS Foundation Trust | 2019-10-01 | acquired Gloucestershire Care Services NHS Trust (R1J) |
+| Kingston Hospital NHS Foundation Trust | Kingston Hospital NHS Trust | 2024-11-01 | acquired Hounslow and Richmond Community Healthcare NHS Trust (RY9) |
+| Liverpool University Hospitals NHS Foundation Trust | Aintree University Hospital NHS Foundation Trust | 2019-10-01 | acquired Royal Liverpool and Broadgreen University Hospitals NHS Trust (RQ6) |
+| Mersey Care NHS Foundation Trust (RW4) | Mersey Care NHS Trust | 2016-07-01 | acquired Calderstones Partnership NHS Foundation Trust (RJX) |
+| MIDLANDS PARTNERSHIP NHS FOUNDATION TRUST | South Staffordshire and Shropshire Healthcare NHS Foundation Trust | 2018-06-01 | acquired Staffordshire and Stoke-on-Trent Partnership NHS Trust (R1E) |
+*| East of England Community Health and Care NHS Trust | Norfolk Community Health and Care NHS Trust | 2026-04-01 | acquired Cambridgeshire Community Services NHS Trust (RYV) |
+| North Cumbria Integrated Care NHS Foundation Trust | North Cumbria University Hospitals NHS Trust | 2019-10-01 | Acquired Cumbria Partnership NHS Foundation Trust (RNN) |
+| Northern Care Alliance NHS Foundation Trust (RM3) | Salford Royal NHS Foundation Trust | 2001-04-01 | Acquired RW6 (Pennine Acute) on 2021-10-01; documented in Part 2. |
+| NORTH WEST ANGLIA NHS FOUNDATION TRUST | Peterborough and Stamford Hospitals NHS Foundation Trust | 2017-04-01 | Acquired Hinchingbrooke Health Care NHS Trust (RQQ) |
+| ROYAL DEVON UNIVERSITY HEALTHCARE NHS FOUNDATION TRUST | Royal Devon and Exeter NHS Foundation Trust | 2022-04-01 | Acquired Northern Devon Healthcare NHS Trust (RBZ) |
+| ROYAL FREE LONDON NHS FOUNDATION TRUST (RAL) | Royal Free Hampstead NHS Trust | 2014-07-01 | Acquired Barnet and Chase Farm Hospitals NHS Trust (RVL) |
+| Somerset NHS Foundation Trust (RH5) | Somerset Partnership NHS Foundation Trust | 2020-04-01 | Acquired Taunton and Somerset NHS Foundation Trust (RBA) |
+| Somerset NHS Foundation Trust (RH5) | Somerset NHS Foundation Trust (RH5) | 2023-04-01 | Acquired Yeovil District Hospital NHS Foundation Trust (RA4) |
+| SOUTHERN HEALTH NHS FOUNDATION TRUST | Hampshire Partnership NHS Foundation Trust (RW1) | 2011-04-01 | Acquired Hampshire Community Healthcare (RXQ) |
+*| Mersey and West Lancashire Teaching Hospitals NHS Trust | ST HELENS AND KNOWSLEY TEACHING HOSPITALS NHS TRUST | 2023-07-01 | Acquired Southport and Ormskirk Hospital NHS Trust (RVY) |
+| TORBAY AND SOUTH DEVON NHS FOUNDATION TRUST | South Devon Healthcare NHS Foundation Trust | 2015-10-01 | Acquired Torbay and Southern Devon Health and Care NHS Trust (R1G) |
+*| UNIVERSITY HOSPITALS BIRMINGHAM NHS FOUNDATION TRUST (RRK) | University Hospitals Birmingham NHS Foundation Trust | 2018-04-01 | Acquired Heart of England NHS Foundation Trust (RR1) |
+| UNIVERSITY HOSPITALS BRISTOL AND WESTON NHS FOUNDATION TRUST (RA7) | University Hospitals Bristol NHS Foundation Trust | 2020-04-01 | Acquired Weston Area Health NHS Trust (RA3) |
+*| Bristol NHS Foundation Trust (RA7) | University Hospitals Bristol and Weston NHS Foundation Trust | 2026-07-01 | Acquired North Bristol NHS Trust (RVJ) |
+| UNIVERSITY HOSPITALS OF DERBY AND BURTON NHS FOUNDATION TRUST (RTG) | Derby Teaching Hospitals NHS Foundation Trust | 2018-07-01 | Acquired Burton Hospitals NHS Foundation Trust (RJF) |
+| UNIVERSITY HOSPITALS SUSSEX NHS FOUNDATION TRUST (RYR) | Western Sussex Hospitals NHS Foundation Trust | 2021-04-01 | Acquired Brighton and Sussex University Hospitals NHS Trust (RXH) |
+*| North Cheshire and Mersey NHS Foundation Trust (RWW) | WARRINGTON AND HALTON TEACHING HOSPITALS NHS FOUNDATION TRUST | 2026-04-01 | Acquired Bridgewater Community Healthcare NHS Foundation Trust (RY2) |
+
 
 ### Worked example
 
@@ -396,7 +502,7 @@ Backfilling successions for 137 trust(s)...
   RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
   Successor → RM3 (NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST)
   Legal date: 2021-10-01
-  Suggested succession_type: merger (review and correct via the admin if needed)
+  Suggested succession_type: merger
   This will also close PENNINE ACUTE HOSPITALS NHS TRUST (set active=False from 2021-10-01).
   [dry-run] would create succession row
   [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
@@ -404,7 +510,7 @@ Backfilling successions for 137 trust(s)...
   RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
   Successor → R0A (MANCHESTER UNIVERSITY NHS FOUNDATION TRUST)
   Legal date: 2021-10-01
-  Suggested succession_type: merger (review and correct via the admin if needed)
+  Suggested succession_type: merger
   This will also close PENNINE ACUTE HOSPITALS NHS TRUST (set active=False from 2021-10-01).
   [dry-run] would create succession row
   [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
@@ -422,31 +528,60 @@ Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01 and
 
 For a `Predecessor` event (this entity absorbed the target and is the
 continuing entity), the command also prompts for the successor's pre-merger
-name after the main prompt. For example, running on RM3 (which absorbed RW6
-and renamed to Northern Care Alliance):
+name **in Pass 2**, after all succession rows have been created. For example,
+running on RM3 (which absorbed RW6 and renamed to Northern Care Alliance):
 
 ```
   RM3 (NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST)
   Predecessor → RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
   Legal date: 2021-10-01
-  Suggested succession_type: merger (review and correct via the admin if needed)
+  Suggested succession_type: acquisition
   This will also close PENNINE ACUTE HOSPITALS NHS TRUST (set active=False from 2021-10-01).
-  NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST may have had a different name before 2021-10-01. You will be prompted for the pre-merger name (look it up in ODS Trac or another source); leave blank to skip the name backfill.
+  NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST may have had a different name before 2021-10-01. Pass 2 will prompt for the pre-merger name (pre-populated from the version table if known); leave blank to skip.
   [dry-run] would create succession row
   [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
-  [dry-run] would prompt for NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST's pre-merger name and backfill a name-change version row if supplied.
+  [dry-run] Pass 2 would backfill NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST's establishment/name row.
 ```
 
-In non-dry-run mode, after answering `y` to the main prompt:
+For a true merger (new entity, `Legal.Start == event date`), the command
+reports that no name prompt will be issued and an establishment row will be
+backfilled. For example, running on R1L (Essex Partnership, created from RRD
++ RWN on 2017-04-01):
+
+```
+  R1L (ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST)
+  Predecessor → RRD (NORTH ESSEX PARTNERSHIP UNIVERSITY NHS FT)
+  Legal date: 2017-04-01
+  Suggested succession_type: merger
+  This will also close NORTH ESSEX PARTNERSHIP UNIVERSITY NHS FT (set active=False from 2017-04-01).
+  ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST is a new entity created by this merger (Legal.Start == 2017-04-01). No name prompt; an establishment row will be backfilled.
+  [dry-run] would create succession row
+  [dry-run] would close NORTH ESSEX PARTNERSHIP UNIVERSITY NHS FT (active=False from 2017-04-01).
+  [dry-run] Pass 2 would backfill ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST's establishment/name row.
+```
+
+In non-dry-run mode, after answering `y` to the main prompt, Pass 2 runs and
+prompts for the pre-merger name (for an acquisition) or writes the
+establishment row silently (for a true merger):
 
 ```
 Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01 and close Pennine Acute? [y/n/s=skip] y
-  Pre-merger name for NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST (current: 'NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST'). Leave blank to skip: Salford Royal NHS Foundation Trust
+  Created.
+  Closed PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
+
+Pass 2: backfilling successor name/establishment for 1 event(s)...
+  On 2021-10-01, NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST acquired PENNINE ACUTE HOSPITALS NHS TRUST. Enter the pre-merger name for NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST if it was renamed in the process [default: Salford Royal NHS Foundation Trust].
+  Leave blank if the name was unchanged:
+  Backfilled NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST name 'Salford Royal NHS Foundation Trust' (2001-04-01 → 2021-10-01).
 ```
 
-If supplied, a name-change version row is backfilled for the successor
-covering `[Legal.Start, succession_date)`. If left blank, the name backfill
-is skipped and the successor's name history is left as-is.
+If the operator presses Enter at the prompt and a default is shown (from the
+version table), the default is accepted. If the operator leaves the prompt
+blank (no default, or the name was unchanged), the name backfill is skipped
+and the successor's name history is left as-is. The prompt signposts what was
+acquired so the operator can decide whether a rename happened — for example,
+R0A (Manchester University) acquired part of RW6 (Pennine Acute) on
+2021-10-01 but was not renamed, so the operator leaves the prompt blank.
 
 If the predecessor is already inactive, the prompt and output reflect that
 no closure write is needed:
