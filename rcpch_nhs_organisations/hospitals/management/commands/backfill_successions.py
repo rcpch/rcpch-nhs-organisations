@@ -15,6 +15,10 @@ from rcpch_nhs_organisations.hospitals.general_functions.membership import (
     backfill_trust_attributes,
     backfill_organisation_attributes,
 )
+from rcpch_nhs_organisations.hospitals.constants.known_acquisitions import (
+    lookup_known_acquisition,
+    lookup_known_acquisition_no_name_change,
+)
 from rcpch_nhs_organisations.hospitals.models import (
     Trust,
     TrustSuccession,
@@ -181,6 +185,8 @@ class Command(BaseCommand):
         name_backfill_count = 0
         name_unchanged_count = 0
         bridge_count = 0
+        # Auto-backfilled from KNOWN_ACQUISITIONS (no prompt issued)
+        auto_name_count = 0
 
         # ------------------------------------------------------------------
         # Pass 1: create missing succession rows and close predecessors.
@@ -539,6 +545,99 @@ class Command(BaseCommand):
 
             # Acquisition: prompt for the pre-merger name, pre-populated from
             # the version table if available.
+            #
+            # First, check the KNOWN_ACQUISITIONS table. If this (successor,
+            # ev_date) is a known acquisition with a pre-merger name that ODS
+            # no longer exposes, auto-backfill the name-change row without
+            # prompting. Otherwise fall back to the y/n/skip + date prompt
+            # workflow below.
+            known = lookup_known_acquisition(successor.ods_code, ev_date)
+            if known is not None:
+                old_name = known["pre_merger_name"]
+                # Prefer the constants' legal_start (authoritative, confirmed
+                # against ODS Trac); fall back to the ODS record's Legal.Start
+                # if the constants entry did not specify one.
+                successor_legal_start = known["legal_start"] or successor_legal_start
+                # rename_date is the date the successor adopted its post-merger
+                # name — the correct valid_to for the name-change row. ODS
+                # sometimes reports a legal succession date (ev_date) that
+                # differs by a day or two from the operational rename date, so
+                # we must not use ev_date as valid_to. Defaults to
+                # succession_date when the two coincide.
+                rename_date = known.get("rename_date") or known["succession_date"]
+                if not old_name or old_name == current_name:
+                    # Name unchanged (e.g. RH5 acquiring Yeovil). No name-change
+                    # row to write; fall through to the bridging logic below by
+                    # treating it as 'name unchanged'.
+                    self.stdout.write(
+                        O + f"  Known acquisition for {successor} on {ev_date} "
+                        "but name unchanged — no name-change row." + W
+                    )
+                    name_unchanged_count += 1
+                    continue
+                if successor_legal_start is None:
+                    self.stdout.write(
+                        R + f"  Known acquisition for {successor} on {ev_date} "
+                        "has no legal_start in KNOWN_ACQUISITIONS and ODS has "
+                        "no Legal.Start — cannot date the name-change row. "
+                        "Falling back to the prompt." + W
+                    )
+                    # Fall through to the prompt path below.
+                else:
+                    backfill_helper(
+                        successor,
+                        valid_from=successor_legal_start,
+                        valid_to=rename_date,
+                        **{name_field: old_name},
+                        active=True,
+                    )
+                    self.stdout.write(
+                        G + f"  Auto-backfilled {successor} name '{old_name}' "
+                        f"({successor_legal_start} → {rename_date}) from "
+                        "KNOWN_ACQUISITIONS." + W
+                    )
+                    auto_name_count += 1
+                    name_backfill_count += 1
+
+                    # Bridge the gap between the rename date and the baseline
+                    # migration date (same logic as the prompt path below,
+                    # but using rename_date rather than ev_date as the
+                    # valid_from, since the post-merger name starts on the
+                    # rename date, not the legal succession date).
+                    baseline_row = version_model.objects.filter(
+                        **{version_parent_field: successor, "valid_to__isnull": True}
+                    ).order_by("-valid_from").first()
+                    if baseline_row is not None and baseline_row.valid_from > rename_date:
+                        backfill_helper(
+                            successor,
+                            valid_from=rename_date,
+                            valid_to=baseline_row.valid_from,
+                            **{name_field: current_name},
+                            active=True,
+                        )
+                        self.stdout.write(
+                            G + f"  Bridged gap for {successor} "
+                            f"({rename_date} → {baseline_row.valid_from})." + W
+                        )
+                        bridge_count += 1
+                    continue
+
+            # Known acquisition with NO name change: skip the prompt silently.
+            # This lets the command auto-skip acquisitions where the successor
+            # was not renamed, falling back to the y/n/skip + date prompt only
+            # for acquisitions not in either list.
+            no_change = lookup_known_acquisition_no_name_change(
+                successor.ods_code, ev_date
+            )
+            if no_change is not None:
+                self.stdout.write(
+                    O + f"  Known acquisition for {successor} on {ev_date} "
+                    f"with no name change — skipping name backfill. "
+                    f"({no_change['notes']})" + W
+                )
+                name_unchanged_count += 1
+                continue
+
             pre_populated = _pre_merger_name(
                 version_model, version_parent_field, successor, ev_date
             )
@@ -667,6 +766,9 @@ class Command(BaseCommand):
             self.stdout.write(B + "  Pass 2:" + W)
             self.stdout.write(G + f"    Establishment rows: {establishment_count}" + W)
             self.stdout.write(G + f"    Name backfills: {name_backfill_count}" + W)
+            self.stdout.write(
+                G + f"      (of which auto from KNOWN_ACQUISITIONS: {auto_name_count})" + W
+            )
             self.stdout.write(G + f"    Bridging rows: {bridge_count}" + W)
             self.stdout.write(O + f"    Name unchanged / skipped: {name_unchanged_count}" + W)
         self.stdout.write("done.")

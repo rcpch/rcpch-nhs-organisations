@@ -375,22 +375,33 @@ For each `Succ` entry in the ODS record:
     new entity never had a different name. Pass 2 backfills an establishment
     row at `Legal.Start` with the successor's current name, replacing the
     baseline-migration row that starts at the baseline date.
-  - For an **acquisition** (`Legal.Start < event date`): Pass 2 prompts for
-    the successor's pre-merger name, **pre-populated from the version table**
-    if the operator has already entered it via the admin (the `*Version` row
-    whose `valid_to == event date`). ODS overwrites the successor's `Name` in
-    place when a rename happens, so the old name is not recoverable from the
-    API — the operator must look it up in ODS Trac or another source. If
-    supplied (or accepted via the default), a name-change `*Version` row is
-    backfilled for the successor covering `[Legal.Start, succession_date)`.
-    If the operator leaves the prompt blank (or stdin is closed) and there is
-    no pre-populated default, the name backfill is skipped. This only applies
-    to `Predecessor` events — for a `Successor` event, this entity is the
-    predecessor being closed, not the continuing entity.
+  - For an **acquisition** (`Legal.Start < event date`): Pass 2 looks up the
+    `(successor_ods_code, succession_date)` pair in the constants tables (see
+    "Known acquisitions" below) and applies one of three paths:
+    1. **`KNOWN_ACQUISITIONS`** (name changed): auto-backfills the name-change
+       row covering `[Legal.Start, rename_date)` with the pre-merger name,
+       **without prompting**. `rename_date` is the date the successor adopted
+       its post-merger name — the correct `valid_to` for the name-change row.
+       ODS sometimes reports a legal succession date that differs by a day or
+       two from the operational rename date, so the constants carry an explicit
+       `rename_date` when they differ (e.g. RTG: legal 2018-06-30, rename
+       2018-07-01).
+    2. **`KNOWN_ACQUISITIONS_NO_NAME_CHANGE`** (no name change): skips the name
+       backfill silently (counted as 'name unchanged').
+    3. **Neither list**: falls back to the `y/n/skip` + date prompt. The prompt
+       is **pre-populated from the version table** if the operator has already
+       entered the pre-merger name via the admin (the `*Version` row whose
+       `valid_to == event date`). ODS overwrites the successor's `Name` in place
+       when a rename happens, so the old name is not recoverable from the API —
+       the operator must look it up in ODS Trac or another source. If supplied
+       (or accepted via the default), a name-change `*Version` row is backfilled
+       for the successor covering `[Legal.Start, rename_date)`. If the operator
+       leaves the prompt blank (or stdin is closed) and there is no
+       pre-populated default, the name backfill is skipped.
+    This only applies to `Predecessor` events — for a `Successor` event, this
+    entity is the predecessor being closed, not the continuing entity.
     The prompt signposts what was acquired (the predecessor trust(s) and the
-    date) so the operator can decide whether a rename happened. If the name
-    was unchanged (e.g. R0A acquired part of RW6 but was not renamed), the
-    operator leaves the prompt blank.
+    date) so the operator can decide whether a rename happened.
     **The current name is read from the ODS record**, not the entity row —
     ODS always has the post-merger name, while the entity row may be stale
     (if the `cron` sync hasn't run since the rename). If the two differ, the
@@ -403,11 +414,11 @@ For each `Succ` entry in the ODS record:
     date the name-change row.
   - **Bridging the baseline gap.** When Pass 2 backfills a name-change row
     for an acquisition, it also inserts a **bridging row** covering
-    `[succession_date, baseline_date)` with the successor's current name,
+    `[rename_date, baseline_date)` with the successor's current name,
     so the version timeline is continuous. Without this, there would be a
-    gap between the merger date and the baseline migration date where no
+    gap between the rename date and the baseline migration date where no
     version row exists — an as-of query for a date in that interval would
-    find no row and crash. The bridging row is only inserted if the merger
+    find no row and crash. The bridging row is only inserted if the rename
     date is before the baseline date (which is always true for backfilled
     events). The true-merger path does not need a bridging row: the
     establishment row replaces the baseline row and covers everything from
@@ -429,11 +440,16 @@ For each `Succ` entry in the ODS record:
   trusts merged, but not which organisations moved from which predecessor to
   which successor. That's in the child organisations' own `Rels` blocks —
   see Part 4 below for the dedicated recovery command.
-- The **successor's pre-merger name automatically.** ODS overwrites the
-  `Name` of an active renamed trust in place, so the old name is gone from
-  the API. The command prompts the operator for it instead (see above). If
-  the operator skips, the name must be backfilled separately via the admin or
-  the `backfill_*` helpers (see Part 2).
+- The **successor's pre-merger name automatically from ODS.** ODS overwrites
+  the `Name` of an active renamed trust in place, so the old name is gone from
+  the API. The command recovers it from the `KNOWN_ACQUISITIONS` constants
+  table (see "Known acquisitions" below) for trusts that are listed there; for
+  trusts not listed, the operator is prompted (see above). If the operator
+  skips and the trust is not in the constants, the name must be backfilled
+  separately via the admin or the `backfill_*` helpers (see Part 2).
+  Renames that are not associated with an ODS `Succs` event (e.g. RW1's
+  2011-04-01 rename from Hampshire Partnership to Southern Health) cannot be
+  backfilled by this command at all — they must be added manually.
 
 The child organisation reassignments are now recoverable via
 `backfill_trust_memberships` (see Part 4).
@@ -443,52 +459,90 @@ The child organisation reassignments are now recoverable via
 The table below lists NHS trusts that were formed by **acquisition** (an
 existing trust absorbed another and changed its name in the process), where
 the pre-merger name differs from the current name and is not recoverable from
-ODS. These are the rows the operator will be prompted for in Pass 2; the
-pre-merger name should be confirmed against ODS Trac or another authoritative
-source and entered at the prompt (or pre-populated via the admin beforehand).
-The `Legal.Start` column is the successor's own establishment date from the
-ODS `Date` block — the start of the name-change interval `[Legal.Start,
-succession_date)`. If ODS does not expose a `Legal.Start`, the command falls
-back to the `valid_from` of the pre-populated version row; if neither is
-available, the operator is prompted for the establishment date (look it up in
-ODS Trac or another source), since it is needed to date the name-change row.
+ODS. ODS overwrites the `Name` of an active renamed trust in place, so the old
+name is gone from the API by the time `backfill_successions` runs.
+
+These entries live in `KNOWN_ACQUISITIONS` in
+`rcpch_nhs_organisations/hospitals/constants/known_acquisitions.py`. The
+command's Pass 2 looks up each `(successor_ods_code, succession_date)` pair in
+this table and, if found, **auto-backfills the name-change row without
+prompting**. If the acquisition is not in this table (or in the no-name-change
+table below), the command falls back to the `y/n/skip` + date prompt.
+
+The columns are:
+
+- **Legal.Start** — the `valid_from` of the name-change row (the start of the
+  interval `[Legal.Start, rename_date)`). This is the successor's own
+  establishment date where known; otherwise the earliest date the pre-merger
+  name is known to have been in use.
+- **Succession date** — the ODS `Succs` legal date (the lookup key, and the
+  second half of the `(ods_code, succession_date)` pair the command knows at
+  Pass 2 time). ODS sometimes reports a legal date that differs by a day or
+  two from the operational rename date.
+- **Rename date** — the `valid_to` of the name-change row (the date the
+  successor adopted its post-merger name). Shown only when it differs from the
+  succession date; otherwise the succession date is used.
 
 Trusts formed by a **true merger** (a new entity with a new ODS code) are not
-listed here — a new entity never had a different name, so no prompt is issued
-and an establishment row is backfilled silently. A trust that was *created*
-by a true merger and *later* acquired another trust appears in both paths:
-an establishment row for the merger date, and a name prompt for the later
-acquisition. For example, R0A (Manchester University NHS Foundation Trust)
-was created on 2017-10-01 from RW3 + RM2 (true merger, establishment row) and
-later acquired RW6 (Pennine Acute) on 2021-10-01 (acquisition, name prompt).
+listed here — a new entity never had a different name, so no name-change row is
+needed and the command backfills an establishment row silently. A trust that
+was *created* by a true merger and *later* acquired another trust appears here
+for the later acquisition only. For example, R0A (Manchester University NHS
+Foundation Trust) was created on 2017-10-01 from RW3 + RM2 (true merger,
+establishment row) and later acquired RW6 (Pennine Acute) on 2021-10-01
+(acquisition, no name change — see the no-name-change table below).
 
-| Successor (current name) | Pre-merger name | Legal.Start | Notes |
+| ODS | Successor (current name) | Pre-merger name | Legal.Start | Succession date | Rename date | Notes |
+|---|---|---|---|---|---|---|
+| RC9 | Bedfordshire Hospitals NHS Foundation Trust | Luton and Dunstable University Hospital | 2020-04-01 | 2020-04-01 | | acquired Bedford Hospital NHS Trust (RC1) |
+| RQ3 | Birmingham Women's and Children's NHS Foundation Trust | Birmingham Children's Hospital NHS Foundation Trust | 2017-02-01 | 2017-02-01 | | acquired Birmingham Women's NHS Foundation Trust (RLU) |
+| RDE | East Suffolk and North Essex NHS Foundation Trust | Colchester Hospital University NHS Foundation Trust | 2018-07-01 | 2018-07-01 | | acquired The Ipswich Hospital NHS Trust (RGQ) |
+| RTQ | Gloucestershire Health and Care NHS Foundation Trust | 2gether NHS Foundation Trust | 2019-10-01 | 2019-10-01 | | acquired Gloucestershire Care Services NHS Trust (R1J) |
+| RAX | Kingston Hospital NHS Foundation Trust | Kingston Hospital NHS Trust | 2024-11-01 | 2024-11-01 | | acquired Hounslow and Richmond Community Healthcare NHS Trust (RY9) |
+| REM | Liverpool University Hospitals NHS Foundation Trust | Aintree University Hospital NHS Foundation Trust | 2019-10-01 | 2019-10-01 | | acquired Royal Liverpool and Broadgreen University Hospitals NHS Trust (RQ6) |
+| RW4 | Mersey Care NHS Foundation Trust | Mersey Care NHS Trust | 2016-07-01 | 2016-07-01 | | acquired Calderstones Partnership NHS Foundation Trust (RJX) |
+| RRE | MIDLANDS PARTNERSHIP NHS FOUNDATION TRUST | South Staffordshire and Shropshire Healthcare NHS Foundation Trust | 2018-06-01 | 2018-05-31 | 2018-06-01 | acquired Staffordshire and Stoke-on-Trent Partnership NHS Trust (R1E). ODS legal date is 31 May; rename was 1 June. |
+| RY3 | East of England Community Health and Care NHS Trust | Norfolk Community Health and Care NHS Trust | 2026-04-01 | 2026-04-01 | | acquired Cambridgeshire Community Services NHS Trust (RYV) |
+| RNN | North Cumbria Integrated Care NHS Foundation Trust | North Cumbria University Hospitals NHS Trust | 2019-10-01 | 2019-10-01 | | acquired Cumbria Partnership NHS Foundation Trust (RNL) |
+| RM3 | Northern Care Alliance NHS Foundation Trust | Salford Royal NHS Foundation Trust | 2001-04-01 | 2021-10-01 | | acquired Pennine Acute Hospitals NHS Trust (RW6) on 2021-10-01; documented in Part 2. |
+| RGN | NORTH WEST ANGLIA NHS FOUNDATION TRUST | Peterborough and Stamford Hospitals NHS Foundation Trust | 2017-04-01 | 2017-04-01 | | acquired Hinchingbrooke Health Care NHS Trust (RQQ) |
+| RH8 | ROYAL DEVON UNIVERSITY HEALTHCARE NHS FOUNDATION TRUST | Royal Devon and Exeter NHS Foundation Trust | 2022-04-01 | 2022-04-01 | | acquired Northern Devon Healthcare NHS Trust (RBZ) |
+| RAL | ROYAL FREE LONDON NHS FOUNDATION TRUST | Royal Free Hampstead NHS Trust | 2014-07-01 | 2014-07-02 | 2014-07-01 | acquired Barnet and Chase Farm Hospitals NHS Trust (RVL). ODS legal date is 2 July; rename was 1 July. |
+| RH5 | Somerset NHS Foundation Trust | Somerset Partnership NHS Foundation Trust | 2020-04-01 | 2020-04-01 | | acquired Taunton and Somerset NHS Foundation Trust (RBA) |
+| RH5 | Somerset NHS Foundation Trust | Somerset NHS Foundation Trust | 2023-04-01 | 2023-04-01 | | acquired Yeovil District Hospital NHS Foundation Trust (RA4); name unchanged (pre-merger name == current name, so the command skips the backfill). |
+| RW1 | HAMPSHIRE AND ISLE OF WIGHT HEALTHCARE NHS FOUNDATION TRUST | Southern Health NHS Foundation Trust | 2011-04-01 | 2024-10-01 | 2024-10-01 | acquired Solent NHS Trust (R1C) on 2024-10-01; renamed from Southern Health NHS FT. Legal.Start is 2011-04-01 (when the 'Southern Health' name was adopted). NOTE: the 2011-04-01 rename (Hampshire Partnership → Southern Health) is NOT in ODS's Succs block for RW1, so this command cannot backfill it — it must be done manually via the admin or the `backfill_trust_attributes` helper. |
+| RBN | Mersey and West Lancashire Teaching Hospitals NHS Trust | ST HELENS AND KNOWSLEY TEACHING HOSPITALS NHS TRUST | 2023-07-01 | 2023-07-01 | | acquired Southport and Ormskirk Hospital NHS Trust (RVY) |
+| RAJ | MID AND SOUTH ESSEX NHS FOUNDATION TRUST | Southend University Hospital NHS Foundation Trust | 2020-04-01 | 2020-04-01 | | acquired Basildon and Thurrock University Hospitals NHS Foundation Trust and Mid Essex Hospital Services NHS Trust |
+| RA9 | TORBAY AND SOUTH DEVON NHS FOUNDATION TRUST | South Devon Healthcare NHS Foundation Trust | 2015-10-01 | 2015-10-01 | | acquired Torbay and Southern Devon Health and Care NHS Trust (R1G) |
+| RA7 | UNIVERSITY HOSPITALS BRISTOL AND WESTON NHS FOUNDATION TRUST | University Hospitals Bristol NHS Foundation Trust | 2020-04-01 | 2020-04-01 | | acquired Weston Area Health NHS Trust (RA3) |
+| RA7 | Bristol NHS Foundation Trust | University Hospitals Bristol and Weston NHS Foundation Trust | 2026-07-01 | 2026-07-01 | | acquired North Bristol NHS Trust (RVJ) |
+| RTG | UNIVERSITY HOSPITALS OF DERBY AND BURTON NHS FOUNDATION TRUST | Derby Teaching Hospitals NHS Foundation Trust | 2018-07-01 | 2018-06-30 | 2018-07-01 | acquired Burton Hospitals NHS Foundation Trust (RJF). ODS legal date is 30 June; rename was 1 July. |
+| RYR | UNIVERSITY HOSPITALS SUSSEX NHS FOUNDATION TRUST | Western Sussex Hospitals NHS Foundation Trust | 2021-04-01 | 2021-04-01 | | acquired Brighton and Sussex University Hospitals NHS Trust (RXH) |
+| RWW | North Cheshire and Mersey NHS Foundation Trust | WARRINGTON AND HALTON TEACHING HOSPITALS NHS FOUNDATION TRUST | 2026-04-01 | 2026-04-01 | | acquired Bridgewater Community Healthcare NHS Foundation Trust (RY2) |
+
+### Known acquisitions with no name change
+
+The table below lists acquisitions where the successor trust was **not**
+renamed. These entries live in `KNOWN_ACQUISITIONS_NO_NAME_CHANGE` in the same
+constants file. The command's Pass 2 looks up each
+`(successor_ods_code, succession_date)` pair and, if found, **skips the name
+prompt silently** (counted as 'name unchanged'). If the acquisition is not in
+this table (or in the name-change table above), the command falls back to the
+`y/n/skip` + date prompt.
+
+RRK (University Hospitals Birmingham) acquiring RR1 (Heart of England) is
+listed here, not in the name-change table, because the only "change" was
+casing (Title Case → ALL CAPS), not a real rename.
+
+| ODS | Successor | Succession date | Notes |
 |---|---|---|---|
-| Bedfordshire Hospitals NHS Foundation Trust | Luton and Dunstable University Hospital (RC9) | 2020-04-01 | acquired Bedford Hospital NHS Trust (RC1) |
-| Birmingham Women's and Children's NHS Foundation Trust | Birmingham Children's Hospital NHS Foundation Trust | 2017-02-01 | acquired Birmingham Women's NHS Foundation Trust (RLU) |
-| East Suffolk and North Essex NHS Foundation Trust | Colchester Hospital University NHS Foundation Trust | 2018-07-01 | acquired The Ipswich Hospital NHS Trust (RGQ) |
-| Gloucestershire Health and Care NHS Foundation Trust | 2gether NHS Foundation Trust | 2019-10-01 | acquired Gloucestershire Care Services NHS Trust (R1J) |
-| Kingston Hospital NHS Foundation Trust | Kingston Hospital NHS Trust | 2024-11-01 | acquired Hounslow and Richmond Community Healthcare NHS Trust (RY9) |
-| Liverpool University Hospitals NHS Foundation Trust | Aintree University Hospital NHS Foundation Trust | 2019-10-01 | acquired Royal Liverpool and Broadgreen University Hospitals NHS Trust (RQ6) |
-| Mersey Care NHS Foundation Trust (RW4) | Mersey Care NHS Trust | 2016-07-01 | acquired Calderstones Partnership NHS Foundation Trust (RJX) |
-| MIDLANDS PARTNERSHIP NHS FOUNDATION TRUST | South Staffordshire and Shropshire Healthcare NHS Foundation Trust | 2018-06-01 | acquired Staffordshire and Stoke-on-Trent Partnership NHS Trust (R1E) |
-*| East of England Community Health and Care NHS Trust | Norfolk Community Health and Care NHS Trust | 2026-04-01 | acquired Cambridgeshire Community Services NHS Trust (RYV) |
-| North Cumbria Integrated Care NHS Foundation Trust | North Cumbria University Hospitals NHS Trust | 2019-10-01 | Acquired Cumbria Partnership NHS Foundation Trust (RNN) |
-| Northern Care Alliance NHS Foundation Trust (RM3) | Salford Royal NHS Foundation Trust | 2001-04-01 | Acquired RW6 (Pennine Acute) on 2021-10-01; documented in Part 2. |
-| NORTH WEST ANGLIA NHS FOUNDATION TRUST | Peterborough and Stamford Hospitals NHS Foundation Trust | 2017-04-01 | Acquired Hinchingbrooke Health Care NHS Trust (RQQ) |
-| ROYAL DEVON UNIVERSITY HEALTHCARE NHS FOUNDATION TRUST | Royal Devon and Exeter NHS Foundation Trust | 2022-04-01 | Acquired Northern Devon Healthcare NHS Trust (RBZ) |
-| ROYAL FREE LONDON NHS FOUNDATION TRUST (RAL) | Royal Free Hampstead NHS Trust | 2014-07-01 | Acquired Barnet and Chase Farm Hospitals NHS Trust (RVL) |
-| Somerset NHS Foundation Trust (RH5) | Somerset Partnership NHS Foundation Trust | 2020-04-01 | Acquired Taunton and Somerset NHS Foundation Trust (RBA) |
-| Somerset NHS Foundation Trust (RH5) | Somerset NHS Foundation Trust (RH5) | 2023-04-01 | Acquired Yeovil District Hospital NHS Foundation Trust (RA4) |
-| SOUTHERN HEALTH NHS FOUNDATION TRUST | Hampshire Partnership NHS Foundation Trust (RW1) | 2011-04-01 | Acquired Hampshire Community Healthcare (RXQ) |
-*| Mersey and West Lancashire Teaching Hospitals NHS Trust | ST HELENS AND KNOWSLEY TEACHING HOSPITALS NHS TRUST | 2023-07-01 | Acquired Southport and Ormskirk Hospital NHS Trust (RVY) |
-| TORBAY AND SOUTH DEVON NHS FOUNDATION TRUST | South Devon Healthcare NHS Foundation Trust | 2015-10-01 | Acquired Torbay and Southern Devon Health and Care NHS Trust (R1G) |
-*| UNIVERSITY HOSPITALS BIRMINGHAM NHS FOUNDATION TRUST (RRK) | University Hospitals Birmingham NHS Foundation Trust | 2018-04-01 | Acquired Heart of England NHS Foundation Trust (RR1) |
-| UNIVERSITY HOSPITALS BRISTOL AND WESTON NHS FOUNDATION TRUST (RA7) | University Hospitals Bristol NHS Foundation Trust | 2020-04-01 | Acquired Weston Area Health NHS Trust (RA3) |
-*| Bristol NHS Foundation Trust (RA7) | University Hospitals Bristol and Weston NHS Foundation Trust | 2026-07-01 | Acquired North Bristol NHS Trust (RVJ) |
-| UNIVERSITY HOSPITALS OF DERBY AND BURTON NHS FOUNDATION TRUST (RTG) | Derby Teaching Hospitals NHS Foundation Trust | 2018-07-01 | Acquired Burton Hospitals NHS Foundation Trust (RJF) |
-| UNIVERSITY HOSPITALS SUSSEX NHS FOUNDATION TRUST (RYR) | Western Sussex Hospitals NHS Foundation Trust | 2021-04-01 | Acquired Brighton and Sussex University Hospitals NHS Trust (RXH) |
-*| North Cheshire and Mersey NHS Foundation Trust (RWW) | WARRINGTON AND HALTON TEACHING HOSPITALS NHS FOUNDATION TRUST | 2026-04-01 | Acquired Bridgewater Community Healthcare NHS Foundation Trust (RY2) |
+| RQM | CHELSEA AND WESTMINSTER HOSPITAL NHS FOUNDATION TRUST | 2015-09-01 | acquired West Middlesex University Hospital NHS Trust (RFW); name unchanged. |
+| RJ1 | GUY'S AND ST THOMAS' NHS FOUNDATION TRUST | 2021-02-01 | acquired Royal Brompton & Harefield NHS Foundation Trust (RT3); name unchanged. |
+| R0A | MANCHESTER UNIVERSITY NHS FOUNDATION TRUST | 2021-10-01 | acquired Pennine Acute Hospitals NHS Trust (RW6); name unchanged. (R0A was created by a true merger of RM2+RW3 on 2017-10-01, which takes the establishment-row path; this is the later RW6 acquisition.) |
+| RW4 | MERSEY CARE NHS FOUNDATION TRUST | 2018-03-31 | acquired Liverpool Community Health NHS Trust (RY1); name unchanged. |
+| RW4 | MERSEY CARE NHS FOUNDATION TRUST | 2021-06-01 | acquired North West Boroughs Healthcare NHS Foundation Trust (RTV); name unchanged. |
+| RAL | ROYAL FREE LONDON NHS FOUNDATION TRUST | 2025-01-01 | acquired North Middlesex University Hospital NHS Trust (RAP); name unchanged. (RAL's earlier 2014-07-02 acquisition of RVL is in the name-change table above.) |
+| RRK | UNIVERSITY HOSPITALS BIRMINGHAM NHS FOUNDATION TRUST | 2018-04-02 | acquired Heart of England NHS Foundation Trust (RR1); name unchanged (only casing changed: Title Case → ALL CAPS). |
 
 
 ### Worked example
@@ -560,9 +614,14 @@ backfilled. For example, running on R1L (Essex Partnership, created from RRD
   [dry-run] Pass 2 would backfill ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST's establishment/name row.
 ```
 
-In non-dry-run mode, after answering `y` to the main prompt, Pass 2 runs and
-prompts for the pre-merger name (for an acquisition) or writes the
-establishment row silently (for a true merger):
+In non-dry-run mode, after answering `y` to the main prompt, Pass 2 runs.
+For an acquisition in `KNOWN_ACQUISITIONS` (name changed), the name-change
+row is auto-backfilled without prompting; for an acquisition in
+`KNOWN_ACQUISITIONS_NO_NAME_CHANGE`, the name backfill is skipped silently;
+for a true merger, the establishment row is written silently. For example,
+RM3 (Northern Care Alliance) acquired RW6 (Pennine Acute) on 2021-10-01 and
+is in `KNOWN_ACQUISITIONS`, so Pass 2 auto-backfills the pre-merger name
+'Salford Royal NHS Foundation Trust':
 
 ```
 Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01 and close Pennine Acute? [y/n/s=skip] y
@@ -570,18 +629,20 @@ Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01 and
   Closed PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
 
 Pass 2: backfilling successor name/establishment for 1 event(s)...
-  On 2021-10-01, NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST acquired PENNINE ACUTE HOSPITALS NHS TRUST. Enter the pre-merger name for NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST if it was renamed in the process [default: Salford Royal NHS Foundation Trust].
-  Leave blank if the name was unchanged:
-  Backfilled NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST name 'Salford Royal NHS Foundation Trust' (2001-04-01 → 2021-10-01).
+  Auto-backfilled NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST name 'Salford Royal NHS Foundation Trust' (2001-04-01 → 2021-10-01) from KNOWN_ACQUISITIONS.
 ```
 
-If the operator presses Enter at the prompt and a default is shown (from the
-version table), the default is accepted. If the operator leaves the prompt
-blank (no default, or the name was unchanged), the name backfill is skipped
-and the successor's name history is left as-is. The prompt signposts what was
-acquired so the operator can decide whether a rename happened — for example,
-R0A (Manchester University) acquired part of RW6 (Pennine Acute) on
-2021-10-01 but was not renamed, so the operator leaves the prompt blank.
+For an acquisition not in either constants list, Pass 2 falls back to the
+`y/n/skip` + date prompt. The prompt is pre-populated from the version table
+if the operator has already entered the pre-merger name via the admin. If the
+operator presses Enter at the prompt and a default is shown, the default is
+accepted. If the operator leaves the prompt blank (no default, or the name was
+unchanged), the name backfill is skipped and the successor's name history is
+left as-is. The prompt signposts what was acquired so the operator can decide
+whether a rename happened — for example, R0A (Manchester University) acquired
+part of RW6 (Pennine Acute) on 2021-10-01 but was not renamed, so it is listed
+in `KNOWN_ACQUISITIONS_NO_NAME_CHANGE` and the name backfill is skipped
+silently without a prompt.
 
 If the predecessor is already inactive, the prompt and output reflect that
 no closure write is needed:
