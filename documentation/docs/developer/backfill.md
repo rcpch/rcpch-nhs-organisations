@@ -1,17 +1,20 @@
-# Backfill plan: recovering historical states
+---
+title: Backfilling historical states
+author: Dr Simon Chapman
+---
 
-## Status
+# Backfilling historical states
 
-This document covers two related but distinct backfill problems:
+This document describes how to recover organisational history that was
+overwritten before the temporal history layer was installed — past names,
+past trust affiliations, and merger/succession links. It covers the ODS
+API's recovery window, the manual `backfill_*` helpers, and the two
+management commands that recover the full succession and membership chain
+from ODS.
 
-1. **ODS-driven recovery** — changes within the 185-day ODS API window that
-   can be fetched automatically. **Steps 1 and 2 are implemented** (the
-   `--time-frame` argument on the `cron` command, and the ODS `LastChangeDate`
-   surfaced in the dry-run report). Step 3 (a `--backfill` flag) is a future
-   enhancement.
-2. **Manual backfill** — mergers, renames, and closures older than the 185-day
-   window that have been overwritten on the main entity row. The `backfill_*`
-   helpers exist and are documented here with a worked example.
+It should be read alongside [`temporal-history.md`](temporal-history.md),
+which describes the schema, and [`merger-handling.md`](merger-handling.md),
+which describes the merger types and the forward-looking admin workflow.
 
 ## Background
 
@@ -24,71 +27,23 @@ affiliations.
 
 There are two recovery paths, depending on how far back the change happened:
 
-- **Within 185 days** — the ODS API can return the change. The function
-  `fetch_updated_organisations(time_frame=30)` in
-  `general_functions/ods_update.py` accepts a `time_frame` parameter (days, max
-  185) and returns the list of organisations that changed in that period. The
-  function `update_organisation_model_with_ORD_changes(dry_run=False, time_frame=30)`
-  iterates that list, diffs each against the current database row, and either
-  writes through the temporal helpers (non-dry-run) or produces a markdown
-  report (dry-run).
-- **Older than 185 days** — the ODS API cannot return the change. The
-  historical state must be researched manually (e.g. from ODS Trac bulk dumps
-  or known merger dates) and inserted via the `backfill_*` helpers.
+- **Within 185 days** — the ODS `/sync` endpoint can return the change. The
+  `cron` command's `--time-frame` argument (1–185 days) controls the window.
+- **Older than 185 days** — the ODS `/sync` endpoint cannot return the change,
+  but the `/organisations/{ods_code}` endpoint returns the full `Succs` and
+  `Rels` history regardless of when the events happened. The
+  `backfill_successions` and `backfill_trust_memberships` commands use this to
+  recover the full merger and membership chain. For historical names and
+  addresses (which ODS overwrites in place), the `backfill_*` helpers are used
+  with manually-researched dates.
 
-## Part 1 — ODS-driven recovery (proposal)
+## Part 1 — ODS-driven recovery (within 185 days)
 
-### The problem
+### The `--time-frame` argument on the `cron` command
 
-The `time_frame` parameter exists on `fetch_updated_organisations` and
-`update_organisation_model_with_ORD_changes`, but the `cron` management
-command that calls them hardcodes the default (30 days). There is no way to
-run the sync for a longer window from the command line without dropping into
-a shell and calling the function directly:
-
-```python
-# Today: the only way to see the last 185 days of changes
-from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
-    update_organisation_model_with_ORD_changes,
-)
-update_organisation_model_with_ORD_changes(dry_run=True, time_frame=185)
-```
-
-This is the function the GitHub Action already calls (with `time_frame=30`
-and `--dry-run`), but the longer window — which is the one that matters for
-backfill — is not exposed.
-
-### Step 1: Add a `--time-frame` argument to the `cron` command (implemented)
-
-Pass it through to `update_organisation_model_with_ORD_changes`. Validate
-that it is between 1 and 185 (the ODS API limit). Default remains 30 so
-existing behaviour and the GitHub Action are unchanged.
-
-```python
-# cron.py
-def add_arguments(self, parser):
-    # ... existing args ...
-    parser.add_argument(
-        "--time-frame",
-        type=int,
-        default=30,
-        help=(
-            "Number of days of ODS changes to fetch (1-185). "
-            "Default 30. Use 185 for the full recovery window."
-        ),
-    )
-
-def handle(self, *args, **options):
-    time_frame = options["time_frame"]
-    if time_frame < 1 or time_frame > ODS_MAX_TIME_FRAME_DAYS:
-        raise CommandError(
-            f"--time-frame must be between 1 and {ODS_MAX_TIME_FRAME_DAYS} days "
-            f"(the ODS API hard limit). Got {time_frame}."
-        )
-    # ... pass time_frame through to update_organisation_model_with_ORD_changes ...
-```
-
-Both of these now work:
+The `cron` command accepts a `--time-frame` argument (days, 1–185) that is
+passed through to `update_organisation_model_with_ORD_changes`. The default is
+30 so existing behaviour and the GitHub Action are unchanged.
 
 ```bash
 # See the last 185 days of changes (no writes)
@@ -98,9 +53,9 @@ python manage.py cron --service organisations --dry-run --time-frame 185
 python manage.py cron --service organisations --time-frame 185
 ```
 
-### Step 2: Surface the ODS `LastChangeDate` and succession events in the dry-run report (implemented)
+### The dry-run report
 
-The dry-run report now includes two pieces of context per organisation:
+The dry-run report includes two pieces of context per organisation:
 
 1. **`LastChangeDate`** — the date the change actually happened on the ODS
    side, read from the full organisation record (fetched via
@@ -140,11 +95,6 @@ admin or the `backfill_*` helpers, not the forward-looking sync.
 If the ODS response omits `LastChangeDate`, the report shows `unknown`. If
 the record has no `Succs` block, the succession section is omitted entirely.
 
-The non-dry-run path still applies the change with `effective_date=today`
-(the forward-looking helpers). To backfill a change at its historical date,
-read the report, note the `LastChangeDate` and any succession events, and use
-the `backfill_*` helpers in a shell with that date — see Part 2 below.
-
 > **Why not auto-populate succession rows from the `Succs` block?** The ODS
 > `Succs` semantics are occasionally ambiguous — a single trust can have
 > multiple `Successor` entries (e.g. Pennine Acute has two: RM3 and R0A),
@@ -154,10 +104,10 @@ the `backfill_*` helpers in a shell with that date — see Part 2 below.
 > populated manually via the admin; the report surfaces the ODS data so the
 > operator can make the decision.
 
-### Step 3 (implemented): Review-gated apply for merger-driven changes
+### Review-gated apply for merger-driven changes
 
 When a change has **recent** ODS succession events (merger / acquisition /
-ssplit, within the `time_frame` window) and the sync is run **without**
+split, within the `time_frame` window) and the sync is run **without**
 `--dry-run`, the change is **not applied automatically**. Instead a
 `review_callback` is invoked with the entity details, the proposed changes,
 and the succession events. The operator must agree (apply as a forward-looking
@@ -169,7 +119,7 @@ review — a 12-year-old merger is part of the entity's permanent ODS record
 and should not gate a routine website update.
 
 Changes **without** recent succession events are applied automatically at the
-ODS `LastChangeDate` (see Step 2a below), not today.
+ODS `LastChangeDate` (see below), not today.
 
 The `cron` management command wires up an interactive callback that prints
 the details and prompts:
@@ -196,7 +146,7 @@ If no callback is provided (e.g. running from a script or the GitHub
 Action, which uses `--dry-run` anyway), merger-driven changes are **skipped**
 with a warning — they must not be applied without human review.
 
-### Step 2a (implemented): Non-merger changes applied at ODS LastChangeDate
+### Non-merger changes applied at ODS LastChangeDate
 
 Non-merger changes (address, website, telephone, etc. — the majority of
 what the sync sees) are applied at the ODS `LastChangeDate`, not today.
@@ -213,32 +163,24 @@ place and closes/opens version rows) with `effective_date` set to the ODS
 date — not the `backfill_*` helpers, which are for inserting historical
 states without touching the current entity row.
 
-### Step 4 (optional, future): A `--backfill` flag
+### Manual workflow for genuinely historical changes
 
-If step 2 shows that most 185-day changes are genuinely historical (i.e. the
-change date is in the past, not today), a future `--backfill` flag could
-route the sync through the `backfill_*` helpers instead of the
-forward-looking `update_*` helpers. The change would be applied with
-`valid_from = LastChangeDate` and `valid_to = None` (closing the current
-version row at `LastChangeDate` and opening a new one from that date).
+The ODS API does not distinguish between a change that happened yesterday
+and a change that happened 180 days ago — it returns everything that changed
+in the window. For changes that are genuinely historical (the `LastChangeDate`
+is well in the past), the manual workflow is:
 
-This is left as a future enhancement because:
+1. Run `python manage.py cron --service organisations --dry-run --time-frame 185`.
+2. Read the report and note the `LastChangeDate` for each change.
+3. For changes that should be backfilled at their historical date, use the
+   `backfill_*` helpers in a shell with the `LastChangeDate` from the report
+   (see Part 2).
 
-- It requires a decision per change: is this a historical change that should
-  be backfilled, or a current change that should be applied today? The ODS
-  API does not distinguish — it returns everything that changed in the
-  window. A blanket `--backfill` flag would apply all of them at their
-  historical date, which may be wrong for changes that happened yesterday.
-- The `backfill_*` helpers currently take explicit `valid_from`/`valid_to`
-  values, not a single `effective_date`. Wiring them into the sync requires
-  deciding what `valid_to` should be for each change (the date of the *next*
-  change, which the sync does not know).
+A future `--backfill` flag on the `cron` command could automate this, but it
+requires a per-change decision (historical vs. current) that the ODS API
+does not surface, so it is left as a manual step for now.
 
-For now, the manual workflow is: run `--dry-run --time-frame 185`, read the
-report, and for each change that is genuinely historical, use the
-`backfill_*` helpers in a shell with the `LastChangeDate` from the report.
-
-## Part 2 — Manual backfill (implemented)
+## Part 2 — Manual backfill (historical names and attributes)
 
 ### The baseline migration
 
@@ -364,7 +306,7 @@ acquisition link from `RW6` to `RM3` on 2021-10-01.
 > mental model ("record a past state" vs "record a change from today"),
 > so it is left to the shell for now.
 
-## Part 3 — Backfilling the full succession history (implemented)
+## Part 3 — Backfilling the full succession history
 
 The 185-day limit on `/sync` does not apply to `/organisations/{ods_code}` —
 the full organisation record always includes the complete `Succs` block,
@@ -431,15 +373,17 @@ For each `Succ` entry in the ODS record:
   `succession_type="merger"` as a placeholder.
 - The **child organisation reassignments**. The `Succs` block tells us which
   trusts merged, but not which organisations moved from which predecessor to
-  which successor. That's in the child organisations' own `Rels` blocks.
+  which successor. That's in the child organisations' own `Rels` blocks —
+  see Part 4 below for the dedicated recovery command.
 - The **successor's pre-merger name automatically.** ODS overwrites the
   `Name` of an active renamed trust in place, so the old name is gone from
   the API. The command prompts the operator for it instead (see above). If
   the operator skips, the name must be backfilled separately via the admin or
   the `backfill_*` helpers (see Part 2).
 
-These require human review via the admin or the `backfill_*` helpers (see
-Part 2).
+The succession type and successor name require human review via the admin or
+the `backfill_*` helpers (see Part 2). The child organisation reassignments
+are now recoverable via `backfill_trust_memberships` (see Part 4).
 
 ### Worked example
 
@@ -512,34 +456,139 @@ no closure write is needed:
 Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01? [y/n/s=skip]
 ```
 
+## Part 4 — Backfilling child organisation trust memberships
+
+Part 3 recovers the **Layer 3 succession rows** (which trusts merged), but
+not the **Layer 2 membership rows** (which child organisations sat under
+which trust, and when). The `Succs` block on a trust's record tells us that
+`RW6` was absorbed into `RM3` on 2021-10-01, but not which hospitals moved
+from `RW6` to `RM3` on that date.
+
+That information lives in the child organisations' own `Rels` blocks. Each
+NHS Trust Site (`PrimaryRoleId == RO198`) has a `Rel` with `id == "RE6"`
+("is a site of") pointing at its parent NHS Trust (`RO197`), with an
+operational `[Start, End]` interval. Unlike the `/sync` endpoint,
+`/organisations/{ods_code}` returns the complete `Rels` history regardless
+of when the relationship ended, so this recovers memberships that were
+overwritten before the temporal layer was installed.
+
+### The `backfill_trust_memberships` command
+
+```bash
+# Preview what would be backfilled (no writes)
+python manage.py backfill_trust_memberships --dry-run
+
+# Preview with a custom lookback window (default: 5 years)
+python manage.py backfill_trust_memberships --dry-run --since 2020-01-01
+
+# Preview the full ODS history (use with care)
+python manage.py backfill_trust_memberships --dry-run --all
+
+# Apply with interactive yes/no/skip prompts
+python manage.py backfill_trust_memberships
+```
+
+The command iterates every `Organisation` in the database, fetches its full
+ODS record via `/organisations/{ods_code}`, reads the `Rels` block, and for
+each `RE6` rel pointing at an `RO197` target:
+
+- In `--dry-run` mode: reports the missing membership row without creating
+  it.
+- In non-dry-run mode: prompts the operator with `[y/n/s=skip]` for each
+  row. `y` calls `backfill_organisation_trust_membership` (the same helper
+  the admin wizard and Part 2 use), `n` refuses it, `s` skips it.
+
+### What the command recovers
+
+For each `RE6` rel on each organisation:
+
+- The **parent trust** (mapped from the rel's `Target.OrgId.extension`).
+- The **operational interval** `[valid_from, valid_to)` from the rel's
+  `Date` block. If the rel has no Operational date, the command falls back
+  to the Legal interval (some older ODS records only carry the Legal one).
+- An `OrganisationTrustMembership` row recording that the organisation was a
+  member of that trust over that interval.
+
+The command is **idempotent**: if a membership row already exists for the
+same `(organisation, trust, valid_from, valid_to)` interval, it is skipped.
+This makes it safe to re-run.
+
+### What the command does not recover
+
+- **Trusts not in the database.** If an `RE6` rel points at a trust that
+  is not in the database (e.g. a dissolved predecessor that has not been
+  created yet), the row is skipped with a warning. Run
+  `backfill_successions --entity trust` first — it creates the predecessor
+  trust rows (marked inactive) that this command needs to look up.
+- **Historical organisation names and addresses.** ODS overwrites these in
+  place on the organisation's own record. Only the trust-membership timeline
+  is recoverable from `Rels`. For names, use the `backfill_*` helpers (see
+  Part 2) or the `backfill_successions` name-prompt.
+- **ICB / region / OPEN UK / PDU membership history.** The same `Rels` block
+  contains `RE5`/`RE8` rels (ICB commissioning) with dates, so the same
+  pattern *could* backfill `OrganisationIntegratedCareBoardMembership`. This
+  is left as a follow-up extension; trust memberships are the merger-critical
+  ones.
+
+### Relationship to the other commands
+
+The recovery commands are designed to be run in order:
+
+1. **`backfill_successions --entity trust`** (Part 3) — creates the
+   predecessor trust rows (marked inactive) and the `TrustSuccession` rows
+   linking them to their successors.
+2. **`backfill_trust_memberships`** (Part 4) — backfills the
+   `OrganisationTrustMembership` rows pointing to those predecessors, so an
+   as-of query for a hospital on a pre-merger date returns the predecessor
+   trust rather than the current successor.
+
+After this one-off recovery, future mergers (1–2 per year) use the
+forward-looking `reassign_organisation_trust` helper, which the admin wizard
+and `mergers` command already call. The `backfill_*` commands are not part
+of the ongoing sync.
+
+### Worked example
+
+Running `python manage.py backfill_trust_memberships --dry-run --all` would
+produce output like:
+
+```
+Backfilling trust memberships for 137 organisation(s) (the full ODS history)...
+
+  RAA01 (Barnet Hospital)
+  was a site of RVL (Barnet & Chase Farm Hospitals NHS Trust)
+  Operational interval: 2010-04-01 → 2014-04-01
+  [dry-run] would backfill membership row
+
+  RAA01 (Barnet Hospital)
+  was a site of RAL (Royal Free London NHS Foundation Trust)
+  Operational interval: 2014-04-01 → now
+  [dry-run] would backfill membership row
+
+Summary:
+  Organisations processed: 137
+  Organisations with RE6 rels: 96
+  Found (missing): 142
+done.
+```
+
+In non-dry-run mode, each row prompts:
+
+```
+  Backfill membership RAA01 → RVL (2010-04-01 → 2014-04-01)? [y/n/s=skip]
+```
+
 ## What this does not solve
 
-The 185-day window is the ODS API's hard limit. Changes older than 185 days
-are not recoverable from the API at all — they require the `backfill_*`
-helpers with manually-researched dates (as in the Northern Care Alliance
-example above). If audit data going back further needs to be re-run at scale,
-this would require a one-off import from ODS Trac bulk dumps — a separate
-project.
+The 185-day window is the ODS API's hard limit on the `/sync` endpoint.
+`/organisations/{ods_code}` is not subject to that limit — it returns the
+full `Succs` and `Rels` history regardless of when the events happened — so
+`backfill_successions` and `backfill_trust_memberships` can recover the full
+merger and membership chain, not just the last 185 days.
 
-## Implementation status
-
-- ✅ **Step 1** — `--time-frame` argument on `cron` (implemented). Validates
-  1-185, defaults 30, passes through to the sync function.
-- ✅ **Step 2** — `LastChangeDate` and succession events in the dry-run report
-  (implemented). The sync function reads `LastChangeDate` from the full
-  organisation record and surfaces it in the report alongside the effective
-  date applied. Succession events from the `Succs` block are also surfaced.
-- ✅ **Step 2a** — Non-merger changes applied at ODS `LastChangeDate`
-  (implemented). Address, website, telephone, and other routine changes are
-  applied at the ODS date, not today, so the version row records when the
-  change actually happened.
-- ✅ **Step 3** — Review-gated apply for merger-driven changes (implemented).
-  Changes with **recent** succession events (within the `time_frame` window)
-  are not applied automatically; the operator must agree or refuse via a
-  review callback. Changes with only old succession events (outside the
-  window) are applied automatically at the ODS date.
-- ✅ **Part 3** — `backfill_successions` command (implemented). Iterates every
-  entity in the database, fetches its full ODS record, reads the `Succs` block,
-  and reports or creates missing succession rows with a yes/no/skip prompt.
-  Recovers the full historical merger chain, not just the last 185 days.
-- ⬜ **Step 4** (future) — `--backfill` flag on `cron`, if needed.
+What is **not** recoverable from the ODS API at all is the historical
+**names and addresses** of active entities, because ODS overwrites those in
+place. Those require the `backfill_*` helpers with manually-researched dates
+(as in the Northern Care Alliance example in Part 2). If audit data going
+back further needs to be re-run at scale, this would require a one-off import
+from ODS Trac bulk dumps — a separate project.

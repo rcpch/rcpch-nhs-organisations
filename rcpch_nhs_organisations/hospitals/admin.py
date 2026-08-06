@@ -1141,8 +1141,9 @@ class BackfillMergerAdminMixin:
                     self.message_user(
                         request,
                         f"Backfilled merger: {predecessor} → {successor} "
-                        f"({succ_type}, {succ_date}). Remember to backfill "
-                        f"child organisation memberships separately.",
+                        f"({succ_type}, {succ_date}). Run "
+                        f"`python manage.py backfill_trust_memberships` to "
+                        f"recover historical child memberships from ODS.",
                         level="WARNING",
                     )
                     return redirect(

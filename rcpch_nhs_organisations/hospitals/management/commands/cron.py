@@ -110,7 +110,7 @@ class Command(BaseCommand):
             help=(
                 "Number of days of ODS changes to fetch (1-185). Default 30. "
                 "Use 185 for the full ODS recovery window — see "
-                "documentation/docs/developer/backfill-plan.md."
+                "documentation/docs/developer/backfill.md."
             ),
         )
 

@@ -571,7 +571,7 @@ The temporal layer can only record from installation day forward. Backfilling
 historical states — whether within the 185-day ODS recovery window or older —
 is covered in a separate document:
 
-- **[`backfill-plan.md`](backfill-plan.md)** — the ODS-driven recovery workflow
+- **[`backfill.md`](backfill.md)** — the ODS-driven recovery workflow
   (exposing the `--time-frame` argument on the `cron` command, surfacing the
   ODS `LastChangeDate` in the dry-run report) and the manual `backfill_*`
   helper workflow for historical mergers and renames older than the recovery

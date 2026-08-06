@@ -140,6 +140,7 @@ nav:
     - 'developer/models.md'
     - 'developer/temporal-history.md'
     - 'developer/merger-handling.md'
+    - 'developer/backfill.md'
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
     - 'developer/seeding.md'

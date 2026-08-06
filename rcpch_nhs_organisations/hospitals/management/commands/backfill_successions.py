@@ -64,7 +64,7 @@ class Command(BaseCommand):
         "/organisations/{ods_code} endpoint returns the complete Succs block "
         "regardless of when the succession happened, so this recovers the "
         "full historical merger chain — not just the last 185 days. "
-        "See documentation/docs/developer/backfill-plan.md."
+        "See documentation/docs/developer/backfill.md."
     )
 
     def add_arguments(self, parser):

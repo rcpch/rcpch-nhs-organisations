@@ -352,10 +352,10 @@ not automatically from the `Succs` block. The reasons:
    `Successor` / `Predecessor` links. Mapping these to our
    `succession_type` choices requires human judgement.
 
-The dry-run report **surfaces** the `Succs` block (see `backfill-plan.md`
-Step 2) so operators can see whether a change is the consequence of a
+The dry-run report **surfaces** the `Succs` block (see `backfill.md`
+Part 1) so operators can see whether a change is the consequence of a
 merger and record it manually. The `backfill_*` helpers
-(see `backfill-plan.md` Part 2) are the sanctioned write path for
+(see `backfill.md` Part 2) are the sanctioned write path for
 historical succession events.
 
 ## The 185-day limit
@@ -375,7 +375,7 @@ For changes older than 185 days, the ODS API cannot help. The historical
 state must be researched manually (e.g. from the `Succs` block of the
 current record, which records historic predecessor links, or from ODS Trac
 bulk dumps) and inserted via the `backfill_*` helpers — see
-`backfill-plan.md` Part 2.
+`backfill.md` Part 2.
 
 ## Other APIs (not used for ODS sync)
 

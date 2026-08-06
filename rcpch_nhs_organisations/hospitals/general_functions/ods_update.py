@@ -169,6 +169,86 @@ def _extract_succession_info(ord_record):
     return events
 
 
+def _extract_trust_membership_info(ord_record):
+    """Extract historical trust-membership intervals from an ORD organisation
+    record's ``Rels`` block.
+
+    The ODS ``Rels`` block records operational and managed relationships.
+    For NHS Trust Sites (``PrimaryRoleId == RO198``), the relationship with
+    ``id == "RE6"`` is the "is a site of" link to the parent NHS Trust
+    (``PrimaryRoleId == RO197``). Each ``Rel`` carries an operational
+    ``[Start, End]`` interval — exactly the interval needed to backfill an
+    ``OrganisationTrustMembership`` row.
+
+    This is the recovery path for Layer 2 of the temporal history design
+    (see ``backfill.md`` Part 3, "What the command does not recover").
+    Unlike the ``/sync`` endpoint, ``/organisations/{ods_code}`` returns the
+    full ``Rels`` history regardless of when the relationship ended, so this
+    recovers memberships that were overwritten before the temporal layer
+    was installed.
+
+    Returns a list of dicts, one per RE6 rel, ordered by start date:
+        {"trust_ods_code": "RA7", "valid_from": "1991-04-01", "valid_to": None}
+    ``valid_to`` is ``None`` if the rel is still active (the open interval).
+    Returns an empty list if the record has no ``Rels`` block or no RE6 rels.
+    """
+    rels = ord_record.get("Rels", {}).get("Rel", [])
+    if isinstance(rels, dict):
+        rels = [rels]
+
+    memberships = []
+    for rel in rels:
+        if rel.get("id") != "RE6":
+            continue
+        target = rel.get("Target", {})
+        # Only NHS Trusts (RO197) are parents under RE6. Other target roles
+        # (e.g. RO261 ICBs under RE5/RE8) are commissioning relationships,
+        # not parent-trust memberships, and are ignored here.
+        target_role = target.get("PrimaryRoleId", {}).get("id")
+        if target_role != "RO197":
+            continue
+        trust_ods_code = target.get("OrgId", {}).get("extension")
+        if not trust_ods_code:
+            continue
+
+        # The Date list has {Type, Start, End} dicts. Use the Operational
+        # interval — that is when the site actually reported to the trust.
+        # Legal and Operational dates can differ; Operational is what audit
+        # reports need (when the hospital actually sat under that parent).
+        valid_from = None
+        valid_to = None
+        for d in rel.get("Date", []):
+            if d.get("Type") == "Operational":
+                valid_from = d.get("Start")
+                valid_to = d.get("End")  # may be None (open interval)
+                break
+
+        # If no Operational date is present, fall back to Legal. Some older
+        # ODS records only carry the Legal interval.
+        if valid_from is None:
+            for d in rel.get("Date", []):
+                if d.get("Type") == "Legal":
+                    valid_from = d.get("Start")
+                    valid_to = d.get("End")
+                    break
+
+        if valid_from is None:
+            # No date at all — cannot place this membership in time. Skip it
+            # rather than write an undated row.
+            continue
+
+        memberships.append(
+            {
+                "trust_ods_code": trust_ods_code,
+                "valid_from": valid_from,
+                "valid_to": valid_to,
+            }
+        )
+
+    memberships.sort(key=lambda m: m["valid_from"])
+    return memberships
+
+
 def _parse_ods_date(date_str):
     """Parse an ODS date string (YYYY-MM-DD) into a datetime.date.
     Returns None if the string is None or cannot be parsed."""
@@ -282,7 +362,7 @@ def update_organisation_model_with_ORD_changes(
     endpoint), and the effective date that would be applied (today). This is
     used by the GitHub Action for ODS change detection (see
     documentation/docs/developer/temporal-history.md) and by the `--time-frame`
-    backfill workflow (see documentation/docs/developer/backfill-plan.md).
+    backfill workflow (see documentation/docs/developer/backfill.md).
 
     When a change has ODS succession events (merger / acquisition / split)
     and dry_run is False, the change is **not applied automatically**. Instead
@@ -319,7 +399,7 @@ def update_organisation_model_with_ORD_changes(
             # OrgLink). Surface it in the dry-run report so operators can
             # decide whether to apply the change as forward-looking (effective
             # today) or as a backfill (effective on the LastChangeDate). See
-            # backfill-plan.md.
+            # backfill.md.
             ods_change_date = ord_record.get("LastChangeDate")
             # Succession (merger / acquisition / split) info from the Succs
             # block. Surfaced in the dry-run report so operators can see
