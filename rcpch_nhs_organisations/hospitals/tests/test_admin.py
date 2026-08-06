@@ -215,6 +215,8 @@ def test_organisation_admin_has_history_inlines():
     assert "OrganisationTrustMembership" in inline_model_names
     assert "OrganisationIntegratedCareBoardMembership" in inline_model_names
     assert "OrganisationPaediatricDiabetesUnitMembership" in inline_model_names
+    # Succession inlines (both directions) are wired up.
+    assert inline_model_names.count("OrganisationSuccession") == 2
 
 
 @pytest.mark.django_db
@@ -223,6 +225,8 @@ def test_trust_admin_has_history_inlines():
     inline_model_names = [inline.model.__name__ for inline in trust_admin.inlines]
     assert "TrustVersion" in inline_model_names
     assert "TrustIntegratedCareBoardMembership" in inline_model_names
+    # Succession inlines (both directions) are wired up.
+    assert inline_model_names.count("TrustSuccession") == 2
 
 
 @pytest.mark.django_db
@@ -231,6 +235,85 @@ def test_pdu_admin_has_history_inlines():
     inline_model_names = [inline.model.__name__ for inline in pdu_admin.inlines]
     assert "PaediatricDiabetesUnitVersion" in inline_model_names
     assert "PaediatricDiabetesUnitNetworkMembership" in inline_model_names
+    # Succession inlines (both directions) are wired up.
+    assert inline_model_names.count("PaediatricDiabetesUnitSuccession") == 2
+
+
+# ---------------------------------------------------------------------------
+# Succession inlines on the entity change page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_trust_change_form_shows_predecessors_for_successor(
+    superuser, trust_a, trust_b
+):
+    """An active trust that was formed by a merger shows a "Predecessors"
+    inline listing the trusts that merged to form it, and no "Successor"
+    inline (it has no successor of its own)."""
+    from django.test import Client
+
+    # trust_b is the successor; trust_a is the predecessor that merged in.
+    TrustSuccession.objects.create(
+        predecessor=trust_a,
+        successor=trust_b,
+        succession_date=datetime.date(2021, 10, 1),
+        succession_type="merger",
+    )
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_change", args=[trust_b.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    # The Predecessors section is shown, naming the predecessor trust.
+    assert b"Predecessors" in response.content
+    assert b"Trust A" in response.content
+    # The Successor section is NOT shown (trust_b has no successor).
+    assert b"Successor (what this entity became" not in response.content
+
+
+@pytest.mark.django_db
+def test_trust_change_form_shows_successor_for_predecessor(
+    superuser, trust_a, trust_b
+):
+    """A closed/merged trust shows a "Successor" inline naming what it
+    became, and no "Predecessors" inline (it has no predecessors of its
+    own)."""
+    from django.test import Client
+
+    TrustSuccession.objects.create(
+        predecessor=trust_a,
+        successor=trust_b,
+        succession_date=datetime.date(2021, 10, 1),
+        succession_type="merger",
+    )
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_change", args=[trust_a.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    # The Successor section is shown, naming the successor trust.
+    assert b"Successor (what this entity became" in response.content
+    assert b"Trust B" in response.content
+    # The Predecessors section is NOT shown (trust_a has no predecessors).
+    assert b"Predecessors" not in response.content
+
+
+@pytest.mark.django_db
+def test_trust_change_form_hides_both_succession_inlines_when_empty(
+    superuser, trust_with_baseline
+):
+    """A trust with no succession rows shows neither the Predecessors nor
+    the Successor inline."""
+    from django.test import Client
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_change", args=[trust_with_baseline.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"Predecessors" not in response.content
+    assert b"Successor (what this entity became" not in response.content
 
 
 # ---------------------------------------------------------------------------

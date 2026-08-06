@@ -468,7 +468,7 @@ write touches the temporal layer, and surfaces mergers / updates that ODS has
 published without anyone having to watch the API manually.
 
 ### Workflow shape
-
+{% raw %}
 ```yaml
 # .github/workflows/ods-change-detection.yml
 name: ODS change detection
@@ -491,7 +491,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run ODS sync in dry-run mode
         env:
-          NHS_ODS_API_URL: ${{ NHS_ODS_API_URL }}
+          NHS_ODS_API_URL: ${{ secrets.NHS_ODS_API_URL }}
           # database connection secrets as needed for the read-only comparison
         run: |
           python manage.py cron --service organisations --dry-run > ods_changes.md
@@ -502,7 +502,7 @@ jobs:
           content-filepath: ods_changes.md
           labels: ods-changes, needs-review
 ```
-
+{% endraw %}
 ### Requirements on the management command
 
 The `cron` management command's `--dry-run` mode must:

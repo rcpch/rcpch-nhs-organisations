@@ -16,30 +16,38 @@ from io import StringIO
 from rcpch_nhs_organisations.hospitals.models import (
     Trust,
     TrustSuccession,
+    TrustVersion,
     Organisation,
     OrganisationSuccession,
-    PaediatricDiabetesUnit,
-    PaediatricDiabetesUnitSuccession,
 )
 
 Trust = apps.get_model("hospitals", "Trust")
 TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+TrustVersion = apps.get_model("hospitals", "TrustVersion")
 Organisation = apps.get_model("hospitals", "Organisation")
 OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
-PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
-PaediatricDiabetesUnitSuccession = apps.get_model(
-    "hospitals", "PaediatricDiabetesUnitSuccession"
-)
 
 
-def _ods_record(ods_code, name, succs=None):
-    """Build a minimal ODS organisation record with an optional Succs block."""
+def _ods_record(ods_code, name, succs=None, legal_start=None, legal_end=None):
+    """Build a minimal ODS organisation record with an optional Succs block.
+
+    `legal_start` / `legal_end` populate the top-level `Date` block's Legal
+    entry (used by the command to date the successor's pre-merger name
+    backfill).
+    """
     record = {
         "Name": name,
         "LastChangeDate": "2021-10-15",
         "GeoLoc": {"Location": {"AddrLn1": "1 St", "Town": "Town", "PostCode": "PC1"}},
         "Contacts": {"Contact": []},
     }
+    if legal_start or legal_end:
+        legal_date = {"Type": "Legal"}
+        if legal_start:
+            legal_date["Start"] = legal_start
+        if legal_end:
+            legal_date["End"] = legal_end
+        record["Date"] = [legal_date]
     if succs:
         record["Succs"] = {"Succ": succs}
     return record
@@ -198,7 +206,9 @@ def test_dry_run_no_succession_events(trust_a):
 
 @pytest.mark.django_db
 def test_non_dry_run_creates_succession_on_yes(trust_a, trust_b):
-    """When the operator answers 'y', the succession row is created."""
+    """When the operator answers 'y', the succession row is created AND the
+    predecessor is closed (active=False from the succession date), with a
+    closure TrustVersion row recording the change."""
     records = {
         "RAA": _ods_record(
             "RAA", "Trust A",
@@ -222,6 +232,19 @@ def test_non_dry_run_creates_succession_on_yes(trust_a, trust_b):
     assert row.succession_date == datetime.date(2021, 10, 1)
     assert row.succession_type == "merger"  # placeholder
     assert "Backfilled from ODS Succs block" in row.notes
+    # The predecessor is closed.
+    trust_a.refresh_from_db()
+    assert trust_a.active is False
+    # A closure TrustVersion row records active=False from the succession date.
+    closure_version = TrustVersion.objects.get(
+        trust=trust_a, valid_from=datetime.date(2021, 10, 1), valid_to=None
+    )
+    assert closure_version.active is False
+    # The successor is untouched.
+    trust_b.refresh_from_db()
+    assert trust_b.active is True
+    # The output mentions the closure.
+    assert "close" in out.getvalue().lower() or "Closed" in out.getvalue()
 
 
 @pytest.mark.django_db
@@ -269,7 +292,9 @@ def test_non_dry_run_skips_on_skip(trust_a, trust_b):
 @pytest.mark.django_db
 def test_non_dry_run_predecessor_type(trust_a, trust_b):
     """For a 'Predecessor' event (this entity absorbed the target), the
-    succession row is predecessor=target, successor=this entity."""
+    succession row is predecessor=target, successor=this entity, and the
+    target (predecessor) is closed. The name prompt is answered with a blank
+    (skip the name backfill)."""
     records = {
         "RAA": _ods_record(
             "RAA", "Trust A",
@@ -277,7 +302,11 @@ def test_non_dry_run_predecessor_type(trust_a, trust_b):
         ),
         "RBB": _ods_record("RBB", "Trust B"),
     }
-    with _patch_get_organisation(records), patch("builtins.input", return_value="y"):
+    # First input: the main y/n/s prompt ("y"). Second input: the pre-merger
+    # name prompt (blank → skip name backfill).
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", ""]
+    ):
         call_command(
             "backfill_successions",
             "--entity", "trust",
@@ -288,6 +317,246 @@ def test_non_dry_run_predecessor_type(trust_a, trust_b):
     # "Predecessor" means trust_a absorbed trust_b.
     assert row.predecessor == trust_b
     assert row.successor == trust_a
+    # The predecessor (trust_b) is closed.
+    trust_b.refresh_from_db()
+    assert trust_b.active is False
+    # The successor (trust_a) is untouched.
+    trust_a.refresh_from_db()
+    assert trust_a.active is True
+    # No name-change version row was written for the successor (blank input).
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_non_dry_run_predecessor_type_backfills_successor_name(trust_a, trust_b):
+    """For a 'Predecessor' event, if the operator supplies a pre-merger name
+    for the successor and the ODS record has a Legal.Start date, a name-change
+    version row is backfilled for the successor covering [establishment,
+    merger_date)."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+            legal_start="1994-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    # First input: "y" to the main prompt. Second input: the pre-merger name.
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", "Old Name A"]
+    ):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    # The succession row is created.
+    row = TrustSuccession.objects.get()
+    assert row.predecessor == trust_b
+    assert row.successor == trust_a
+    # The successor's pre-merger name is backfilled.
+    name_row = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(1994, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert name_row.name == "Old Name A"
+    assert name_row.active is True
+    # The output mentions the name backfill.
+    assert "Backfilled" in out.getvalue()
+    assert "Old Name A" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_non_dry_run_predecessor_name_prompt_eof_skips_name_backfill(
+    trust_a, trust_b
+):
+    """If stdin is closed (EOFError) at the name prompt, the name backfill is
+    skipped but the succession row and predecessor closure still proceed."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+            legal_start="1994-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    # First input: "y". Second input: EOFError at the name prompt.
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y", EOFError()]
+    ):
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    # Succession row created, predecessor closed.
+    assert TrustSuccession.objects.count() == 1
+    trust_b.refresh_from_db()
+    assert trust_b.active is False
+    # No name-change version row for the successor.
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_non_dry_run_successor_event_has_no_name_prompt(trust_a, trust_b):
+    """A 'Successor' event (this entity was absorbed) does NOT prompt for a
+    pre-merger name — this entity is the predecessor being closed, not the
+    continuing entity. Only one input is consumed."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    # Only one input is expected; if the command prompted for a name, the
+    # side_effect list would run out and raise StopIteration.
+    with _patch_get_organisation(records), patch(
+        "builtins.input", side_effect=["y"]
+    ):
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    assert TrustSuccession.objects.count() == 1
+    # The predecessor (trust_a) is closed — a closure version row is written.
+    # No name-change version row is written for either trust: trust_a is the
+    # predecessor being closed (not renamed), and trust_b is the successor
+    # but a Successor event does not prompt for the successor's pre-merger
+    # name. A name-change row would be an active=True row covering a
+    # pre-merger interval; assert none exists for either trust.
+    assert not TrustVersion.objects.filter(
+        trust__in=[trust_a, trust_b], active=True
+    ).exists()
+    # The closure row for trust_a is the only version row written.
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 1
+    closure = TrustVersion.objects.get(trust=trust_a)
+    assert closure.active is False
+    assert closure.valid_from == datetime.date(2021, 10, 1)
+
+
+@pytest.mark.django_db
+def test_dry_run_predecessor_event_reports_name_prompt(trust_a, trust_b):
+    """In --dry-run mode, a Predecessor event reports that it would prompt for
+    the successor's pre-merger name."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--dry-run",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    output = out.getvalue()
+    assert "[dry-run] would create succession row" in output
+    assert "[dry-run] would close" in output
+    assert "[dry-run] would prompt for" in output
+    assert "pre-merger name" in output
+    # Nothing is actually written.
+    assert TrustSuccession.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_non_dry_run_skips_closure_when_predecessor_already_inactive(trust_a, trust_b):
+    """If the predecessor is already inactive, confirming 'y' creates the
+    succession row but does NOT write a second closure version row or touch
+    the entity row. This makes re-runs idempotent."""
+    trust_a.active = False
+    trust_a.save(update_fields=["active"])
+    # Pre-existing closure version row (e.g. from a previous run or the admin).
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2021, 10, 1),
+        valid_to=None,
+        name=trust_a.name,
+        active=False,
+    )
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records), patch("builtins.input", return_value="y"):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    assert TrustSuccession.objects.count() == 1
+    # Only the pre-existing closure version row exists — no second one written.
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 1
+    # The output notes the predecessor is already inactive.
+    assert "already inactive" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_dry_run_reports_closure(trust_a, trust_b):
+    """In --dry-run mode the output states it would close the predecessor."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--dry-run",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    output = out.getvalue()
+    assert "[dry-run] would create succession row" in output
+    assert "[dry-run] would close" in output
+    # Nothing is actually written.
+    assert TrustSuccession.objects.count() == 0
+    trust_a.refresh_from_db()
+    assert trust_a.active is True
+
+
+@pytest.mark.django_db
+def test_non_dry_run_no_does_not_close(trust_a, trust_b):
+    """Answering 'n' creates no succession row AND does not close the
+    predecessor."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records), patch("builtins.input", return_value="n"):
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    assert TrustSuccession.objects.count() == 0
+    trust_a.refresh_from_db()
+    assert trust_a.active is True
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 0
 
 
 @pytest.mark.django_db
@@ -338,32 +607,6 @@ def test_organisation_entity():
         )
     output = out.getvalue()
     assert "RAA01" in output
-    assert "Found (missing): 1" in output
-
-
-@pytest.mark.django_db
-def test_pdu_entity():
-    """The command works for paediatric diabetes units."""
-    pdu_a = PaediatricDiabetesUnit.objects.create(pz_code="PZ001")
-    pdu_b = PaediatricDiabetesUnit.objects.create(pz_code="PZ002")
-    records = {
-        "PZ001": _ods_record(
-            "PZ001", "PZ001",
-            succs=[_succ("Successor", "PZ002", "2021-10-01")],
-        ),
-        "PZ002": _ods_record("PZ002", "PZ002"),
-    }
-    with _patch_get_organisation(records):
-        out = StringIO()
-        call_command(
-            "backfill_successions",
-            "--entity", "pdu",
-            "--dry-run",
-            stdout=out,
-            stderr=StringIO(),
-        )
-    output = out.getvalue()
-    assert "PZ001" in output
     assert "Found (missing): 1" in output
 
 

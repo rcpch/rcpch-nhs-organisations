@@ -379,7 +379,6 @@ happened.
 python manage.py backfill_successions --entity trust --dry-run
 python manage.py backfill_successions --entity trust
 python manage.py backfill_successions --entity organisation --dry-run
-python manage.py backfill_successions --entity pdu --dry-run
 ```
 
 The command iterates every entity of the given type in the database, fetches
@@ -404,6 +403,26 @@ For each `Succ` entry in the ODS record:
   the type via the admin if needed.
 - A **notes** field recording that the row was backfilled from the ODS `Succs`
   block.
+- **Closure of the predecessor.** Every ODS succession type (merger /
+  acquisition / split / closure) has the predecessor ceasing to exist on the
+  legal date, so confirming a row also closes the predecessor: a closure
+  `*Version` row is written (`active=False` from the succession date forward)
+  and the entity row's `active` flag is flipped. This is the same write the
+  backfill-merger admin wizard performs, via the same `backfill_*_attributes`
+  helper, so the write path is identical. If the predecessor is already
+  inactive (e.g. from a previous run), only the succession row is created —
+  the command is idempotent.
+- **Successor name change (operator-supplied).** For a `Predecessor` event
+  (this entity absorbed the target and is the continuing entity), the
+  command prompts the operator for the successor's pre-merger name. ODS
+  overwrites the successor's `Name` in place when a rename happens, so the
+  old name is not recoverable from the API — the operator must look it up in
+  ODS Trac or another source. If supplied, a name-change `*Version` row is
+  backfilled for the successor covering `[Legal.Start, succession_date)`.
+  If the operator leaves the prompt blank (or stdin is closed), the name
+  backfill is skipped and the successor's name history is left as-is. This
+  only applies to `Predecessor` events — for a `Successor` event, this entity
+  is the predecessor being closed, not the continuing entity.
 
 ### What the command does not recover
 
@@ -413,8 +432,11 @@ For each `Succ` entry in the ODS record:
 - The **child organisation reassignments**. The `Succs` block tells us which
   trusts merged, but not which organisations moved from which predecessor to
   which successor. That's in the child organisations' own `Rels` blocks.
-- The **predecessor names at the time of the merger**. ODS does not keep
-  historical name snapshots.
+- The **successor's pre-merger name automatically.** ODS overwrites the
+  `Name` of an active renamed trust in place, so the old name is gone from
+  the API. The command prompts the operator for it instead (see above). If
+  the operator skips, the name must be backfilled separately via the admin or
+  the `backfill_*` helpers (see Part 2).
 
 These require human review via the admin or the `backfill_*` helpers (see
 Part 2).
@@ -431,13 +453,17 @@ Backfilling successions for 137 trust(s)...
   Successor → RM3 (NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST)
   Legal date: 2021-10-01
   Suggested succession_type: merger (review and correct via the admin if needed)
+  This will also close PENNINE ACUTE HOSPITALS NHS TRUST (set active=False from 2021-10-01).
   [dry-run] would create succession row
+  [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
 
   RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
   Successor → R0A (MANCHESTER UNIVERSITY NHS FOUNDATION TRUST)
   Legal date: 2021-10-01
   Suggested succession_type: merger (review and correct via the admin if needed)
+  This will also close PENNINE ACUTE HOSPITALS NHS TRUST (set active=False from 2021-10-01).
   [dry-run] would create succession row
+  [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
 
 Summary:
   Found (missing): 2
@@ -447,6 +473,42 @@ done.
 In non-dry-run mode, each row prompts:
 
 ```
+Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01 and close Pennine Acute? [y/n/s=skip]
+```
+
+For a `Predecessor` event (this entity absorbed the target and is the
+continuing entity), the command also prompts for the successor's pre-merger
+name after the main prompt. For example, running on RM3 (which absorbed RW6
+and renamed to Northern Care Alliance):
+
+```
+  RM3 (NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST)
+  Predecessor → RW6 (PENNINE ACUTE HOSPITALS NHS TRUST)
+  Legal date: 2021-10-01
+  Suggested succession_type: merger (review and correct via the admin if needed)
+  This will also close PENNINE ACUTE HOSPITALS NHS TRUST (set active=False from 2021-10-01).
+  NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST may have had a different name before 2021-10-01. You will be prompted for the pre-merger name (look it up in ODS Trac or another source); leave blank to skip the name backfill.
+  [dry-run] would create succession row
+  [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
+  [dry-run] would prompt for NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST's pre-merger name and backfill a name-change version row if supplied.
+```
+
+In non-dry-run mode, after answering `y` to the main prompt:
+
+```
+Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01 and close Pennine Acute? [y/n/s=skip] y
+  Pre-merger name for NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST (current: 'NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST'). Leave blank to skip: Salford Royal NHS Foundation Trust
+```
+
+If supplied, a name-change version row is backfilled for the successor
+covering `[Legal.Start, succession_date)`. If left blank, the name backfill
+is skipped and the successor's name history is left as-is.
+
+If the predecessor is already inactive, the prompt and output reflect that
+no closure write is needed:
+
+```
+  Predecessor Pennine Acute Hospitals NHS Trust is already inactive — only the succession row will be created.
 Create succession row Pennine Acute → Northern Care Alliance on 2021-10-01? [y/n/s=skip]
 ```
 

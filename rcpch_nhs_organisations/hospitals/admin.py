@@ -70,7 +70,10 @@ class OrganisationVersionInline(admin.TabularInline):
     readonly_fields = fields
     ordering = ("-valid_from",)
     verbose_name = "Attribute history"
-    verbose_name_plural = "Attribute history"
+    verbose_name_plural = (
+        "Attribute history (record of changes to this organisation's "
+        "attributes — name, address, telephone, website, active flag, etc.)"
+    )
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -126,7 +129,10 @@ class TrustVersionInline(admin.TabularInline):
     readonly_fields = fields
     ordering = ("-valid_from",)
     verbose_name = "Attribute history"
-    verbose_name_plural = "Attribute history"
+    verbose_name_plural = (
+        "Attribute history (record of changes to this trust's attributes — "
+        "name, address, telephone, website, active flag, etc.)"
+    )
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -154,7 +160,10 @@ class PaediatricDiabetesUnitVersionInline(admin.TabularInline):
     readonly_fields = fields
     ordering = ("-valid_from",)
     verbose_name = "Attribute history"
-    verbose_name_plural = "Attribute history"
+    verbose_name_plural = (
+        "Attribute history (record of changes to this PDU's attributes — "
+        "name, active flag, etc.)"
+    )
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -172,6 +181,125 @@ class PaediatricDiabetesUnitNetworkMembershipInline(admin.TabularInline):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+
+# ---------------------------------------------------------------------------
+# Read-only succession-history inlines
+# ---------------------------------------------------------------------------
+#
+# The *Version inlines above record *what* changed about an entity's
+# attributes (name, address, telephone, website, active flag, …). They do
+# NOT record mergers, acquisitions, renames, splits, or closures — those live
+# in the *Succession tables. To make the link visible without leaving the
+# entity's change page, each versioned entity admin gets two read-only
+# inlines, one per direction:
+#
+#   - "Predecessors" — rows where this entity is the *successor* (the trusts
+#     that merged to form it). Shown for an active trust formed by a merger.
+#   - "Successor" — rows where this entity is the *predecessor* (what it
+#     became). Shown for a closed/merged trust.
+#
+# Each inline follows a single FK (`fk_name`), so Django's built-in queryset
+# filtering does the work and no custom `Q`-union is needed. Empty sections
+# are hidden by `get_inline_instances` on the concrete admin classes, so an
+# active trust doesn't see an empty "Successor" header.
+
+
+class _PredecessorsInlineBase(admin.TabularInline):
+    """Read-only inline showing the predecessors of this entity — i.e. the
+    *Succession rows where this entity is the successor (the entities that
+    merged to form it).
+
+    Concrete subclasses must set `model` to the *Succession model class.
+    """
+
+    extra = 0
+    can_delete = False
+    fk_name = "successor"
+    fields = ("predecessor", "succession_date", "succession_type", "notes")
+    readonly_fields = fields
+    ordering = ("-succession_date",)
+    verbose_name = "Predecessor"
+    verbose_name_plural = "Predecessors (the entities that merged to form this one)"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class _SuccessorInlineBase(admin.TabularInline):
+    """Read-only inline showing the successor of this entity — i.e. the
+    *Succession rows where this entity is the predecessor (what it became
+    on closure / merger / acquisition).
+
+    Concrete subclasses must set `model` to the *Succession model class.
+    """
+
+    extra = 0
+    can_delete = False
+    fk_name = "predecessor"
+    fields = ("successor", "succession_date", "succession_type", "notes")
+    readonly_fields = fields
+    ordering = ("-succession_date",)
+    verbose_name = "Successor"
+    verbose_name_plural = "Successor (what this entity became on closure / merger)"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class TrustPredecessorsInline(_PredecessorsInlineBase):
+    model = TrustSuccession
+
+
+class TrustSuccessorInline(_SuccessorInlineBase):
+    model = TrustSuccession
+
+
+class OrganisationPredecessorsInline(_PredecessorsInlineBase):
+    model = OrganisationSuccession
+
+
+class OrganisationSuccessorInline(_SuccessorInlineBase):
+    model = OrganisationSuccession
+
+
+class PaediatricDiabetesUnitPredecessorsInline(_PredecessorsInlineBase):
+    model = PaediatricDiabetesUnitSuccession
+
+
+class PaediatricDiabetesUnitSuccessorInline(_SuccessorInlineBase):
+    model = PaediatricDiabetesUnitSuccession
+
+
+class HideEmptySuccessionInlinesMixin:
+    """Hides the Predecessors / Successor inlines when they have no rows for
+    the entity being viewed.
+
+    An active trust formed by a merger has predecessors but no successor, so
+    showing an empty "Successor" section would be noise. This mixin filters
+    the inline list to only those that have at least one row for the parent
+    object. It only inspects inlines that subclass `_PredecessorsInlineBase`
+    or `_SuccessorInlineBase`; all other inlines (version history, membership
+    history) are always shown.
+    """
+
+    def get_inline_instances(self, request, obj=None):
+        instances = super().get_inline_instances(request, obj)
+        if obj is None:
+            return instances
+        shown = []
+        for inline in instances:
+            if isinstance(inline, (_PredecessorsInlineBase, _SuccessorInlineBase)):
+                # Django's inline `get_queryset` does not filter by the parent
+                # object until the formset is built, so filter explicitly here
+                # using the inline's `fk_name` ("successor" for the Predecessors
+                # inline, "predecessor" for the Successor inline).
+                if not inline.model.objects.filter(
+                    **{inline.fk_name: obj}
+                ).exists():
+                    continue
+            shown.append(inline)
+        return shown
 
 
 # ---------------------------------------------------------------------------
@@ -1061,7 +1189,7 @@ class ReassignTrustForm(forms.Form):
     )
 
 
-class OrganisationAdmin(AttributeEditAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillTrustMembershipAdminMixin, admin.ModelAdmin):
+class OrganisationAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillTrustMembershipAdminMixin, admin.ModelAdmin):
     version_model = OrganisationVersion
     from .general_functions.membership import update_organisation_attributes
     update_helper = staticmethod(update_organisation_attributes)
@@ -1079,6 +1207,8 @@ class OrganisationAdmin(AttributeEditAdminMixin, DeactivateAdminMixin, BackfillA
         OrganisationTrustMembershipInline,
         OrganisationIntegratedCareBoardMembershipInline,
         OrganisationPaediatricDiabetesUnitMembershipInline,
+        OrganisationPredecessorsInline,
+        OrganisationSuccessorInline,
     ]
 
     def get_urls(self):
@@ -1135,7 +1265,11 @@ class OrganisationAdmin(AttributeEditAdminMixin, DeactivateAdminMixin, BackfillA
 
 
 class PaediatricDiabetesUnitAdmin(
-    AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, admin.ModelAdmin
+    HideEmptySuccessionInlinesMixin,
+    AttributeEditAdminMixin,
+    RenameAdminMixin,
+    DeactivateAdminMixin,
+    admin.ModelAdmin,
 ):
     version_model = PaediatricDiabetesUnitVersion
     from .general_functions.membership import update_paediatric_diabetes_unit_attributes
@@ -1152,10 +1286,12 @@ class PaediatricDiabetesUnitAdmin(
     inlines = [
         PaediatricDiabetesUnitVersionInline,
         PaediatricDiabetesUnitNetworkMembershipInline,
+        PaediatricDiabetesUnitPredecessorsInline,
+        PaediatricDiabetesUnitSuccessorInline,
     ]
 
 
-class TrustAdmin(AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillMergerAdminMixin, admin.ModelAdmin):
+class TrustAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillMergerAdminMixin, admin.ModelAdmin):
     version_model = TrustVersion
     from .general_functions.membership import update_trust_attributes
     update_helper = staticmethod(update_trust_attributes)
@@ -1172,6 +1308,8 @@ class TrustAdmin(AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin
     inlines = [
         TrustVersionInline,
         TrustIntegratedCareBoardMembershipInline,
+        TrustPredecessorsInline,
+        TrustSuccessorInline,
     ]
 
 
