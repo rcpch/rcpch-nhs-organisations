@@ -89,12 +89,24 @@ class Command(BaseCommand):
             default=None,
             help="Maximum number of organisations to process (for testing).",
         )
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            default=False,
+            help=(
+                "Auto-answer 'y' to every [y/n/s=skip] prompt, creating all "
+                "missing membership rows without interactive review. Has no "
+                "effect with --dry-run (which never prompts). Use with care: "
+                "this bypasses the review gate."
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
         use_all = options["all"]
         since_str = options["since"]
         limit = options["limit"]
+        auto_yes = options["yes"]
 
         if use_all and since_str:
             raise CommandError("--all and --since are mutually exclusive.")
@@ -127,6 +139,11 @@ class Command(BaseCommand):
             f"({window_desc})..."
             + W
         )
+        if auto_yes and not dry_run:
+            self.stdout.write(
+                R + "  --yes: auto-answering 'y' to every prompt without review."
+                + W
+            )
 
         found_count = 0
         created_count = 0
@@ -223,16 +240,20 @@ class Command(BaseCommand):
 
                 # Interactive prompt: yes / no / skip. Mirrors
                 # backfill_successions so operators have a consistent UX.
-                try:
-                    answer = input(
-                        f"  Backfill membership {ods_code} → {trust_ods_code} "
-                        f"({valid_from_str} → {valid_to_str or 'now'})? "
-                        "[y/n/s=skip] "
-                    )
-                except EOFError:
-                    self.stdout.write(O + "  No input — skipping." + W)
-                    skipped_count += 1
-                    continue
+                # With --yes, accept every row without prompting.
+                if auto_yes:
+                    answer = "y"
+                else:
+                    try:
+                        answer = input(
+                            f"  Backfill membership {ods_code} → {trust_ods_code} "
+                            f"({valid_from_str} → {valid_to_str or 'now'})? "
+                            "[y/n/s=skip] "
+                        )
+                    except EOFError:
+                        self.stdout.write(O + "  No input — skipping." + W)
+                        skipped_count += 1
+                        continue
 
                 answer = answer.strip().lower()
                 if answer == "y":

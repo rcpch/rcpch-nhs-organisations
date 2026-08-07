@@ -153,11 +153,27 @@ class Command(BaseCommand):
             default=None,
             help="Maximum number of entities to process (for testing).",
         )
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            default=False,
+            help=(
+                "Auto-answer 'y' to every [y/n/s=skip] prompt, creating all "
+                "missing succession rows without interactive review. For the "
+                "Pass 2 pre-merger name prompt, --yes accepts the "
+                "pre-populated default if one exists (from a version row "
+                "already entered via the admin) and otherwise skips the name "
+                "backfill — it never fabricates a name or date. Has no effect "
+                "with --dry-run (which never prompts). Use with care: this "
+                "bypasses the review gate."
+            ),
+        )
 
     def handle(self, *args, **options):
         entity_type = options["entity"]
         dry_run = options["dry_run"]
         limit = options["limit"]
+        auto_yes = options["yes"]
 
         config = ENTITY_CONFIG[entity_type]
         model = config["model"]
@@ -176,6 +192,12 @@ class Command(BaseCommand):
         self.stdout.write(
             B + f"Backfilling successions for {total} {entity_type}(s)..." + W
         )
+        if auto_yes and not dry_run:
+            self.stdout.write(
+                R + "  --yes: auto-answering 'y' to every prompt without review. "
+                "Name backfills will use the pre-populated default if present, "
+                "otherwise skip." + W
+            )
 
         found_count = 0
         created_count = 0
@@ -375,19 +397,23 @@ class Command(BaseCommand):
                         )
                     continue
 
-                # Interactive prompt: yes / no / skip
-                try:
-                    answer = input(
-                        f"  Create succession row {predecessor} → {successor} "
-                        f"on {ev_date}"
-                        + ("" if predecessor_already_closed else
-                            f" and close {predecessor}")
-                        + "? [y/n/s=skip] "
-                    )
-                except EOFError:
-                    self.stdout.write(O + "  No input — skipping." + W)
-                    skipped_count += 1
-                    continue
+                # Interactive prompt: yes / no / skip. With --yes, accept
+                # every row without prompting.
+                if auto_yes:
+                    answer = "y"
+                else:
+                    try:
+                        answer = input(
+                            f"  Create succession row {predecessor} → {successor} "
+                            f"on {ev_date}"
+                            + ("" if predecessor_already_closed else
+                                f" and close {predecessor}")
+                            + "? [y/n/s=skip] "
+                        )
+                    except EOFError:
+                        self.stdout.write(O + "  No input — skipping." + W)
+                        skipped_count += 1
+                        continue
 
                 answer = answer.strip().lower()
                 if answer != "y":
@@ -658,23 +684,39 @@ class Command(BaseCommand):
             prompt_default = (
                 f" [default: {pre_populated}]" if pre_populated else ""
             )
-            try:
-                old_name = input(
-                    f"  On {ev_date}, {successor} acquired {pred_summary}. "
-                    f"Enter the pre-merger name for {successor} if it was "
-                    f"renamed in the process{prompt_default}.\n"
-                    f"  Leave blank if the name was unchanged: "
-                )
-            except EOFError:
-                self.stdout.write(
-                    O + "  No input — skipping name backfill." + W
-                )
-                old_name = ""
-            if pre_populated and not old_name.strip():
-                # Operator accepted the default by pressing Enter.
-                old_name = pre_populated
+            if auto_yes:
+                # --yes cannot fabricate a pre-merger name. Accept the
+                # pre-populated default if one exists (pressing Enter),
+                # otherwise leave blank (skip the name backfill).
+                old_name = pre_populated or ""
+                if old_name:
+                    self.stdout.write(
+                        G + f"  --yes: accepted pre-populated name "
+                        f"'{old_name}' for {successor}." + W
+                    )
+                else:
+                    self.stdout.write(
+                        O + f"  --yes: no pre-populated name for {successor} "
+                        "— skipping name backfill." + W
+                    )
             else:
-                old_name = old_name.strip()
+                try:
+                    old_name = input(
+                        f"  On {ev_date}, {successor} acquired {pred_summary}. "
+                        f"Enter the pre-merger name for {successor} if it was "
+                        f"renamed in the process{prompt_default}.\n"
+                        f"  Leave blank if the name was unchanged: "
+                    )
+                except EOFError:
+                    self.stdout.write(
+                        O + "  No input — skipping name backfill." + W
+                    )
+                    old_name = ""
+                if pre_populated and not old_name.strip():
+                    # Operator accepted the default by pressing Enter.
+                    old_name = pre_populated
+                else:
+                    old_name = old_name.strip()
             if not old_name or old_name == current_name:
                 self.stdout.write(
                     O + f"  Name unchanged for {successor} — no backfill needed." + W
@@ -694,6 +736,15 @@ class Command(BaseCommand):
                     "The establishment date is needed to date the "
                     "name-change row." + W
                 )
+                if auto_yes:
+                    # --yes cannot fabricate an establishment date. Skip
+                    # the name backfill (the succession row and predecessor
+                    # closure from Pass 1 are unaffected).
+                    self.stdout.write(
+                        O + f"  --yes: no establishment date available "
+                        f"for {successor} — skipping name backfill." + W
+                    )
+                    continue
                 try:
                     date_str = input(
                         f"  Establishment date for {successor} "

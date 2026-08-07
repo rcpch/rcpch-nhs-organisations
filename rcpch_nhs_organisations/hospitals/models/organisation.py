@@ -46,6 +46,29 @@ class Organisation(TimeStampAbstractBaseClass):
         default=True
     )  # a boolean representing if this Organisation is still operational
 
+    diverged_from_ods = BooleanField(
+        default=False,
+        help_text=(
+            "True if ODS considers this organisation Inactive but the "
+            "RCPCH audit system still uses the code because the site is "
+            "still open and still under the same parent trust. ODS retired "
+            "the code for administrative reasons (re-coding, issuing a "
+            "parallel record, folding into a parent site), not because the "
+            "site closed. See ODS_DIVERGENT_ORGANISATIONS constants and "
+            "documentation/docs/developer/backfill.md."
+        ),
+    )
+    ods_replacement_code = CharField(
+        max_length=10, null=True, blank=True, default=None,
+        help_text=(
+            "If diverged_from_ods, the active ODS code for the same site, "
+            "where one exists. When the consuming software is ready to "
+            "switch, the fix is to update its references from ods_code to "
+            "ods_replacement_code. Null when ODS folded the site into a "
+            "parent site record rather than issuing a twin."
+        ),
+    )
+
     published_at = models.DateField(
         null=True, blank=True, default=None
     )  # date this Organisation was last amended according to the ORD

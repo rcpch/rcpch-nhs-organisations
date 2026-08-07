@@ -566,3 +566,64 @@ def test_rel_with_no_operational_date_falls_back_to_legal(trust_a, org_a):
     )
     assert membership.valid_from == datetime.date(2010, 4, 1)
     assert membership.valid_to is None
+
+
+# ---------------------------------------------------------------------------
+# --yes flag (auto-accept every prompt)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_yes_flag_creates_memberships_without_input(trust_a, trust_b, org_a):
+    """--yes auto-answers 'y' to every [y/n/s=skip] prompt, creating all
+    missing membership rows without any interactive input. No input() call
+    is made, so the test does not patch builtins.input."""
+    records = {
+        "RAA01": _ods_record(
+            "RAA01", "Org A",
+            rels=[
+                _rel("RAA", "2005-04-01", end="2018-04-01"),
+                _rel("RBB", "2018-04-01"),
+            ],
+        ),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_trust_memberships",
+            "--all",
+            "--yes",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    # Both memberships created without any input() call.
+    assert OrganisationTrustMembership.objects.filter(organisation=org_a).count() == 2
+    # The startup warning is shown.
+    assert "--yes" in out.getvalue()
+    assert "auto-answering" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_yes_flag_ignored_in_dry_run(trust_a, org_a):
+    """--yes has no effect with --dry-run (which never prompts). The dry-run
+    report is produced as normal and no rows are created."""
+    records = {
+        "RAA01": _ods_record(
+            "RAA01", "Org A",
+            rels=[_rel("RAA", "2005-04-01")],
+        ),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_trust_memberships",
+            "--all",
+            "--dry-run",
+            "--yes",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    assert OrganisationTrustMembership.objects.filter(organisation=org_a).count() == 0
+    assert "[dry-run]" in out.getvalue()
+    # No --yes warning in dry-run (nothing to auto-accept).
+    assert "auto-answering" not in out.getvalue()

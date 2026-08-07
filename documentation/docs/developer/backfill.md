@@ -788,3 +788,81 @@ place. Those require the `backfill_*` helpers with manually-researched dates
 (as in the Northern Care Alliance example in Part 2). If audit data going
 back further needs to be re-run at scale, this would require a one-off import
 from ODS Trac bulk dumps — a separate project.
+
+## ODS-divergent organisation codes
+
+ODS is an **administrative** directory: it models how the NHS codes
+organisations for national reporting flows (Spine, SUS, CDS), not how
+clinicians experience them on the ground. A site can be re-coded, folded
+into a parent site record, or issued a parallel code, without the physical
+site closing. When that happens, ODS marks the old code `Status: Inactive`
+and ends its `RE6` rel on the retirement date — even though the site is
+still open and still under the same parent trust.
+
+The backfill commands trust ODS's `Status` and `RE6` end dates as the source
+of truth for "is this site active" and "when did this membership end". For
+ODS-divergent codes, that is wrong: the membership ends on the ODS
+retirement date, and an as-of query for a date after that returns "no
+current membership" for a site that is actually still operating.
+
+To handle this, the project maintains a curated list of ODS-divergent codes
+in `rcpch_nhs_organisations/hospitals/constants/ods_divergent_codes.py`.
+The `Organisation` model carries two fields populated from that list:
+
+- `diverged_from_ods` (boolean) — True if ODS considers this organisation
+  Inactive but the RCPCH audit system still uses the code.
+- `ods_replacement_code` (nullable char) — the active ODS code for the same
+  site, where one exists. Null when ODS folded the site into a parent site
+  record rather than issuing a twin.
+
+These fields are populated by migration `0031_ods_divergent_organisations`
+and are intended to be surfaced in the admin and API so the consuming
+software can identify divergent codes and, when ready, flip its references
+from `ods_code` to `ods_replacement_code`.
+
+### Known ODS-divergent codes
+
+| Seeded code | Name | Parent trust | ODS status | ODS closure date | Replacement code | Notes |
+|---|---|---|---|---|---|---|
+| `R1APF` | COVERCROFT | `R1A` | Inactive | 2023-05-31 | `R1A1R` (COVER CROFT CENTRE) | Same address (Colman Road, Droitwich, WR9 8QU), same parent trust. ODS ran two codes in parallel from 2011-06-22 until `R1APF` was closed on 2023-05-31; `R1A1R` remains active. The consuming software references `R1APF`, so the code is retained and the membership is extended to now. When the consuming software is ready to switch, flip references from `R1APF` to `R1A1R`. |
+
+### Cases considered and left as per ODS
+
+The following seeded codes are also Inactive in ODS, but are **not** flagged
+as divergent because they are not surfaced in the consuming software (so
+the ODS closure date can stand), or because the consuming software already
+uses the active canonical code:
+
+| Seeded code | Name | Reason for not flagging |
+|---|---|---|
+| `RHW0C` | DINGLEY SPECIALIST CHILDREN'S CENTRE | Not used in consuming software. Active twin `RTH88` exists (identical name, same postcode, same trust). |
+| `RTD10` | GREAT NORTH CHILDREN'S HOSPITAL | Consuming software uses `RTD02` (the Royal Victoria Infirmary), the active parent-site record for the same address. ODS folded GNCH into the RVI in 2017 rather than issuing a twin. |
+| `RVJT4` | PATCHWAY LOCALITY HUB | Not used in consuming software. Possible active twin `NLX25` (PATCHWAY CLINIC) at the same postcode. |
+| `RBTCP` | COMMUNITY PAEDIATRICS | Not used in consuming software. No clear active twin — the candidates at the same postcode are unrelated services. |
+| `RATE2` | CHILD DEVELOPMENT CENTRE | Not used in consuming software. No clear active twin — the candidate at the same postcode is a different service (renal). |
+| `C1G7Z` | CDC POOLE @ DORSET HEALTH VILLAGE | Genuinely closed (2023-04-30). No active twin. |
+| `RY327` | COMMUNITY CHILDRENS SERVICES | Genuinely closed (2024-02-29). No active twin. |
+
+### Adding a new divergent code
+
+1. Confirm the site is still open and still under the same parent trust
+   (the seeded `ParentODSCode` should match the ODS `RE6` target — see the
+   audit script in the project root, `ods_parallel_audit.py`).
+2. Confirm the consuming software references the seeded code and would
+   break if it were treated as closed.
+3. Add an entry to `ODS_DIVERGENT_ORGANISATIONS` in
+   `rcpch_nhs_organisations/hospitals/constants/ods_divergent_codes.py`,
+   including `ods_replacement_code` if an active twin exists.
+4. Add a row to the "Known ODS-divergent codes" table above.
+5. Run the migration (or, for an existing instance, update the
+   `Organisation` row directly: `diverged_from_ods=True,
+   ods_replacement_code=...`).
+
+### Effect on the backfill
+
+The backfill commands do not currently read `diverged_from_ods`. A
+follow-up is to teach `backfill_trust_memberships` to extend the membership
+to now (rather than ending it on the ODS retirement date) for flagged
+codes. Until then, the membership extension for `R1APF` is a manual data
+fix: add an `OrganisationTrustMembership` row with
+`valid_from=2023-05-31, valid_to=None`.

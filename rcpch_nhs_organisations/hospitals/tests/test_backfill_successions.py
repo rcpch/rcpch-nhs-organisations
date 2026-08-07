@@ -929,3 +929,144 @@ def test_acquisition_bridges_baseline_gap(trust_a, trust_b):
     ).exists()
     # The output mentions the bridge.
     assert "Bridged gap" in out.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# --yes flag (auto-accept every prompt)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_yes_flag_creates_succession_without_input(trust_a, trust_b):
+    """--yes auto-answers 'y' to the Pass 1 [y/n/s=skip] prompt, creating
+    the succession row and closing the predecessor without any interactive
+    input. No input() call is made, so the test does not patch builtins.input."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--yes",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    assert TrustSuccession.objects.count() == 1
+    row = TrustSuccession.objects.get()
+    assert row.predecessor == trust_a
+    assert row.successor == trust_b
+    trust_a.refresh_from_db()
+    assert trust_a.active is False
+    # The startup warning is shown.
+    assert "--yes" in out.getvalue()
+    assert "auto-answering" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_yes_flag_accepts_pre_populated_name(trust_a, trust_b):
+    """--yes cannot fabricate a pre-merger name, but if a pre-populated
+    default exists (a TrustVersion row with valid_to == ev_date, as the
+    operator would have entered via the admin), --yes accepts it and
+    backfills the name-change row. No input() call is made."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Salford Royal NHS Foundation Trust",
+        active=True,
+    )
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Northern Care Alliance NHS Foundation Trust",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+            legal_start="2001-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Pennine Acute Hospitals NHS Trust"),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--yes",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    row = TrustSuccession.objects.get()
+    assert row.predecessor == trust_b
+    assert row.successor == trust_a
+    assert row.succession_type == "acquisition"
+    # The pre-merger name row was backfilled from the pre-populated default.
+    name_row = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert name_row.name == "Salford Royal NHS Foundation Trust"
+    # The output notes --yes accepted the pre-populated name.
+    assert "--yes: accepted pre-populated name" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_yes_flag_skips_name_backfill_without_default(trust_a, trust_b):
+    """--yes with no pre-populated default skips the Pass 2 name backfill
+    (it never fabricates a name). The succession row and predecessor closure
+    from Pass 1 are unaffected."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Predecessor", "RBB", "2021-10-01")],
+            legal_start="2001-04-01",
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--yes",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    # Succession row created, predecessor closed.
+    assert TrustSuccession.objects.count() == 1
+    trust_b.refresh_from_db()
+    assert trust_b.active is False
+    # No name-change version row for the successor (no default to accept).
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 0
+    # The output notes --yes skipped the name backfill.
+    assert "--yes: no pre-populated name" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_yes_flag_ignored_in_dry_run(trust_a, trust_b):
+    """--yes has no effect with --dry-run (which never prompts). The dry-run
+    report is produced as normal and no rows are created."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        out = StringIO()
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--dry-run",
+            "--yes",
+            stdout=out,
+            stderr=StringIO(),
+        )
+    assert TrustSuccession.objects.count() == 0
+    assert "[dry-run]" in out.getvalue()
+    # No --yes warning in dry-run (nothing to auto-accept).
+    assert "auto-answering" not in out.getvalue()
