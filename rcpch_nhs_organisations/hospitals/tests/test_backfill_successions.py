@@ -865,7 +865,9 @@ def test_acquisition_bridges_baseline_gap(trust_a, trust_b):
     """When Pass 2 backfills a pre-merger name row for an acquisition, it
     also inserts a bridging row covering [succession_date, baseline_date) so
     the version timeline is continuous and as-of queries don't crash on the
-    gap.
+    gap. Because the bridging row carries the same attributes as the baseline
+    migration row, it is promoted to current (valid_to=None) and the baseline
+    row is deleted — the version history collapses to two rows, not three.
 
     Mirrors RC9 (Luton and Dunstable) acquiring RC1 (Bedford) on 2020-04-01
     and being renamed to Bedfordshire Hospitals, where the baseline migration
@@ -910,18 +912,20 @@ def test_acquisition_bridges_baseline_gap(trust_a, trust_b):
         valid_to=datetime.date(2020, 4, 1),
     )
     assert pre.name == "Luton and Dunstable University Hospital NHS Foundation Trust"
-    # Bridging row covering [2020-04-01, 2025-01-01).
-    bridge = TrustVersion.objects.get(
-        trust=trust_a,
-        valid_from=datetime.date(2020, 4, 1),
-        valid_to=baseline_date,
-    )
-    assert bridge.name == "Bedfordshire Hospitals NHS Foundation Trust"
-    assert bridge.active is True
-    # Baseline row still present (current).
+    # The bridging row was promoted to current (valid_to=None) because its
+    # attributes match the baseline row — the baseline row is deleted and the
+    # bridge row takes over as the current state from the rename date forward.
+    # This is the contiguous-handoff promotion: the version history collapses
+    # to two rows (pre-merger name + post-merger name current), not three.
     current = TrustVersion.objects.get(
-        trust=trust_a, valid_from=baseline_date, valid_to=None
+        trust=trust_a, valid_from=datetime.date(2020, 4, 1), valid_to=None
     )
     assert current.name == "Bedfordshire Hospitals NHS Foundation Trust"
+    assert current.active is True
+    # The baseline migration row (valid_from=2025-01-01) was deleted — it
+    # recorded no real state change, just the migration date.
+    assert not TrustVersion.objects.filter(
+        trust=trust_a, valid_from=baseline_date
+    ).exists()
     # The output mentions the bridge.
     assert "Bridged gap" in out.getvalue()

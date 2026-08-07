@@ -189,6 +189,20 @@ def _snapshot_fields(version_model):
     return fields
 
 
+def _snapshot_matches(version_model, row, snapshot):
+    """
+    Return True if every snapshotted attribute on ``row`` equals the
+    corresponding value in ``snapshot``. Used by ``_backfill_version_row`` to
+    detect whether a current baseline row records the same state as a
+    backfilled historical row (in which case the baseline row is redundant).
+    """
+    for field in _snapshot_fields(version_model):
+        attname = field.attname
+        if getattr(row, attname, None) != snapshot.get(attname):
+            return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Organisation relationship reassignments
 # ---------------------------------------------------------------------------
@@ -768,7 +782,19 @@ def _backfill_version_row(
 
     If a row already exists for the exact same (parent, valid_from, valid_to)
     tuple, it is updated in place rather than duplicated.
+
+    If valid_to is a real date (a historical backfill) and the backfilled
+    snapshot matches the current row's attributes, the current row is a
+    baseline migration artefact that records no real state change. Rather than
+    leaving a redundant row with the same attributes as the backfilled one, the
+    current row is deleted and the backfilled row is promoted to be current
+    (valid_to=None). This keeps the version table semantically honest: every
+    row represents a real state change, not a tracking-system event.
     """
+    # Track whether the backfilled row should be promoted to be the current
+    # row (valid_to=None) because it matches and replaces a baseline artefact.
+    # Only set in the historical-backfill branch below.
+    promote_to_current = False
     # If the new row is current (valid_to=None), handle the existing current row.
     if valid_to is None:
         existing_current = version_model.objects.filter(
@@ -787,8 +813,30 @@ def _backfill_version_row(
                 # as the current state from that date forward.
                 existing_current.valid_to = valid_from
                 existing_current.save(update_fields=["valid_to"])
-    # Insert or update the new row.
-    version_model.objects.update_or_create(
+    else:
+        # Historical backfill (valid_to is a real date). If the backfilled
+        # snapshot matches the current row's attributes and the current row
+        # starts at or after the backfill interval ends, the current row is a
+        # baseline migration artefact recording no real state change —
+        # promote the backfilled row to be current instead, so the version
+        # table does not carry a redundant row with identical attributes.
+        # The >= (rather than >) covers the contiguous-handoff case where the
+        # backfill's valid_to equals the baseline row's valid_from: the two
+        # rows meet exactly, and the baseline row adds nothing.
+        existing_current = version_model.objects.filter(
+            **{parent_field: parent, "valid_to__isnull": True}
+        ).first()
+        promote_to_current = (
+            existing_current is not None
+            and existing_current.valid_from >= valid_to
+            and _snapshot_matches(version_model, existing_current, snapshot)
+        )
+        if promote_to_current:
+            existing_current.delete()
+    # Insert or update the new row using the ORIGINAL valid_to so
+    # update_or_create finds an existing backfill row with that interval
+    # rather than creating a duplicate.
+    obj, _ = version_model.objects.update_or_create(
         **{
             parent_field: parent,
             "valid_from": valid_from,
@@ -796,6 +844,22 @@ def _backfill_version_row(
             "defaults": snapshot,
         }
     )
+    if promote_to_current:
+        # The backfilled row is promoted to be current (valid_to=None),
+        # replacing the deleted baseline artefact. Also delete any prior
+        # historical row with the same valid_from and matching attributes —
+        # it is now entirely subsumed by the promoted current row and would
+        # otherwise linger as an orphan (e.g. a bridge row from a previous
+        # run that used the baseline's valid_from as its valid_to).
+        obj.valid_to = None
+        obj.save(update_fields=["valid_to"])
+        orphaned = version_model.objects.filter(
+            **{parent_field: parent, "valid_from": valid_from}
+        ).exclude(pk=obj.pk).exclude(valid_to__isnull=True)
+        for orphan in orphaned:
+            if _snapshot_matches(version_model, orphan, snapshot):
+                orphan.delete()
+    return obj
 
 
 def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
@@ -837,7 +901,7 @@ def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
     snapshot = _snapshot_entity_fields(TrustVersion, trust)
     snapshot.update(fields)
     with transaction.atomic():
-        _backfill_version_row(
+        row = _backfill_version_row(
             TrustVersion, parent_field="trust", parent=trust,
             valid_from=valid_from, valid_to=valid_to, snapshot=snapshot,
         )
@@ -848,7 +912,7 @@ def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
         valid_to or "now",
         ", ".join(f"{k}={v!r}" for k, v in fields.items()),
     )
-    return TrustVersion.objects.get(trust=trust, valid_from=valid_from, valid_to=valid_to)
+    return row
 
 
 def backfill_organisation_attributes(organisation, valid_from, valid_to, **fields):
@@ -860,7 +924,7 @@ def backfill_organisation_attributes(organisation, valid_from, valid_to, **field
     snapshot = _snapshot_entity_fields(OrganisationVersion, organisation)
     snapshot.update(fields)
     with transaction.atomic():
-        _backfill_version_row(
+        row = _backfill_version_row(
             OrganisationVersion, parent_field="organisation", parent=organisation,
             valid_from=valid_from, valid_to=valid_to, snapshot=snapshot,
         )
@@ -871,9 +935,7 @@ def backfill_organisation_attributes(organisation, valid_from, valid_to, **field
         valid_to or "now",
         ", ".join(f"{k}={v!r}" for k, v in fields.items()),
     )
-    return OrganisationVersion.objects.get(
-        organisation=organisation, valid_from=valid_from, valid_to=valid_to
-    )
+    return row
 
 
 def backfill_organisation_trust_membership(

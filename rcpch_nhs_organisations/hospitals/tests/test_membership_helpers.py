@@ -1032,3 +1032,195 @@ def test_backfill_trust_attributes_valid_to_none_closes_earlier_current_row(
     existing.refresh_from_db()
     assert existing.valid_to == datetime.date(2020, 1, 1)
     assert existing.name == "Old Name"
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_historical_promotes_to_current_when_matching(
+    trust_a,
+):
+    """If a historical backfill (valid_to is a real date) carries the same
+    attributes as the current baseline row, the baseline row is deleted and
+    the backfilled row is promoted to be current (valid_to=None).
+
+    This is the RYR / University Hospitals Sussex case: the baseline row
+    records the migration date, not a real state change, so it should not
+    survive the backfill as a redundant row with identical attributes."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill a historical state with the SAME attributes as the baseline,
+    # closing at the rename date. The rename date is before the baseline date.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 4, 1),
+        name="Trust A",
+        active=True,
+    )
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+    # Only one current row exists, and it is the backfilled one promoted to
+    # current (valid_to=None).
+    assert TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count() == 1
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.valid_from == datetime.date(2001, 4, 1)
+    assert current.name == "Trust A"
+
+    # No row exists with valid_to=2021-04-01 — the backfilled row was promoted.
+    assert not TrustVersion.objects.filter(
+        trust=trust_a, valid_to=datetime.date(2021, 4, 1)
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_historical_promotes_on_contiguous_handoff(
+    trust_a,
+):
+    """If a historical backfill's valid_to EQUALS the current baseline row's
+    valid_from (a contiguous handoff) and the attributes match, the baseline
+    row is still deleted and the backfilled row promoted to current.
+
+    This is the exact RYR shape produced by the backfill_successions command's
+    'bridge the gap' step: it writes a row with valid_to=baseline.valid_from
+    carrying the current name. The baseline row adds nothing in that case."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill a historical state whose valid_to equals the baseline's
+    # valid_from (contiguous handoff), with matching attributes.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2021, 4, 1),
+        valid_to=datetime.date(2026, 8, 5),  # == baseline.valid_from
+        name="Trust A",
+        active=True,
+    )
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+    # Only one current row exists, promoted from the backfilled row.
+    assert TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count() == 1
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.valid_from == datetime.date(2021, 4, 1)
+    assert current.name == "Trust A"
+
+    # No row exists with valid_to=2026-08-05 — the backfilled row was promoted.
+    assert not TrustVersion.objects.filter(
+        trust=trust_a, valid_to=datetime.date(2026, 8, 5)
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_promotion_cleans_up_orphaned_bridge_row(
+    trust_a,
+):
+    """When a backfilled row is promoted to current, any prior historical row
+    with the same valid_from and matching attributes is deleted as an orphan.
+
+    This covers the case where a previous run left a bridge row with the same
+    valid_from as a new backfill but a different valid_to (e.g. the bridge used
+    the baseline date, the new backfill uses a corrected rename date). The
+    orphan is not recycled by update_or_create (different valid_to), so the
+    cleanup step must delete it explicitly."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    # Orphaned bridge row from a previous run: same valid_from as the
+    # backfill we're about to do, but a DIFFERENT valid_to (the baseline date),
+    # with matching attributes. update_or_create won't recycle this row
+    # because its valid_to differs from the backfill's valid_to.
+    orphan = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2021, 4, 1),
+        valid_to=datetime.date(2026, 8, 5),  # differs from backfill's valid_to
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill with a valid_to that is at the baseline's valid_from (contiguous
+    # handoff) but differs from the orphan's valid_to. The current row matches
+    # and is at valid_to, so the backfilled row is promoted. The orphan (same
+    # valid_from, matching attributes, different valid_to) is cleaned up.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2021, 4, 1),
+        valid_to=datetime.date(2026, 8, 1),  # differs from orphan's valid_to
+        name="Trust A",
+        active=True,
+    )
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+    # The orphan was deleted by the cleanup step.
+    assert not TrustVersion.objects.filter(pk=orphan.pk).exists()
+
+    # Only one row exists for this trust: the promoted current row.
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 1
+    only = TrustVersion.objects.get(trust=trust_a)
+    assert only.valid_from == datetime.date(2021, 4, 1)
+    assert only.valid_to is None
+    assert only.name == "Trust A"
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_historical_keeps_baseline_when_attributes_differ(
+    trust_a,
+):
+    """If a historical backfill carries DIFFERENT attributes from the current
+    baseline row, the baseline row is kept (it records a real state change
+    relative to the backfilled row). Only matching rows are promoted."""
+    # Baseline row from the migration.
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A (new name)",
+        active=True,
+    )
+
+    # Backfill a historical state with a DIFFERENT name.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 4, 1),
+        name="Trust A (old name)",
+        active=True,
+    )
+
+    # The baseline row survives — it records a real rename.
+    baseline.refresh_from_db()
+    assert baseline.valid_to is None
+    assert baseline.name == "Trust A (new name)"
+
+    # The backfilled historical row exists with its real valid_to.
+    historical = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 4, 1),
+    )
+    assert historical.name == "Trust A (old name)"
