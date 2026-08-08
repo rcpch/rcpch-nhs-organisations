@@ -52,6 +52,7 @@ class IntegratedCareBoardVersion(TimeStampAbstractBaseClass):
     globalid = models.CharField(max_length=38, null=True, blank=True, default=None)
     geom = models.MultiPolygonField(srid=27700, null=True, blank=True, default=None)
     publication_date = models.DateField(null=True, blank=True, default=None)
+    active = models.BooleanField(default=True)
 
     class Meta:
         indexes = [

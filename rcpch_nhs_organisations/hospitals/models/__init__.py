@@ -1,6 +1,7 @@
 from .country import Country, CountryBoundaries
 from .general_practice import GeneralPractice
 from .integrated_care_board import IntegratedCareBoard, IntegratedCareBoardBoundaries
+from .integrated_care_board_succession import IntegratedCareBoardSuccession
 from .integrated_care_board_version import IntegratedCareBoardVersion
 from .local_health_board import LocalHealthBoard, LocalHealthBoardBoundaries
 from .local_health_board_version import LocalHealthBoardVersion

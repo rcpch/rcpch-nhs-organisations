@@ -929,6 +929,37 @@ def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
     return row
 
 
+def backfill_integrated_care_board_attributes(
+    integrated_care_board, valid_from, valid_to, **fields
+):
+    """Insert a historical IntegratedCareBoardVersion row for the interval
+    [valid_from, valid_to) with the given attribute values, without touching the
+    current entity row. See backfill_trust_attributes for the full description.
+    """
+    IntegratedCareBoardVersion = apps.get_model(
+        "hospitals", "IntegratedCareBoardVersion"
+    )
+    snapshot = _snapshot_entity_fields(IntegratedCareBoardVersion, integrated_care_board)
+    snapshot.update(fields)
+    with transaction.atomic():
+        row = _backfill_version_row(
+            IntegratedCareBoardVersion,
+            parent_field="integrated_care_board",
+            parent=integrated_care_board,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            snapshot=snapshot,
+        )
+    logger.info(
+        "Backfilled Integrated Care Board %s version %s → %s: %s",
+        integrated_care_board.ods_code,
+        valid_from,
+        valid_to or "now",
+        ", ".join(f"{k}={v!r}" for k, v in fields.items()),
+    )
+    return row
+
+
 def backfill_organisation_attributes(organisation, valid_from, valid_to, **fields):
     """Insert a historical OrganisationVersion row for the interval
     [valid_from, valid_to) with the given attribute values, without touching the
