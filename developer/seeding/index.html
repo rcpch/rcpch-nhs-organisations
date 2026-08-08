@@ -856,6 +856,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../icb-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ICB history and succession
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../shapes/" class="md-nav__link">
         
   
@@ -972,6 +1000,17 @@
     <span class="md-ellipsis">
       
         Temporal history baseline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#icb-boundary-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ICB boundary fields
       
     </span>
   </a>
@@ -1455,6 +1494,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#icb-boundary-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ICB boundary fields
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1499,12 +1549,12 @@
 <li>England</li>
 <li>Wales</li>
 <li>Scotland</li>
-<li>Northern Island</li>
+<li>Northern Ireland</li>
 <li>Jersey</li>
 <li>Isle of Man</li>
 </ul>
 <p>Each one of these is associated with GIS shapes data loaded in from .csv in the <code>shape_files</code> folder. This goes through a LayerMapping step beforehand. We don't have a shape file for the Isle of Man yet.</p>
-<p>Subsequent seeding happens then from the command line and adds:</p>
+<p>Subsequent seeding happens from the command line and adds:</p>
 <ul>
 <li>Organisations</li>
 <li>Trusts</li>
@@ -1512,16 +1562,15 @@
 <li>Paediatric Diabetes Units</li>
 <li>OPENUK Networks</li>
 </ul>
-<p>To run this after initial migration therefore from the command line within the docker instance it is necessary to:
-To run this after initial migration therefore from the command line it is necessary to:</p>
+<p>To run this after initial migration from the command line:</p>
 <div class="highlight"><pre><span></span><code><span class="go">python manage.py seed --level all</span>
 </code></pre></div>
-<p>If only individual models need seeding the <code>--model</code> attribute accepts these parameters:
+<p>If only individual models need seeding the <code>--level</code> attribute accepts these parameters:
 <code>abstraction_levels</code> (this adds ODS codes to the existing ICBs, London Boroughs, NHS England regions, as well as ONS GSS codes to the Countries)
 <code>trusts</code>
 <code>organisations</code>
 <code>pdus</code>
-<code>all</code>  - Adds all the above as well</p>
+<code>all</code>  - Adds all the above</p>
 <h3 id="temporal-history-baseline">Temporal history baseline<a class="headerlink" href="#temporal-history-baseline" title="Permanent link">&para;</a></h3>
 <p>Migration <code>0024_baseline_version_backfill</code> runs automatically after the entity
 version tables are created. It creates a baseline <code>*Version</code> row for every
@@ -1532,8 +1581,26 @@ as the baseline so that every change from install day forward is captured.</p>
 <p>See <a href="../temporal-history/">temporal-history.md</a> for the full design. Note that
 the baseline backfill does <strong>not</strong> create relationship membership rows —
 those are created on demand when a relationship changes (via the helpers in
-<code>general_functions/membership.py</code>) or when a new organisation is created (via
-the <code>mergers --create</code> command).</p>
+<code>general_functions/membership.py</code>), when a new organisation is created (via
+the <code>mergers --create</code> command), or by the backfill commands that recover
+historical memberships from the ODS API (see
+<a href="../backfill/">backfill.md</a>,
+<a href="../icb-history/">icb-history.md</a>, and
+<a href="../pdu-history/">pdu-history.md</a>).</p>
+<h3 id="icb-boundary-fields">ICB boundary fields<a class="headerlink" href="#icb-boundary-fields" title="Permanent link">&para;</a></h3>
+<p>The <code>IntegratedCareBoardBoundaries</code> abstract base class has boundary geometry
+fields (<code>bng_e</code>, <code>bng_n</code>, <code>long</code>, <code>lat</code>, <code>globalid</code>, <code>geom</code>) that are now
+<strong>nullable</strong>. The existing 42 ICBs have geometry loaded from ONS shapefiles
+(<code>Integrated_Care_Boards_April_2023_EN_BSC</code> in the <code>shape_files</code> folder).
+New ICBs created by the backfill (e.g. the 6 new ICBs from the 2026
+reorganisation) do not have boundary data — the fields are left as <code>None</code>.
+The long-term intention is to deprecate the geometry fields from this
+project entirely and leave all boundary data to the
+<a href="https://github.com/rcpch/rcpch-census-platform">RCPCH Census Platform</a>.
+See <a href="../icb-history/">icb-history.md</a> for details.</p>
+<p>The <code>IntegratedCareBoard</code> model also has an <code>active</code> boolean field
+(defaulting to <code>True</code>), mirroring the trust and PDU pattern. This allows
+the closure workflow to set <code>active=False</code> on dissolved ICBs.</p>
 
 
 

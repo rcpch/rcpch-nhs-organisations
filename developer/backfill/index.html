@@ -860,6 +860,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#quick-start-running-the-full-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start: running the full backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#background" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1254,6 +1265,34 @@
     
   
     PDU history backfill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icb-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ICB history and succession
   
 
     
@@ -1811,6 +1850,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#quick-start-running-the-full-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start: running the full backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#background" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2218,12 +2268,87 @@
 <p>This document describes how to recover organisational history that was
 overwritten before the temporal history layer was installed — past names,
 past trust affiliations, and merger/succession links. It covers the ODS
-API's recovery window, the manual <code>backfill_*</code> helpers, and the two
-management commands that recover the full succession and membership chain
-from ODS.</p>
+API's recovery window, the manual <code>backfill_*</code> helpers, and the management
+commands that recover the full succession and membership chain from ODS.</p>
 <p>It should be read alongside <a href="../temporal-history/"><code>temporal-history.md</code></a>,
 which describes the schema, and <a href="../merger-handling/"><code>merger-handling.md</code></a>,
 which describes the merger types and the forward-looking admin workflow.</p>
+<p>For ICB-specific backfill, see <a href="../icb-history/"><code>icb-history.md</code></a>.
+For PDU-specific backfill, see <a href="../pdu-history/"><code>pdu-history.md</code></a>.</p>
+<h2 id="quick-start-running-the-full-backfill">Quick start: running the full backfill<a class="headerlink" href="#quick-start-running-the-full-backfill" title="Permanent link">&para;</a></h2>
+<p>After a fresh seed (<code>python manage.py seed --level all</code>), run the
+following commands in order. Each command depends on entities created by
+the previous one. All commands are idempotent and support <code>--dry-run</code> for
+a preview before writing.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 1. Set lead_organisation FKs and name_source on PDUs</span>
+<span class="c1">#    (replaces the hardcoded PZ-code lists that were in the model)</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_pdu_lead_organisations<span class="w"> </span>--yes
+
+<span class="c1"># 2. Backfill trust successions (mergers, acquisitions, splits)</span>
+<span class="c1">#    Creates predecessor trust rows marked inactive + TrustSuccession rows.</span>
+<span class="c1">#    Also backfills successor establishment/name rows (Pass 2).</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>trust<span class="w"> </span>--yes
+
+<span class="c1"># 3. Backfill organisation successions (ODS code changes)</span>
+<span class="c1">#    Creates OrganisationSuccession rows for sites that were re-coded</span>
+<span class="c1">#    when their parent trust was dissolved (e.g. RYQ30 -&gt; RJZ30).</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>organisation<span class="w"> </span>--yes
+
+<span class="c1"># 4. Backfill ICB successions (the 2026 ICB reorganisation)</span>
+<span class="c1">#    Creates missing successor ICB rows from the ODS record +</span>
+<span class="c1">#    IntegratedCareBoardSuccession rows. Closes predecessor ICBs.</span>
+<span class="c1">#    Auto-classifies QRL as an acquisition via KNOWN_ICB_ACQUISITIONS.</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>icb<span class="w"> </span>--yes
+
+<span class="c1"># 5. Backfill trust -&gt; trust membership history (org -&gt; trust)</span>
+<span class="c1">#    Reads RE6 rels from each organisation&#39;s ODS record.</span>
+<span class="c1">#    Recovers which trust each hospital site was under, and when.</span>
+<span class="c1">#    Depends on step 2 (predecessor trust rows must exist).</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_trust_memberships<span class="w"> </span>--yes
+
+<span class="c1"># 6. Backfill trust -&gt; ICB membership history</span>
+<span class="c1">#    Reads RE5/RE8 rels pointing at RO261 (ICBs) from each trust&#39;s ODS</span>
+<span class="c1">#    record. Ignores CCGs (RO210) and STPs (RO132).</span>
+<span class="c1">#    Depends on step 4 (successor ICBs must exist).</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_icb_memberships<span class="w"> </span>--yes
+
+<span class="c1"># 7. Backfill PDU history (versions, network memberships, lead-org</span>
+<span class="c1">#    memberships, successions)</span>
+<span class="c1">#    Reads from Master_PDU_Lookup.xlsx via generated constants.</span>
+<span class="c1">#    Creates missing PDU rows (inactive predecessors, never-participated</span>
+<span class="c1">#    codes), writes PaediatricDiabetesUnitVersion rows, network</span>
+<span class="c1">#    memberships, lead-org OrganisationPaediatricDiabetesUnitMembership</span>
+<span class="c1">#    rows, and PaediatricDiabetesUnitSuccession rows. Closes predecessors</span>
+<span class="c1">#    and reassigns lead organisations to successors.</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_pdu_successions<span class="w"> </span>--yes
+</code></pre></div>
+<p><strong>Why this order?</strong></p>
+<ul>
+<li>Step 2 creates predecessor trust rows that step 5 needs to look up
+  (the <code>RE6</code> rels point at dissolved trusts that no longer exist in the
+  seed).</li>
+<li>Step 4 creates successor ICB rows that step 6 needs to look up (the
+  <code>RE5</code>/<code>RE8</code> rels point at the new ICBs that don't exist in the seed).</li>
+<li>Step 7 is independent of the ODS-driven steps (it reads from the
+  spreadsheet, not the ODS), but it does set <code>lead_organisation</code> FKs that
+  step 1 may have already set — the two commands are idempotent and
+  don't conflict.</li>
+</ul>
+<p>All commands support <code>--dry-run</code> (report without writing) for a preview
+before applying. Remove <code>--yes</code> for interactive <code>y/n/s</code> prompts per row.</p>
+<p><strong>Do not run <code>cron</code> until the backfill is complete.</strong> The <code>cron</code> command
+(<code>cron --service organisations</code>) is the ongoing ODS sync — it fetches
+recent changes from the ODS <code>/sync</code> endpoint (last 30 days by default)
+and applies them through the temporal helpers. It is the forward-looking
+maintenance path, not a backfill tool. Running it before the backfill
+commands have populated the historical rows can produce inconsistent
+state: the sync may overwrite a current-state row that the backfill has
+not yet snapshotted into a version row, or it may apply a name change at
+today's date when the backfill would have backfilled the old name at the
+historical date. Run the backfill commands first (steps 1–7 above), then
+start the monthly <code>cron</code> sync to keep the database up to date going
+forward. See <a href="#part-1--ods-driven-recovery-within-185-days">Part 1</a> for
+the <code>cron</code> command's <code>--time-frame</code> and <code>--dry-run</code> options.</p>
 <h2 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h2>
 <p>The temporal history layer (see <a href="../temporal-history/"><code>temporal-history.md</code></a>)
 records entity attribute changes and affiliation changes from installation day
@@ -2238,10 +2363,12 @@ affiliations.</p>
 <li><strong>Older than 185 days</strong> — the ODS <code>/sync</code> endpoint cannot return the change,
   but the <code>/organisations/{ods_code}</code> endpoint returns the full <code>Succs</code> and
   <code>Rels</code> history regardless of when the events happened. The
-  <code>backfill_successions</code> and <code>backfill_trust_memberships</code> commands use this to
-  recover the full merger and membership chain. For historical names and
-  addresses (which ODS overwrites in place), the <code>backfill_*</code> helpers are used
-  with manually-researched dates.</li>
+  <code>backfill_successions</code>, <code>backfill_trust_memberships</code>, and
+  <code>backfill_icb_memberships</code> commands use this to recover the full merger and
+  membership chain. For historical names and addresses (which ODS overwrites
+  in place), the <code>backfill_*</code> helpers are used with manually-researched dates.
+  PDU history is recovered from <code>Master_PDU_Lookup.xlsx</code> via the
+  <code>backfill_pdu_successions</code> command (PDUs are not tracked by the ODS).</li>
 </ul>
 <h2 id="part-1-ods-driven-recovery-within-185-days">Part 1 — ODS-driven recovery (within 185 days)<a class="headerlink" href="#part-1-ods-driven-recovery-within-185-days" title="Permanent link">&para;</a></h2>
 <h3 id="the-time-frame-argument-on-the-cron-command">The <code>--time-frame</code> argument on the <code>cron</code> command<a class="headerlink" href="#the-time-frame-argument-on-the-cron-command" title="Permanent link">&para;</a></h3>
@@ -3159,14 +3286,27 @@ done.
 <p>The 185-day window is the ODS API's hard limit on the <code>/sync</code> endpoint.
 <code>/organisations/{ods_code}</code> is not subject to that limit — it returns the
 full <code>Succs</code> and <code>Rels</code> history regardless of when the events happened — so
-<code>backfill_successions</code> and <code>backfill_trust_memberships</code> can recover the full
-merger and membership chain, not just the last 185 days.</p>
+<code>backfill_successions</code>, <code>backfill_trust_memberships</code>, and
+<code>backfill_icb_memberships</code> can recover the full merger and membership
+chain, not just the last 185 days.</p>
 <p>What is <strong>not</strong> recoverable from the ODS API at all is the historical
 <strong>names and addresses</strong> of active entities, because ODS overwrites those in
 place. Those require the <code>backfill_*</code> helpers with manually-researched dates
 (as in the Northern Care Alliance example in Part 2). If audit data going
 back further needs to be re-run at scale, this would require a one-off import
 from ODS Trac bulk dumps — a separate project.</p>
+<p><strong>PDU history</strong> is not recoverable from the ODS at all — PDUs are not
+tracked by the ODS. PDU history is recovered from
+<code>Master_PDU_Lookup.xlsx</code> via the <code>backfill_pdu_successions</code> command (see
+<a href="../pdu-history/"><code>pdu-history.md</code></a>).</p>
+<p><strong>ICB succession and membership history</strong> is recovered from the ODS <code>Succs</code>
+and <code>Rels</code> blocks via <code>backfill_successions --entity icb</code> and
+<code>backfill_icb_memberships</code> (see <a href="../icb-history/"><code>icb-history.md</code></a>).</p>
+<p><strong>Organisation → ICB membership history</strong> is not directly recoverable from
+the ODS — organisations do not have their own ICB rels. An organisation's
+ICB affiliation is implicit through its parent trust. The <code>as_of</code> workflow
+walks organisation → trust → ICB, so recovering the trust → ICB membership
+(via <code>backfill_icb_memberships</code>) is sufficient.</p>
 <h2 id="ods-divergent-organisation-codes">ODS-divergent organisation codes<a class="headerlink" href="#ods-divergent-organisation-codes" title="Permanent link">&para;</a></h2>
 <p>ODS is an <strong>administrative</strong> directory: it models how the NHS codes
 organisations for national reporting flows (Spine, SUS, CDS), not how

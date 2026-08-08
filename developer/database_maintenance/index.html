@@ -856,6 +856,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../icb-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ICB history and succession
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../shapes/" class="md-nav__link">
         
   
@@ -1012,6 +1040,34 @@
     <span class="md-ellipsis">
       
         Dry-run mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backfill-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backfill commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backfill commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-the-backfills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the backfills
       
     </span>
   </a>
@@ -1501,6 +1557,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#backfill-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backfill commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backfill commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-the-backfills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the backfills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#merger" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1552,13 +1636,97 @@
 <p>It is used to maintain the lists in the RCPCH NHS Organisations API up to date. In particular, the endpoint <code>/sync?LastChangeDate=</code> returns a large list of updates to organisational data.</p>
 <p>Functions in the <code>ods_update</code> file in <code>general_functions</code> can make periodic calls to this endpoint and update any records in the Trust and Organisation tables if any have been published.</p>
 <p>Since the temporal history layer was added, attribute changes are routed through the temporal helpers (<code>update_organisation_attributes</code> / <code>update_trust_attributes</code>) so that the previous state is recorded in the <code>*Version</code> tables before being overwritten. See <a href="../temporal-history/">temporal-history.md</a> for the design.</p>
-<p><strong>NOTE</strong>: This only updates Trusts and Organisations. Any changes in paediatric network membership (eg Paediatric Diabetes Units) have to be done manually. This is best done on the command line using a growing list of functions.</p>
+<p><strong>NOTE</strong>: The ODS sync only updates Trusts and Organisations. ICBs, NHS England Regions, and Paediatric Diabetes Units are not synced from the ODS automatically — they are maintained via the backfill commands (see below) or manually via the admin.</p>
 <h3 id="dry-run-mode">Dry-run mode<a class="headerlink" href="#dry-run-mode" title="Permanent link">&para;</a></h3>
 <p>The <code>cron</code> command accepts <code>--dry-run</code>, which reports what <em>would</em> change without writing to the database. This is used by the GitHub Action for ODS change detection (see <a href="../temporal-history/">temporal-history.md</a>) and is recommended before applying any sync:</p>
 <div class="highlight"><pre><span></span><code><span class="go">docker compose exec django python manage.py cron --service organisations --dry-run</span>
 </code></pre></div>
 <p>The <code>--report-file</code> flag writes the markdown report to a file instead of stdout, which is what the GitHub Action uses:</p>
 <div class="highlight"><pre><span></span><code><span class="go">docker compose exec django python manage.py cron --service organisations --dry-run --report-file ods_changes.md</span>
+</code></pre></div>
+<h2 id="backfill-commands">Backfill commands<a class="headerlink" href="#backfill-commands" title="Permanent link">&para;</a></h2>
+<p>The ODS sync only captures recent changes (within the last 185 days). To
+recover historical state that was overwritten before the temporal layer was
+installed, use the backfill commands. These read the full ODS record via
+<code>/organisations/{ods_code}</code> (which is not subject to the 185-day limit) or,
+for PDUs, from the curated <code>Master_PDU_Lookup.xlsx</code> spreadsheet.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it recovers</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backfill_successions --entity trust</code></td>
+<td><code>TrustSuccession</code> rows (mergers, acquisitions, splits)</td>
+<td>ODS <code>Succs</code> block</td>
+</tr>
+<tr>
+<td><code>backfill_successions --entity organisation</code></td>
+<td><code>OrganisationSuccession</code> rows (ODS code changes)</td>
+<td>ODS <code>Succs</code> block</td>
+</tr>
+<tr>
+<td><code>backfill_successions --entity icb</code></td>
+<td><code>IntegratedCareBoardSuccession</code> rows + missing successor ICBs</td>
+<td>ODS <code>Succs</code> block</td>
+</tr>
+<tr>
+<td><code>backfill_trust_memberships</code></td>
+<td><code>OrganisationTrustMembership</code> rows (org → trust history)</td>
+<td>ODS <code>Rels</code> block (<code>RE6</code>)</td>
+</tr>
+<tr>
+<td><code>backfill_icb_memberships</code></td>
+<td><code>TrustIntegratedCareBoardMembership</code> rows (trust → ICB history)</td>
+<td>ODS <code>Rels</code> block (<code>RE5</code>/<code>RE8</code> → <code>RO261</code>)</td>
+</tr>
+<tr>
+<td><code>backfill_pdu_lead_organisations</code></td>
+<td><code>lead_organisation</code> FK + <code>name_source</code> on PDUs</td>
+<td>Hardcoded PZ-code lists</td>
+</tr>
+<tr>
+<td><code>backfill_pdu_successions</code></td>
+<td><code>PaediatricDiabetesUnitVersion</code>, network memberships, lead-org memberships, <code>PaediatricDiabetesUnitSuccession</code> rows</td>
+<td><code>Master_PDU_Lookup.xlsx</code> (via generated constants)</td>
+</tr>
+</tbody>
+</table>
+<p>All commands support <code>--dry-run</code> (report without writing) and <code>--yes</code>
+(auto-apply without prompts). They are idempotent — safe to re-run.</p>
+<p>See <a href="../backfill/">backfill.md</a> for the trust/organisation backfill design,
+<a href="../icb-history/">icb-history.md</a> for the ICB backfill, and
+<a href="../pdu-history/">pdu-history.md</a> for the PDU backfill.</p>
+<h3 id="running-the-backfills">Running the backfills<a class="headerlink" href="#running-the-backfills" title="Permanent link">&para;</a></h3>
+<p>The recommended order (each command depends on the previous having created
+the entities it references):</p>
+<div class="highlight"><pre><span></span><code><span class="gp"># </span><span class="m">1</span>.<span class="w"> </span>Seed<span class="w"> </span>the<span class="w"> </span>current-state<span class="w"> </span>rows
+<span class="go">python manage.py seed --level all</span>
+
+<span class="gp"># </span><span class="m">2</span>.<span class="w"> </span>Set<span class="w"> </span>lead_organisation<span class="w"> </span>FKs<span class="w"> </span>on<span class="w"> </span>PDUs
+<span class="go">python manage.py backfill_pdu_lead_organisations --yes</span>
+
+<span class="gp"># </span><span class="m">3</span>.<span class="w"> </span>Backfill<span class="w"> </span>trust<span class="w"> </span>successions<span class="w"> </span><span class="o">(</span>creates<span class="w"> </span>predecessor<span class="w"> </span>trust<span class="w"> </span>rows<span class="o">)</span>
+<span class="go">python manage.py backfill_successions --entity trust --yes</span>
+
+<span class="gp"># </span><span class="m">4</span>.<span class="w"> </span>Backfill<span class="w"> </span>organisation<span class="w"> </span>successions
+<span class="go">python manage.py backfill_successions --entity organisation --yes</span>
+
+<span class="gp"># </span><span class="m">5</span>.<span class="w"> </span>Backfill<span class="w"> </span>ICB<span class="w"> </span>successions<span class="w"> </span><span class="o">(</span>creates<span class="w"> </span>missing<span class="w"> </span>successor<span class="w"> </span>ICB<span class="w"> </span>rows<span class="o">)</span>
+<span class="go">python manage.py backfill_successions --entity icb --yes</span>
+
+<span class="gp"># </span><span class="m">6</span>.<span class="w"> </span>Backfill<span class="w"> </span>trust<span class="w"> </span>→<span class="w"> </span>trust<span class="w"> </span>membership<span class="w"> </span><span class="nb">history</span>
+<span class="go">python manage.py backfill_trust_memberships --yes</span>
+
+<span class="gp"># </span><span class="m">7</span>.<span class="w"> </span>Backfill<span class="w"> </span>trust<span class="w"> </span>→<span class="w"> </span>ICB<span class="w"> </span>membership<span class="w"> </span><span class="nb">history</span>
+<span class="go">python manage.py backfill_icb_memberships --yes</span>
+
+<span class="gp"># </span><span class="m">8</span>.<span class="w"> </span>Backfill<span class="w"> </span>PDU<span class="w"> </span><span class="nb">history</span><span class="w"> </span><span class="o">(</span>creates<span class="w"> </span>missing<span class="w"> </span>PDU<span class="w"> </span>rows,<span class="w"> </span>successions,<span class="w"> </span>memberships<span class="o">)</span>
+<span class="go">python manage.py backfill_pdu_successions --yes</span>
 </code></pre></div>
 <h2 id="merger">Merger<a class="headerlink" href="#merger" title="Permanent link">&para;</a></h2>
 <p>The command line can be invoked in the docker instance with:</p>
@@ -1571,7 +1739,9 @@
 <code>--dry-run</code>: optional. Reports what would change without writing to the database.
 <em>Create</em>: This looks up the ODS code provided against the ORD API and persists the details in the Organisation table. It creates a relationship between the new organisation and a parent Trust/Local Health Board and if in England, an NHS Region and Integrated Care Board also. It also looks up against lists in <code>constants</code> for any matching membership of Paediatric Diabetes Units, OPEN UK Networks. If there is no relationship, it will prompt the user to confirm that they want to continue with organisation creation. It should be possible to add this relationship at a later date, but this is currently not supported. If there is no PDU in the database, an organisation will not be created. Since the temporal history layer was added, creating an organisation also creates baseline temporal rows (<code>OrganisationVersion</code> plus the relevant membership rows) so the new organisation has history from creation day forward.
 <em>Delete</em>: Since the Organisation does not have referential integrity with its parent or related regions, the user is asked to confirm that they want to continue with deletion. A summary of the organisation's membership is logged to the console. Note that if the organisation is the only one associated with a paediatric diabetes unit record or openuk network record, that will leave that association broken. If the organisation is added back, that relationship is recreated.</p>
-<p>For recording mergers (acquisitions, full mergers, splits, PDU mergers), see <a href="../merger-handling/">merger-handling.md</a>.</p>
+<p>For recording mergers (acquisitions, full mergers, splits, PDU mergers, ICB
+successions), see <a href="../merger-handling/">merger-handling.md</a> and
+<a href="../icb-history/">icb-history.md</a>.</p>
 
 
 

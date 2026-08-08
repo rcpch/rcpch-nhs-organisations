@@ -12,13 +12,13 @@
         <meta name="author" content="Dr Simon Chapman">
       
       
-        <link rel="canonical" href="https://rcpch.github.io/rcpch-nhs-organisations/developer/boundaries/">
+        <link rel="canonical" href="https://rcpch.github.io/rcpch-nhs-organisations/developer/icb-history/">
       
       
-        <link rel="prev" href="../shapes/">
+        <link rel="prev" href="../pdu-history/">
       
       
-        <link rel="next" href="../seeding/">
+        <link rel="next" href="../shapes/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Ordnance Survey and Boundaries - RCPCH NHS Organisations - Documentation</title>
+        <title>ICB history and succession - RCPCH NHS Organisations - Documentation</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#boundaries" class="md-skip">
+        <a href="#icb-history-and-succession" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Ordnance Survey and Boundaries
+              ICB history and succession
             
           </span>
         </div>
@@ -853,10 +853,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../icb-history/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ICB history and succession
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -872,6 +899,242 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#background-and-motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background and motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-2026-icb-reorganisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The 2026 ICB reorganisation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The 2026 ICB reorganisation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ods-verified-succession-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ODS-verified succession map
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-three-splits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three splits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-check-against-the-spreadsheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-check against the spreadsheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-model-integratedcareboardsuccession" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New model: IntegratedCareBoardSuccession
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-helper-backfill_integrated_care_board_attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New helper: backfill_integrated_care_board_attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#active-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        active field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boundary-fields-made-nullable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boundary fields made nullable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-classification-of-the-qrl-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-classification of the QRL acquisition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-missing-successor-icbs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating missing successor ICBs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#admin-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the backfill
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the backfill">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#github-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Action
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#child-membership-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Child membership backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -909,35 +1172,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ordnance Survey and Boundaries
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../boundaries/" class="md-nav__link">
         
   
   
@@ -953,130 +1191,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#boundaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Boundaries
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Boundaries">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#lower-layer-super-output-areas-lsoa" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lower Layer Super Output Areas (LSOA)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#local-authorities" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local Authorities
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Local Authorities">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#two-tier-systems" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Two-Tier Systems
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#unitary-authorities" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Unitary Authorities
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#metropolitan-boroughs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Metropolitan Boroughs
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Metropolitan Boroughs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#london" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        London
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implications-for-rcpch-nhs-organisations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Implications for RCPCH NHS Organisations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1560,6 +1674,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1568,22 +1684,44 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#boundaries" class="md-nav__link">
+  <a href="#background-and-motivation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Boundaries
+        Background and motivation
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Boundaries">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-2026-icb-reorganisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The 2026 ICB reorganisation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The 2026 ICB reorganisation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#lower-layer-super-output-areas-lsoa" class="md-nav__link">
+  <a href="#ods-verified-succession-map" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lower Layer Super Output Areas (LSOA)
+        ODS-verified succession map
       
     </span>
   </a>
@@ -1591,22 +1729,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#local-authorities" class="md-nav__link">
+  <a href="#the-three-splits" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Local Authorities
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Local Authorities">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#two-tier-systems" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Two-Tier Systems
+        The three splits
       
     </span>
   </a>
@@ -1614,46 +1740,13 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#unitary-authorities" class="md-nav__link">
+  <a href="#cross-check-against-the-spreadsheet" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unitary Authorities
+        Cross-check against the spreadsheet
       
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#metropolitan-boroughs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Metropolitan Boroughs
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Metropolitan Boroughs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#london" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        London
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -1663,10 +1756,143 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#implications-for-rcpch-nhs-organisations" class="md-nav__link">
+  <a href="#design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Implications for RCPCH NHS Organisations
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-model-integratedcareboardsuccession" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New model: IntegratedCareBoardSuccession
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-helper-backfill_integrated_care_board_attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New helper: backfill_integrated_care_board_attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#active-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        active field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boundary-fields-made-nullable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boundary fields made nullable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-classification-of-the-qrl-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-classification of the QRL acquisition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-missing-successor-icbs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating missing successor ICBs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#admin-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the backfill
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the backfill">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#github-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Action
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#child-membership-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Child membership backfill
       
     </span>
   </a>
@@ -1690,7 +1916,7 @@
 
 
   
-    <a href="https://github.com/rcpch/rcpch-nhs-organisations/blob/development/documentation/docs/developer/boundaries.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/rcpch/rcpch-nhs-organisations/blob/development/documentation/docs/developer/icb-history.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1699,34 +1925,533 @@
     
       
     
-    <a href="https://github.com/rcpch/rcpch-nhs-organisations/raw/development/documentation/docs/developer/boundaries.md" title="View source of this page" class="md-content__button md-icon">
+    <a href="https://github.com/rcpch/rcpch-nhs-organisations/raw/development/documentation/docs/developer/icb-history.md" title="View source of this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
     </a>
   
 
 
-  <h1>Ordnance Survey and Boundaries</h1>
+<h1 id="icb-history-and-succession">ICB history and succession<a class="headerlink" href="#icb-history-and-succession" title="Permanent link">&para;</a></h1>
+<p>This document describes how Integrated Care Board (ICB) mergers, splits,
+and successions are modelled and backfilled. ICBs are tracked by the ODS
+(unlike PDUs), so the source of truth is the ODS API — specifically the
+<code>Succs</code> block on each ICB's <code>/organisations/{ods_code}</code> record. The
+backfill follows the same pattern as the trust and organisation backfill
+(<code>backfill_successions --entity trust/organisation</code>), extended to support
+<code>--entity icb</code>.</p>
+<p>It should be read alongside:</p>
+<ul>
+<li><a href="../temporal-history/"><code>temporal-history.md</code></a> — the schema (Layer 1
+  version tables, Layer 2 membership tables, Layer 3 succession tables).</li>
+<li><a href="../backfill/"><code>backfill.md</code></a> — the ODS-driven trust backfill, which
+  this feature extends for ICBs.</li>
+<li><a href="../ods-api/"><code>ods-api.md</code></a> — the ODS API reference, including the
+  <code>Succs</code> block semantics.</li>
+<li><a href="../merger-handling/"><code>merger-handling.md</code></a> — the merger types and the
+  forward-looking admin workflow.</li>
+</ul>
+<h2 id="background-and-motivation">Background and motivation<a class="headerlink" href="#background-and-motivation" title="Permanent link">&para;</a></h2>
+<p>ICBs were established on 1 July 2022, replacing Clinical Commissioning
+Groups (CCGs). The 42 ICBs created in 2022 are being reorganised on
+<strong>1 April 2026</strong>: 12 of the original 42 will merge/split into 6 new ICBs,
+and 1 existing ICB (QRL, Hampshire and Isle of Wight) will gain territory
+from one of the dissolving ICBs.</p>
+<p>The temporal layer already models ICB attribute history
+(<code>IntegratedCareBoardVersion</code>, Layer 1) and ICB membership history
+(<code>OrganisationIntegratedCareBoardMembership</code> and
+<code>TrustIntegratedCareBoardMembership</code>, Layer 2). This feature adds the
+<strong>Layer 3 succession table</strong> (<code>IntegratedCareBoardSuccession</code>) to record
+the predecessor → successor link when ICBs merge or split.</p>
+<p>Without it, an as-of query for "which ICB was this organisation under on
+date X" can only walk the membership table. If the membership rows have
+been backfilled (closing the old ICB membership and opening the new one),
+the query works — but there is no audit record of <em>why</em> the membership
+changed, and no way to trace the ICB succession chain independently of
+the organisation memberships.</p>
+<h2 id="what-exists">What exists<a class="headerlink" href="#what-exists" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Table</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 — Entity version</td>
+<td><code>IntegratedCareBoardVersion</code></td>
+<td>Snapshots <code>name</code>, boundary fields, <code>publication_date</code>, <code>active</code>.</td>
+</tr>
+<tr>
+<td>2 — Relationship membership</td>
+<td><code>OrganisationIntegratedCareBoardMembership</code></td>
+<td>Tracks org → ICB over time.</td>
+</tr>
+<tr>
+<td>2 — Relationship membership</td>
+<td><code>TrustIntegratedCareBoardMembership</code></td>
+<td>Tracks trust → ICB over time.</td>
+</tr>
+<tr>
+<td>3 — Succession</td>
+<td><code>IntegratedCareBoardSuccession</code></td>
+<td>Records predecessor → successor links. Added by this feature.</td>
+</tr>
+</tbody>
+</table>
+<p>Helper functions:</p>
+<ul>
+<li><code>update_integrated_care_board_attributes()</code> — Layer 1 forward-looking
+  attribute update.</li>
+<li><code>backfill_integrated_care_board_attributes()</code> — Layer 1 historical
+  attribute backfill (added by this feature).</li>
+<li><code>reassign_organisation_integrated_care_board()</code> — Layer 2 forward-looking
+  org → ICB reassignment.</li>
+<li><code>reassign_trust_integrated_care_board()</code> — Layer 2 forward-looking
+  trust → ICB reassignment.</li>
+</ul>
+<h2 id="the-2026-icb-reorganisation">The 2026 ICB reorganisation<a class="headerlink" href="#the-2026-icb-reorganisation" title="Permanent link">&para;</a></h2>
+<p>On <strong>1 April 2026</strong>, 12 of the 42 ICBs established in 2022 will cease to
+exist. Their territories will be redistributed:</p>
+<ul>
+<li><strong>6 new ICBs</strong> will be created, each absorbing territory from 2–3 of
+  the dissolving ICBs.</li>
+<li><strong>1 existing ICB</strong> (QRL, Hampshire and Isle of Wight) will gain
+  territory from one dissolving ICB (Frimley, QNQ).</li>
+<li><strong>3 of the 12 dissolving ICBs</strong> will split, their territory going to
+  multiple successors.</li>
+</ul>
+<p>All data is from the ODS API (<code>/organisations/{ods_code}</code> → <code>Succs</code>
+block), verified on both sides (each predecessor's <code>Successor</code> event
+matches the corresponding successor's <code>Predecessor</code> event). The
+succession date is <strong>2026-04-01</strong> for all 16 events.</p>
+<h3 id="ods-verified-succession-map">ODS-verified succession map<a class="headerlink" href="#ods-verified-succession-map" title="Permanent link">&para;</a></h3>
+<p>The table below is the complete set of ICB succession events, confirmed
+against the ODS API. Each row is one predecessor → successor pair. The
+<code>Legal.Start</code> column is the successor's own establishment date from the
+ODS <code>Date</code> block — where it equals the succession date, the successor is
+a new entity (true merger); where it is earlier, the successor is an
+existing entity absorbing territory (acquisition).</p>
+<table>
+<thead>
+<tr>
+<th>Predecessor (ODS)</th>
+<th>Predecessor name</th>
+<th>Successor (ODS)</th>
+<th>Successor name</th>
+<th>Succession date</th>
+<th>Succession type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QHG</td>
+<td>NHS Bedfordshire, Luton and Milton Keynes</td>
+<td>S1Y5D</td>
+<td>NHS Central East</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>New ICB (Legal.Start=2026-04-01). 3 predecessors.</td>
+</tr>
+<tr>
+<td>QUE</td>
+<td>NHS Cambridgeshire and Peterborough</td>
+<td>S1Y5D</td>
+<td>NHS Central East</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>Same as above.</td>
+</tr>
+<tr>
+<td>QM7</td>
+<td>NHS Hertfordshire and West Essex</td>
+<td>S1Y5D</td>
+<td>NHS Central East</td>
+<td>2026-04-01</td>
+<td>split</td>
+<td>QM7 also → D7T5G (Essex).</td>
+</tr>
+<tr>
+<td>QM7</td>
+<td>NHS Hertfordshire and West Essex</td>
+<td>D7T5G</td>
+<td>NHS Essex</td>
+<td>2026-04-01</td>
+<td>split</td>
+<td>QM7 also → S1Y5D (Central East).</td>
+</tr>
+<tr>
+<td>QH8</td>
+<td>NHS Mid and South Essex</td>
+<td>D7T5G</td>
+<td>NHS Essex</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>New ICB (Legal.Start=2026-04-01). 3 predecessors.</td>
+</tr>
+<tr>
+<td>QJG</td>
+<td>NHS Suffolk and North East Essex</td>
+<td>D7T5G</td>
+<td>NHS Essex</td>
+<td>2026-04-01</td>
+<td>split</td>
+<td>QJG also → T6Y0W (Norfolk and Suffolk).</td>
+</tr>
+<tr>
+<td>QJG</td>
+<td>NHS Suffolk and North East Essex</td>
+<td>T6Y0W</td>
+<td>NHS Norfolk and Suffolk</td>
+<td>2026-04-01</td>
+<td>split</td>
+<td>QJG also → D7T5G (Essex).</td>
+</tr>
+<tr>
+<td>QMM</td>
+<td>NHS Norfolk and Waveney</td>
+<td>T6Y0W</td>
+<td>NHS Norfolk and Suffolk</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>New ICB (Legal.Start=2026-04-01). 2 predecessors.</td>
+</tr>
+<tr>
+<td>QNQ</td>
+<td>NHS Frimley</td>
+<td>S0E4D</td>
+<td>NHS Thames Valley</td>
+<td>2026-04-01</td>
+<td>split</td>
+<td>QNQ also → S9B9J and QRL. 3-way split.</td>
+</tr>
+<tr>
+<td>QNQ</td>
+<td>NHS Frimley</td>
+<td>S9B9J</td>
+<td>NHS Surrey and Sussex</td>
+<td>2026-04-01</td>
+<td>split</td>
+<td>QNQ also → S0E4D and QRL. 3-way split.</td>
+</tr>
+<tr>
+<td>QNQ</td>
+<td>NHS Frimley</td>
+<td>QRL</td>
+<td>NHS Hampshire and Isle of Wight</td>
+<td>2026-04-01</td>
+<td>acquisition</td>
+<td>QRL is an existing ICB (Legal.Start=None). Gains territory from Frimley.</td>
+</tr>
+<tr>
+<td>QU9</td>
+<td>NHS Buckinghamshire, Oxfordshire and Berkshire West</td>
+<td>S0E4D</td>
+<td>NHS Thames Valley</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>New ICB (Legal.Start=2026-04-01). 2 predecessors.</td>
+</tr>
+<tr>
+<td>QXU</td>
+<td>NHS Surrey Heartlands</td>
+<td>S9B9J</td>
+<td>NHS Surrey and Sussex</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>New ICB (Legal.Start=2026-04-01). 3 predecessors.</td>
+</tr>
+<tr>
+<td>QNX</td>
+<td>NHS Sussex</td>
+<td>S9B9J</td>
+<td>NHS Surrey and Sussex</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>Same as above.</td>
+</tr>
+<tr>
+<td>QMJ</td>
+<td>NHS North Central London</td>
+<td>Z9B2Z</td>
+<td>NHS West and North London</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>New ICB (Legal.Start=2026-04-01). 2 predecessors.</td>
+</tr>
+<tr>
+<td>QRV</td>
+<td>NHS North West London</td>
+<td>Z9B2Z</td>
+<td>NHS West and North London</td>
+<td>2026-04-01</td>
+<td>merger</td>
+<td>Same as above.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Summary:</strong> 16 succession rows, 12 predecessors (3 splitting), 7
+successors (6 new + 1 existing), all on 2026-04-01.</p>
+<h3 id="the-three-splits">The three splits<a class="headerlink" href="#the-three-splits" title="Permanent link">&para;</a></h3>
+<p>Three of the 12 dissolving ICBs split their territory across multiple
+successors:</p>
+<table>
+<thead>
+<tr>
+<th>Predecessor</th>
+<th>Successors</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QNQ (Frimley)</td>
+<td>S0E4D (Thames Valley), S9B9J (Surrey and Sussex), QRL (Hampshire and Isle of Wight)</td>
+<td>3-way split</td>
+</tr>
+<tr>
+<td>QM7 (Hertfordshire and West Essex)</td>
+<td>S1Y5D (Central East), D7T5G (Essex)</td>
+<td>2-way split</td>
+</tr>
+<tr>
+<td>QJG (Suffolk and North East Essex)</td>
+<td>D7T5G (Essex), T6Y0W (Norfolk and Suffolk)</td>
+<td>2-way split</td>
+</tr>
+</tbody>
+</table>
+<p>For these, the child organisation and trust ICB memberships need to be
+reassigned to the correct successor — which successor depends on the
+organisation's geographic location. The ODS <code>Rels</code> block on each child
+organisation's record will show which new ICB it reports to. This is a
+follow-up (see <a href="#out-of-scope">Out of scope</a>).</p>
+<h3 id="cross-check-against-the-spreadsheet">Cross-check against the spreadsheet<a class="headerlink" href="#cross-check-against-the-spreadsheet" title="Permanent link">&para;</a></h3>
+<p>The <code>Master_PDU_Lookup.xlsx</code> spreadsheet's <code>ICB_LHB</code> column records the
+"Old ICB" and "New ICB" for each PDU state. The 6 new ICB names in the
+spreadsheet match the 6 new ICB names from the ODS:</p>
+<table>
+<thead>
+<tr>
+<th>Spreadsheet name (stripped)</th>
+<th>ODS code</th>
+<th>ODS name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NHS Central East Integrated Care Board</td>
+<td>S1Y5D</td>
+<td>NHS CENTRAL EAST INTEGRATED CARE BOARD</td>
+</tr>
+<tr>
+<td>NHS Essex Integrated Care Board</td>
+<td>D7T5G</td>
+<td>NHS ESSEX INTEGRATED CARE BOARD</td>
+</tr>
+<tr>
+<td>NHS Norfolk and Suffolk Integrated Care Board</td>
+<td>T6Y0W</td>
+<td>NHS NORFOLK AND SUFFOLK INTEGRATED CARE BOARD</td>
+</tr>
+<tr>
+<td>NHS Surrey and Sussex Integrated Care Board</td>
+<td>S9B9J</td>
+<td>NHS SURREY AND SUSSEX INTEGRATED CARE BOARD</td>
+</tr>
+<tr>
+<td>NHS Thames Valley Integrated Care Board</td>
+<td>S0E4D</td>
+<td>NHS THAMES VALLEY INTEGRATED CARE BOARD</td>
+</tr>
+<tr>
+<td>NHS West and North London Integrated Care Board</td>
+<td>Z9B2Z</td>
+<td>NHS WEST AND NORTH LONDON INTEGRATED CARE BOARD</td>
+</tr>
+</tbody>
+</table>
+<p>The spreadsheet does not record QRL (Hampshire and Isle of Wight) as a
+"New ICB" because it already exists — it is gaining territory, not being
+created. The ODS is the source of truth for this; the spreadsheet's
+"Old ICB" / "New ICB" columns are PDU-centric and do not surface the
+QRL acquisition.</p>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<h3 id="new-model-integratedcareboardsuccession">New model: <code>IntegratedCareBoardSuccession</code><a class="headerlink" href="#new-model-integratedcareboardsuccession" title="Permanent link">&para;</a></h3>
+<p>A Layer 3 succession table, mirroring <code>TrustSuccession</code> and
+<code>PaediatricDiabetesUnitSuccession</code>. The <code>successor</code> FK is nullable to
+support closures with no successor (same as trusts and PDUs).</p>
+<p>File: <code>rcpch_nhs_organisations/hospitals/models/integrated_care_board_succession.py</code></p>
+<h3 id="new-helper-backfill_integrated_care_board_attributes">New helper: <code>backfill_integrated_care_board_attributes</code><a class="headerlink" href="#new-helper-backfill_integrated_care_board_attributes" title="Permanent link">&para;</a></h3>
+<p>A Layer 1 backfill helper, mirroring <code>backfill_trust_attributes</code>. Inserts
+an <code>IntegratedCareBoardVersion</code> row with an explicit <code>[valid_from,
+valid_to)</code> interval and explicit attribute values, without touching the
+current entity row or the current version row. Used by
+<code>backfill_successions</code> for the predecessor closure write and the successor
+establishment row.</p>
+<p>File: <code>rcpch_nhs_organisations/hospitals/general_functions/membership.py</code></p>
+<h3 id="active-field"><code>active</code> field<a class="headerlink" href="#active-field" title="Permanent link">&para;</a></h3>
+<p>An <code>active</code> boolean (defaulting to <code>True</code>) was added to both
+<code>IntegratedCareBoard</code> and <code>IntegratedCareBoardVersion</code>, mirroring the trust
+and PDU pattern. This allows the closure workflow to set <code>active=False</code> on
+dissolved ICBs.</p>
+<h3 id="boundary-fields-made-nullable">Boundary fields made nullable<a class="headerlink" href="#boundary-fields-made-nullable" title="Permanent link">&para;</a></h3>
+<p>The boundary fields (<code>bng_e</code>, <code>bng_n</code>, <code>long</code>, <code>lat</code>, <code>globalid</code>, <code>geom</code>)
+on <code>IntegratedCareBoardBoundaries</code> were made nullable so the backfill can
+create new ICB rows without boundary data. The long-term intention is to
+deprecate the geometry fields from this project entirely and leave all
+boundary data to the
+<a href="https://github.com/rcpch/rcpch-census-platform">RCPCH Census Platform</a>.
+A future feature on the census platform would expose a REST endpoint
+serving ICB geometry by ODS code. The geometry fields can be fully removed
+in a future migration once that endpoint is available and consuming
+applications have migrated.</p>
+<h3 id="auto-classification-of-the-qrl-acquisition">Auto-classification of the QRL acquisition<a class="headerlink" href="#auto-classification-of-the-qrl-acquisition" title="Permanent link">&para;</a></h3>
+<p>QRL (NHS Hampshire and Isle of Wight) is an existing ICB that gains
+territory from Frimley (QNQ) on 2026-04-01. ODS does not expose a
+<code>Legal.Start</code> for QRL, so the <code>backfill_successions</code> command's
+<code>Legal.Start == event date</code> check cannot distinguish it from a true
+merger. A constants table auto-classifies it as an acquisition,
+mirroring the <code>KNOWN_ACQUISITIONS</code> table for trusts.</p>
+<p>The constants live in <code>KNOWN_ICB_ACQUISITIONS</code> in
+<code>rcpch_nhs_organisations/hospitals/constants/known_icb_acquisitions.py</code>.
+The command looks up each <code>(successor_ods_code, succession_date)</code> pair
+and, if found, auto-classifies the succession type as <code>acquisition</code>.</p>
+<table>
+<thead>
+<tr>
+<th>ODS</th>
+<th>Successor (current name)</th>
+<th>Predecessor</th>
+<th>Legal.Start</th>
+<th>Succession date</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QRL</td>
+<td>NHS Hampshire and Isle of Wight Integrated Care Board</td>
+<td>QNQ (NHS Frimley)</td>
+<td>2017-04-01</td>
+<td>2026-04-01</td>
+<td>Existing ICB gains territory from Frimley (3-way split: QNQ → S0E4D, S9B9J, QRL). Name unchanged.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="creating-missing-successor-icbs">Creating missing successor ICBs<a class="headerlink" href="#creating-missing-successor-icbs" title="Permanent link">&para;</a></h3>
+<p>The 6 new ICBs (S1Y5D, S0E4D, S9B9J, D7T5G, T6Y0W, Z9B2Z) do not exist
+in the database or constants. The <code>backfill_successions</code> command creates
+them on the fly from the ODS record (the <code>_create_missing_icb</code> method),
+matching the PDU backfill pattern. The ICB row is created with <code>ods_code</code>,
+<code>name</code>, and <code>publication_date</code> from the ODS record. The boundary/shape
+fields are left as <code>None</code> (they are now nullable). A baseline
+<code>IntegratedCareBoardVersion</code> row is written at <code>Legal.Start</code>.</p>
+<h3 id="admin-registration">Admin registration<a class="headerlink" href="#admin-registration" title="Permanent link">&para;</a></h3>
+<p><code>IntegratedCareBoardSuccession</code> is registered in the admin, mirroring
+<code>TrustSuccessionAdmin</code> — list display, filter, search, date hierarchy,
+and the shared succession change templates.</p>
+<h2 id="running-the-backfill">Running the backfill<a class="headerlink" href="#running-the-backfill" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># Preview what would be backfilled (no writes)</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>icb<span class="w"> </span>--dry-run
 
-<h2 id="boundaries">Boundaries<a class="headerlink" href="#boundaries" title="Permanent link">&para;</a></h2>
-<p>Healthcare often reports outcomes according to health geographies - for example at the level of Integrated Care Boards (ICBs) in England, but many like to have their data in administrative contexts also. Deprivation index, for example, which has a large impact on health, is not measured across health geographies, but across administrative ones.</p>
-<h3 id="lower-layer-super-output-areas-lsoa">Lower Layer Super Output Areas (LSOA)<a class="headerlink" href="#lower-layer-super-output-areas-lsoa" title="Permanent link">&para;</a></h3>
-<p>The index of multiple deprivation <a href="https://github.com/rcpch/rcpch-census-platform">for which RCPCH has another repository</a> relies on census data to summarize different societal and population features to rank geographical units in order of most deprived to least deprived - the higher the score, the better off the region is. IMD uses Lower Layer Super Output Areas (LSOA) whose boundaries were last defined in 2011. These boundaries don't change much, but were updated last in 2021. They are not meant to change to allow longitudinal data to be gathered and be meaningful. LSOAs are chosen to be the way they are as they have population numbers as their common feature (1500 individuals or 650 households) - geographically distributed LSOAs cover a larger area, but in cities they are small as population numbers per unit area are larger.</p>
-<p>The last index of multiple of deprivation data for England was published in 2019 and used the 2011 LSOAs, since those were the latest boundaries. Since then, there has been the census of 2021, with the LSOA boundaries updated the same year. The decision on which boundaries will be included in the next iteration of IMD will be decided bythe Office for National Statistics (ONS) and the Ministry of Housing, Communities &amp; Local Government (MHCLG) (now the Department for Levelling Up, Housing and Communities).</p>
-<h3 id="local-authorities">Local Authorities<a class="headerlink" href="#local-authorities" title="Permanent link">&para;</a></h3>
-<p>These are administrative geography boundaries. LSOAs conveniently fit neatly inside LAs but the LA boundaries change more frequently.</p>
-<p><strong>Local Authority Districts (LADs)</strong> are a unit of local administration and statistical geography, and their structure varies across the country. Depending on the region, LADs can take different forms:</p>
-<h4 id="two-tier-systems">Two-Tier Systems<a class="headerlink" href="#two-tier-systems" title="Permanent link">&para;</a></h4>
-<p>In some areas, LADs correspond to district councils, which operate alongside a county council that provides upper-tier services (e.g., Hertfordshire has multiple district councils, such as Watford Borough Council, each of which is an LAD).</p>
-<h4 id="unitary-authorities">Unitary Authorities<a class="headerlink" href="#unitary-authorities" title="Permanent link">&para;</a></h4>
-<p>In other areas, LADs correspond to unitary authorities, which combine the responsibilities of both district and county councils into a single authority.</p>
-<h4 id="metropolitan-boroughs">Metropolitan Boroughs<a class="headerlink" href="#metropolitan-boroughs" title="Permanent link">&para;</a></h4>
-<p>In metropolitan areas, LADs correspond to metropolitan boroughs (e.g., Manchester Metropolitan Borough), which provide local services. These boroughs are part of a wider metropolitan county (e.g., Greater Manchester) that handles strategic functions like transport and policing.</p>
-<h5 id="london">London<a class="headerlink" href="#london" title="Permanent link">&para;</a></h5>
-<p>London is unique, with 32 London Boroughs serving as LADs, plus the City of London, which is its own LAD. The Greater London Authority (GLA) oversees strategic citywide functions but is not an LAD</p>
-<p>LAD boundaries change quite frequently. Each LAD has its own unique identifier and the boundaries and membership of LADs, which LSOAs they comprise, are updated by the ONS and published in the form of <a href="https://geoportal.statistics.gov.uk/documents/ons::local-authority-districts-counties-and-unitary-authorities-april-2023-map-in-the-uk/about?path=">look up tables</a></p>
-<h2 id="implications-for-rcpch-nhs-organisations">Implications for RCPCH NHS Organisations<a class="headerlink" href="#implications-for-rcpch-nhs-organisations" title="Permanent link">&para;</a></h2>
-<p>Although local authorities are not health geographies, local government has an interest in the health of the local population, and a responsibility for all functions of government that influence health (from housing, to green space, to transport etc), so RCPCH stores the relationship between the organisations that care for children and their local authority district.</p>
+<span class="c1"># Apply with interactive yes/no prompts</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>icb
+
+<span class="c1"># Apply all without prompts (for re-runs / CI)</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>icb<span class="w"> </span>--yes
+</code></pre></div>
+<p>The command runs the same two-pass logic as <code>--entity trust</code>:</p>
+<ol>
+<li><strong>Pass 1</strong> — iterates every ICB in the database, fetches its ODS
+   record, reads the <code>Succs</code> block, and for each missing succession row:
+   creates the <code>IntegratedCareBoardSuccession</code> row, creates missing
+   successor ICBs from the ODS record, and closes the predecessor
+   (<code>active=False</code> + closure version row).</li>
+<li><strong>Pass 2</strong> — backfills the successor's establishment/name row for each
+   applied <code>Predecessor</code> event. For true mergers (new ICBs with
+   <code>Legal.Start == event date</code>), writes an establishment row. For
+   acquisitions (QRL), auto-classifies via <code>KNOWN_ICB_ACQUISITIONS</code> and
+   skips the name backfill (ICBs are not renamed when they gain
+   territory).</li>
+</ol>
+<p>The command is idempotent: re-running creates no duplicate rows.</p>
+<h3 id="github-action">GitHub Action<a class="headerlink" href="#github-action" title="Permanent link">&para;</a></h3>
+<p>The monthly ODS change detection GitHub Action
+(<code>.github/workflows/ods-change-detection.yml</code>) now includes the ICB
+succession backfill as a third check. It runs
+<code>backfill_successions --entity icb --dry-run</code> alongside the ODS sync and
+trust succession backfill, and combines all three reports into a single
+GitHub issue. See <a href="../temporal-history/"><code>temporal-history.md</code></a> → "GitHub
+Action for ODS change detection".</p>
+<h2 id="out-of-scope">Out of scope<a class="headerlink" href="#out-of-scope" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Boundary/shape data for new ICBs.</strong> The long-term intention is to
+  deprecate the geometry fields from this project entirely and leave all
+  boundary data to the RCPCH Census Platform. The fields are made
+  nullable now so the backfill can proceed; a future migration will
+  remove them once the census platform exposes a geometry endpoint and
+  consuming applications have migrated.</li>
+<li><strong>Future ICB mergers.</strong> These will use the forward-looking admin
+  workflow (once the admin actions for ICB reassignment are built) and
+  the <code>reassign_organisation_integrated_care_board</code> /
+  <code>reassign_trust_integrated_care_board</code> helpers.</li>
+<li><strong>CCG / STP history.</strong> The ODS <code>Rels</code> block on each trust's record
+  contains historical CCG (<code>RO210</code>) and STP (<code>RO132</code>) relationships dating
+  back to 1996, but these entities are not in our database and audit
+  reporting does not rely on them. Reporting walks the chain
+  organisation → trust/LHB → ICB → NHS England region → country, so
+  only ICB-level affiliations are recovered.</li>
+<li><strong>Organisation → ICB membership backfill.</strong> Organisations do not have
+  their own ICB rels in the ODS — only trusts do. An organisation's ICB
+  affiliation is implicit through its parent trust. The
+  <code>OrganisationIntegratedCareBoardMembership</code> table is populated by the
+  seed (current state) and the forward-looking <code>reassign_*</code> helper
+  (future changes). Recovering historical org → ICB memberships would
+  require deriving them from the trust → ICB + org → trust membership
+  intervals — a separate command if needed.</li>
+</ul>
+<h2 id="child-membership-backfill">Child membership backfill<a class="headerlink" href="#child-membership-backfill" title="Permanent link">&para;</a></h2>
+<p>When the 12 old ICBs dissolve on 2026-04-01, the trusts under them need
+to be reassigned to the correct successor ICB. The ODS holds the full
+trust → ICB affiliation history in the <code>Rels</code> block of each trust's
+record — <code>RE5</code> ("managed by / reports to") and <code>RE8</code> ("operates /
+is operated by") rels pointing at ICBs (<code>RO261</code>), with operational
+<code>[Start, End]</code> intervals.</p>
+<p>The <code>backfill_icb_memberships</code> command recovers this history:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Preview what would be backfilled (no writes)</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_icb_memberships<span class="w"> </span>--dry-run
+
+<span class="c1"># Apply with interactive prompts</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_icb_memberships
+
+<span class="c1"># Apply all without prompts</span>
+python<span class="w"> </span>manage.py<span class="w"> </span>backfill_icb_memberships<span class="w"> </span>--yes
+</code></pre></div>
+<p>The command:</p>
+<ol>
+<li>Iterates every trust in the database.</li>
+<li>Fetches its ODS record via <code>/organisations/{ods_code}</code>.</li>
+<li>Reads the <code>RE5</code>/<code>RE8</code> rels pointing at <code>RO261</code> (ICBs) — ignoring
+   <code>RO210</code> (CCGs) and <code>RO132</code> (STPs), which are not needed for audit
+   reporting.</li>
+<li>For each rel, backfills a <code>TrustIntegratedCareBoardMembership</code> row
+   with the operational <code>[Start, End]</code> interval (idempotent on
+   <code>(trust, icb, valid_from, valid_to)</code>).</li>
+</ol>
+<p>Organisations do not have their own ICB rels in the ODS — only trusts do.
+An organisation's ICB affiliation is implicit through its parent trust:
+the <code>as_of</code> workflow walks organisation → trust → ICB, so recovering the
+trust → ICB membership is sufficient. The <code>OrganisationIntegratedCareBoardMembership</code>
+table is populated by the seed (current state) and the forward-looking
+<code>reassign_organisation_integrated_care_board</code> helper (future changes).</p>
+<p>The command mirrors <code>backfill_trust_memberships</code> (which reads <code>RE6</code> rels
+to recover trust membership history) and reuses the same ODS-fetch,
+idempotency, <code>--dry-run</code>, <code>--yes</code>, and <code>--since</code>/<code>--all</code> window patterns.
+The default window is 2020-04-01 (when ICB rels first appear in ODS).</p>
 
 
 
@@ -1767,7 +2492,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../shapes/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Geojson, ONS boundary data and mapping">
+          <a href="../pdu-history/" class="md-footer__link md-footer__link--prev" aria-label="Previous: PDU history backfill">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1777,20 +2502,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Geojson, ONS boundary data and mapping
+                PDU history backfill
               </div>
             </div>
           </a>
         
         
           
-          <a href="../seeding/" class="md-footer__link md-footer__link--next" aria-label="Next: Seeding the RCPCH NHS Organisations service">
+          <a href="../shapes/" class="md-footer__link md-footer__link--next" aria-label="Next: Geojson, ONS boundary data and mapping">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Seeding the RCPCH NHS Organisations service
+                Geojson, ONS boundary data and mapping
               </div>
             </div>
             <div class="md-footer__button md-icon">

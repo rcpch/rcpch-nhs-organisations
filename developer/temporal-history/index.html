@@ -1163,6 +1163,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../icb-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ICB history and succession
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../shapes/" class="md-nav__link">
         
   
@@ -2454,10 +2482,28 @@ think about <code>valid_from</code> / <code>valid_to</code> manually. Concretely
 write through the helpers — but it is the path for manual corrections and for
 succession entries that ODS does not surface.</p>
 <h2 id="github-action-for-ods-change-detection">GitHub Action for ODS change detection<a class="headerlink" href="#github-action-for-ods-change-detection" title="Permanent link">&para;</a></h2>
-<p>A scheduled GitHub Action runs the ODS sync in <code>--dry-run</code> mode on a cron (monthly) and opens a GitHub issue detailing what <em>would</em> change if the sync were
-applied. This gives the team a human-in-the-loop review step before any automatic
-write touches the temporal layer, and surfaces mergers / updates that ODS has
-published without anyone having to watch the API manually.</p>
+<p>A scheduled GitHub Action runs three ODS-driven checks in <code>--dry-run</code> mode
+on a monthly cron and opens a single GitHub issue combining all three
+reports. This gives the team a human-in-the-loop review step before any
+automatic write touches the temporal layer, and surfaces mergers / updates
+that ODS has published without anyone having to watch the API manually.</p>
+<p>The three checks are:</p>
+<ol>
+<li><strong>ODS sync</strong> (<code>cron --service organisations --dry-run</code>) — the <code>/sync</code>
+   endpoint for recent trust and organisation changes (last 30 days by
+default).</li>
+<li><strong>Trust succession backfill</strong> (<code>backfill_successions --entity trust
+   --dry-run</code>) — the <code>/organisations/{ods_code}</code> <code>Succs</code> block for every
+   trust, reporting missing <code>TrustSuccession</code> rows.</li>
+<li><strong>ICB succession backfill</strong> (<code>backfill_successions --entity icb
+   --dry-run</code>) — the <code>/organisations/{ods_code}</code> <code>Succs</code> block for every
+   ICB, reporting missing <code>IntegratedCareBoardSuccession</code> rows and missing
+   successor ICBs (e.g. the 2026 ICB reorganisation).</li>
+</ol>
+<p>All three reports are combined into a single GitHub issue so the team has
+one place to review all ODS-driven changes. See
+<a href="https://github.com/rcpch/rcpch-nhs-organisations/blob/live/.github/workflows/ods-change-detection.yml"><code>.github/workflows/ods-change-detection.yml</code></a>
+for the actual workflow.</p>
 <h3 id="workflow-shape">Workflow shape<a class="headerlink" href="#workflow-shape" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="c1"># .github/workflows/ods-change-detection.yml</span>
 <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ODS change detection</span>
