@@ -8,13 +8,15 @@ author: Dr Simon Chapman
 This document describes how to recover organisational history that was
 overwritten before the temporal history layer was installed — past names,
 past trust affiliations, and merger/succession links. It covers the ODS
-API's recovery window, the manual `backfill_*` helpers, and the two
-management commands that recover the full succession and membership chain
-from ODS.
+API's recovery window, the manual `backfill_*` helpers, and the management
+commands that recover the full succession and membership chain from ODS.
 
 It should be read alongside [`temporal-history.md`](temporal-history.md),
 which describes the schema, and [`merger-handling.md`](merger-handling.md),
 which describes the merger types and the forward-looking admin workflow.
+
+For ICB-specific backfill, see [`icb-history.md`](icb-history.md).
+For PDU-specific backfill, see [`pdu-history.md`](pdu-history.md).
 
 ## Background
 
@@ -32,10 +34,12 @@ There are two recovery paths, depending on how far back the change happened:
 - **Older than 185 days** — the ODS `/sync` endpoint cannot return the change,
   but the `/organisations/{ods_code}` endpoint returns the full `Succs` and
   `Rels` history regardless of when the events happened. The
-  `backfill_successions` and `backfill_trust_memberships` commands use this to
-  recover the full merger and membership chain. For historical names and
-  addresses (which ODS overwrites in place), the `backfill_*` helpers are used
-  with manually-researched dates.
+  `backfill_successions`, `backfill_trust_memberships`, and
+  `backfill_icb_memberships` commands use this to recover the full merger and
+  membership chain. For historical names and addresses (which ODS overwrites
+  in place), the `backfill_*` helpers are used with manually-researched dates.
+  PDU history is recovered from `Master_PDU_Lookup.xlsx` via the
+  `backfill_pdu_successions` command (PDUs are not tracked by the ODS).
 
 ## Part 1 — ODS-driven recovery (within 185 days)
 
@@ -779,8 +783,9 @@ In non-dry-run mode, each row prompts:
 The 185-day window is the ODS API's hard limit on the `/sync` endpoint.
 `/organisations/{ods_code}` is not subject to that limit — it returns the
 full `Succs` and `Rels` history regardless of when the events happened — so
-`backfill_successions` and `backfill_trust_memberships` can recover the full
-merger and membership chain, not just the last 185 days.
+`backfill_successions`, `backfill_trust_memberships`, and
+`backfill_icb_memberships` can recover the full merger and membership
+chain, not just the last 185 days.
 
 What is **not** recoverable from the ODS API at all is the historical
 **names and addresses** of active entities, because ODS overwrites those in
@@ -788,6 +793,21 @@ place. Those require the `backfill_*` helpers with manually-researched dates
 (as in the Northern Care Alliance example in Part 2). If audit data going
 back further needs to be re-run at scale, this would require a one-off import
 from ODS Trac bulk dumps — a separate project.
+
+**PDU history** is not recoverable from the ODS at all — PDUs are not
+tracked by the ODS. PDU history is recovered from
+`Master_PDU_Lookup.xlsx` via the `backfill_pdu_successions` command (see
+[`pdu-history.md`](pdu-history.md)).
+
+**ICB succession and membership history** is recovered from the ODS `Succs`
+and `Rels` blocks via `backfill_successions --entity icb` and
+`backfill_icb_memberships` (see [`icb-history.md`](icb-history.md)).
+
+**Organisation → ICB membership history** is not directly recoverable from
+the ODS — organisations do not have their own ICB rels. An organisation's
+ICB affiliation is implicit through its parent trust. The `as_of` workflow
+walks organisation → trust → ICB, so recovering the trust → ICB membership
+(via `backfill_icb_memberships`) is sufficient.
 
 ## ODS-divergent organisation codes
 
