@@ -52,6 +52,34 @@ class PaediatricDiabetesUnitVersion(TimeStampAbstractBaseClass):
     # and lives on the PaediatricDiabetesUnit itself.
     unit_name = CharField(max_length=255, null=True, blank=True, default=None)
     active = BooleanField(default=True)
+    # Snapshot of name_source at this point in time. See PaediatricDiabetesUnit.
+    name_source = CharField(
+        max_length=30,
+        choices=PaediatricDiabetesUnit.NAME_SOURCE_CHOICES,
+        default=PaediatricDiabetesUnit.NAME_SOURCE_LEAD_ORGANISATION,
+        verbose_name="Name source (snapshot)",
+        help_text=(
+            "How the PDU's display name was derived at valid_from. See "
+            "PaediatricDiabetesUnit.name_source."
+        ),
+    )
+    # Snapshot of the lead organisation FK at this point in time. The
+    # relationship itself is versioned via the denormalised FK on
+    # PaediatricDiabetesUnit; this field is a convenience for as-of queries
+    # that only need the lead org id.
+    lead_organisation = ForeignKey(
+        to="hospitals.Organisation",
+        on_delete=models.SET_NULL,
+        related_name="pdu_versions_as_lead",
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name="Lead organisation (snapshot)",
+        help_text=(
+            "The lead organisation for this PDU at valid_from. See "
+            "PaediatricDiabetesUnit.lead_organisation."
+        ),
+    )
     # Snapshot of the network FK id at this point in time. The relationship
     # itself is versioned in PaediatricDiabetesUnitNetworkMembership; this
     # field is a convenience for as-of queries that only need the network id.

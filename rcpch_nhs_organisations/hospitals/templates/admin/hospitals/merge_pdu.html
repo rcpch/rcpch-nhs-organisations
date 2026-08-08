@@ -1,0 +1,77 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">{{ object }}</a> &rsaquo;
+  Merge into a new…
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .info-banner {
+    background: #fff3e0;
+    border: 1px solid #ff9800;
+    border-radius: 4px;
+    padding: 1em;
+    margin: 1em 0;
+  }
+  .warning-banner {
+    background: #ffebee;
+    border: 2px solid #d32f2f;
+    border-radius: 4px;
+    padding: 1em;
+    margin: 1em 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Merge {{ object }} with another PDU into a new PDU</h1>
+
+<p>PDUs are not tracked by the ODS, so the new PZ code, name, and network are
+entered manually. This records a <strong>forward full merger</strong>: this PDU
+and the other predecessor are both dissolved, and a new successor PDU is
+created. In one transaction:</p>
+<ol>
+  <li>Creates the successor PDU with a baseline <code>PaediatricDiabetesUnitVersion</code> row, snapshotted to the chosen network, name source, and lead organisation.</li>
+  <li>Opens a <code>PaediatricDiabetesUnitNetworkMembership</code> row linking the successor to the chosen network.</li>
+  <li>Creates two <code>PaediatricDiabetesUnitSuccession</code> rows (type=merger), one per predecessor, both pointing at the successor.</li>
+  <li>Closes each predecessor's current version row and opens an inactive one. Marks both predecessors <code>active=False</code>.</li>
+  <li>Reassigns <strong>all</strong> child organisations of both predecessors to the successor.</li>
+  <li>Sets the <code>lead_organisation</code> FK on the successor to the chosen lead organisation, so the <code>/paediatric_diabetes_units/{pz_code}/parent/</code> endpoint reads the lead from the model.</li>
+</ol>
+
+<div class="info-banner">
+  <strong>Note:</strong> the new PZ code must not already exist. If the
+  successor PDU already exists, use the <em>Acquire another…</em> action
+  instead.
+</div>
+
+<div class="warning-banner">
+  <strong>This cannot be undone.</strong> Verify the new PZ code, the other
+  predecessor, the network, the name source, the lead organisation, and the effective date
+  before proceeding.
+</div>
+
+{% if form.non_field_errors %}
+<div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post" id="merge-form">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <div class="submit-row">
+    <input type="submit" name="merge" value="Merge" class="default"
+           onclick="return confirm('Merge {{ object }} and the selected PDU into a new PDU?\n\nThis will mark both predecessors inactive, create the successor, reassign all child organisations, and set the lead organisation. This cannot be undone.')">
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}
