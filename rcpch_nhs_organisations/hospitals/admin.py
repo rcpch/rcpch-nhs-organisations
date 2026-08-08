@@ -8,6 +8,7 @@ from django.utils import timezone
 from .models import (
     Country,
     IntegratedCareBoard,
+    IntegratedCareBoardSuccession,
     IntegratedCareBoardVersion,
     LocalHealthBoard,
     LocalHealthBoardVersion,
@@ -2008,6 +2009,21 @@ class PaediatricDiabetesUnitSuccessionAdmin(admin.ModelAdmin):
     change_form_template = "admin/hospitals/succession_change_form.html"
 
 
+class IntegratedCareBoardSuccessionAdmin(admin.ModelAdmin):
+    list_display = ("predecessor", "successor", "succession_date", "succession_type")
+    list_filter = ("succession_type",)
+    search_fields = (
+        "predecessor__ods_code",
+        "successor__ods_code",
+        "predecessor__name",
+        "successor__name",
+    )
+    date_hierarchy = "succession_date"
+    ordering = ("-succession_date",)
+    change_list_template = "admin/hospitals/succession_changelist.html"
+    change_form_template = "admin/hospitals/succession_change_form.html"
+
+
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
@@ -2028,6 +2044,9 @@ admin.site.register(TrustSuccession, TrustSuccessionAdmin)
 admin.site.register(OrganisationSuccession, OrganisationSuccessionAdmin)
 admin.site.register(
     PaediatricDiabetesUnitSuccession, PaediatricDiabetesUnitSuccessionAdmin
+)
+admin.site.register(
+    IntegratedCareBoardSuccession, IntegratedCareBoardSuccessionAdmin
 )
 
 admin.site.site_header = "RCPCH NHS Organisations"

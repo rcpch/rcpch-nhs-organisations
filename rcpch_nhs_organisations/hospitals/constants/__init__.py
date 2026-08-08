@@ -1,6 +1,7 @@
 from .country_codes import *
 from .integrated_care_boards import *
 from .known_acquisitions import *
+from .known_icb_acquisitions import *
 from .local_health_boards import *
 from .nhs_england_regions import *
 from .northern_ireland_postcodes import *
