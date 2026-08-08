@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">{{ object }}</a> &rsaquo;
+  Backfill attributes…
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Backfill {{ opts.verbose_name }} attributes: {{ object }}</h1>
+
+<p>This records a <strong>historical state</strong> that was overwritten before
+the temporal layer was installed. Unlike the "Edit attributes as of…" action
+(which is forward-looking and snapshots the current entity row), this action
+inserts a version row with an explicit <code>[valid_from, valid_to)</code>
+interval and the values you enter below. The current entity row is not
+modified.</p>
+
+<p>Use this for recording a past name, address, or other attribute that is no
+longer current. For example, to record that a trust was called "Salford Royal"
+from 2001-04-01 until it was renamed on 2021-10-01.</p>
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <p><input type="submit" value="Backfill"></p>
+  <p><a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">Cancel</a></p>
+</form>
+{% endblock %}

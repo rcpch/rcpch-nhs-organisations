@@ -154,6 +154,27 @@ def _snapshot_entity_fields(version_model, entity):
     """
     excluded = {"id", "valid_from", "valid_to", "created_at", "updated_at"}
     snapshot = {}
+    for field in _snapshot_fields(version_model):
+        attname = field.attname
+        # Map the version model's attname back to the entity's attribute name.
+        # The version model mirrors the entity's field names, so attname is
+        # the same on both.
+        snapshot[attname] = getattr(entity, attname, None)
+    return snapshot
+
+
+def _snapshot_fields(version_model):
+    """
+    Return the list of concrete field objects on ``version_model`` that hold
+    snapshotted attributes. Excludes the parent FK, any other FKs (e.g. the
+    network snapshot on PaediatricDiabetesUnitVersion), and the bookkeeping
+    columns (id, valid_from, valid_to, created_at, updated_at).
+
+    Used by ``_snapshot_entity_fields`` and by the admin form builder so both
+    share one definition of "what is a snapshot field".
+    """
+    excluded = {"id", "valid_from", "valid_to", "created_at", "updated_at"}
+    fields = []
     for field in version_model._meta.get_fields():
         if field.name in excluded:
             continue
@@ -164,12 +185,22 @@ def _snapshot_entity_fields(version_model, entity):
             continue
         if not hasattr(field, "attname"):
             continue
+        fields.append(field)
+    return fields
+
+
+def _snapshot_matches(version_model, row, snapshot):
+    """
+    Return True if every snapshotted attribute on ``row`` equals the
+    corresponding value in ``snapshot``. Used by ``_backfill_version_row`` to
+    detect whether a current baseline row records the same state as a
+    backfilled historical row (in which case the baseline row is redundant).
+    """
+    for field in _snapshot_fields(version_model):
         attname = field.attname
-        # Map the version model's attname back to the entity's attribute name.
-        # The version model mirrors the entity's field names, so attname is
-        # the same on both.
-        snapshot[attname] = getattr(entity, attname, None)
-    return snapshot
+        if getattr(row, attname, None) != snapshot.get(attname):
+            return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -494,3 +525,464 @@ def update_paediatric_diabetes_network_attributes(paediatric_diabetes_network, e
         effective_date=effective_date,
         **fields,
     )
+
+
+# ---------------------------------------------------------------------------
+# Composite rename helpers (Layer 1 version write + Layer 3 succession row)
+# ---------------------------------------------------------------------------
+# These exist only for entities with a succession table (Trust and PDU).
+# A rename is a single business event that touches two layers: the entity's
+# own attributes change (Layer 1) *and* a succession row records *why* the
+# change happened, distinguishing a genuine rename by NHS England from a
+# silent operator correction. Membership tables are untouched — a rename
+# does not change any affiliation.
+# For entities without a succession table (Organisation, ICB, etc.) use the
+# plain update_<entity>_attributes() helpers instead.
+
+
+def rename_trust(trust, new_name, effective_date=None, notes=""):
+    """Rename a Trust, recording both a TrustVersion update and a
+    TrustSuccession row with succession_type='rename'.
+
+    The Trust row's denormalised ``name`` is updated so existing current-state
+    queries keep working. ``predecessor`` and ``successor`` on the succession
+    row both point at the same Trust instance, since the entity persists.
+
+    Args:
+        trust: the Trust being renamed.
+        new_name: the new name.
+        effective_date: the date the rename takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) TrustVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+    with transaction.atomic():
+        new_version = update_trust_attributes(
+            trust, effective_date=effective_date, name=new_name
+        )
+        TrustSuccession.objects.create(
+            predecessor=trust,
+            successor=trust,
+            succession_date=effective_date,
+            succession_type="rename",
+            notes=notes,
+        )
+    logger.info(
+        "Renamed Trust %s → %r (effective %s)",
+        trust.ods_code,
+        new_name,
+        effective_date,
+    )
+    return new_version
+
+
+def rename_paediatric_diabetes_unit(
+    paediatric_diabetes_unit, new_name, effective_date=None, notes=""
+):
+    """Rename a Paediatric Diabetes Unit, recording both a
+    PaediatricDiabetesUnitVersion update and a PaediatricDiabetesUnitSuccession
+    row with succession_type='rename'.
+
+    The PDU row's denormalised ``unit_name`` is updated so existing current-state
+    queries keep working. ``predecessor`` and ``successor`` on the succession
+    row both point at the same PDU instance, since the entity persists.
+
+    Args:
+        paediatric_diabetes_unit: the PDU being renamed.
+        new_name: the new unit_name.
+        effective_date: the date the rename takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) PaediatricDiabetesUnitVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    PaediatricDiabetesUnitSuccession = apps.get_model(
+        "hospitals", "PaediatricDiabetesUnitSuccession"
+    )
+    with transaction.atomic():
+        new_version = update_paediatric_diabetes_unit_attributes(
+            paediatric_diabetes_unit,
+            effective_date=effective_date,
+            unit_name=new_name,
+        )
+        PaediatricDiabetesUnitSuccession.objects.create(
+            predecessor=paediatric_diabetes_unit,
+            successor=paediatric_diabetes_unit,
+            succession_date=effective_date,
+            succession_type="rename",
+            notes=notes,
+        )
+    logger.info(
+        "Renamed PDU %s → %r (effective %s)",
+        paediatric_diabetes_unit.pz_code,
+        new_name,
+        effective_date,
+    )
+    return new_version
+
+
+# ---------------------------------------------------------------------------
+# Deactivation helpers (Layer 1 version write + Layer 3 closure succession row)
+# ---------------------------------------------------------------------------
+# A closure is an entity ceasing to operate with no successor — e.g. a hospital
+# closed through poor quality of care, or a trust dissolved with its children
+# redistributed (the redistribution itself is recorded as separate split
+# successions). Like a rename, a closure is a single business event that touches
+# two layers: the entity's `active` flag flips (Layer 1) *and* a succession row
+# with succession_type='closure' and successor=None records *why* (Layer 3).
+# Membership tables are untouched — a closure does not reassign any child;
+# child reassignment is recorded separately as split successions.
+#
+# For entities without a succession table (IntegratedCareBoard,
+# NHSEnglandRegion, LocalHealthBoard, PaediatricDiabetesNetwork) use the plain
+# update_<entity>_attributes(active=False) helpers instead — there is no
+# succession row to write.
+
+
+def deactivate_trust(trust, effective_date=None, notes=""):
+    """Deactivate a Trust (closure with no successor), recording both a
+    TrustVersion update with active=False and a TrustSuccession row with
+    succession_type='closure' and successor=None.
+
+    Args:
+        trust: the Trust being closed.
+        effective_date: the date the closure takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row (e.g. the
+            reason for closure).
+
+    Returns:
+        The new (current) TrustVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+    with transaction.atomic():
+        new_version = update_trust_attributes(
+            trust, effective_date=effective_date, active=False
+        )
+        TrustSuccession.objects.create(
+            predecessor=trust,
+            successor=None,
+            succession_date=effective_date,
+            succession_type="closure",
+            notes=notes,
+        )
+    logger.info(
+        "Deactivated Trust %s (effective %s)",
+        trust.ods_code,
+        effective_date,
+    )
+    return new_version
+
+
+def deactivate_organisation(organisation, effective_date=None, notes=""):
+    """Deactivate an Organisation (closure with no successor), recording both
+    an OrganisationVersion update with active=False and an OrganisationSuccession
+    row with succession_type='closure' and successor=None.
+
+    Args:
+        organisation: the Organisation being closed.
+        effective_date: the date the closure takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) OrganisationVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
+    with transaction.atomic():
+        new_version = update_organisation_attributes(
+            organisation, effective_date=effective_date, active=False
+        )
+        OrganisationSuccession.objects.create(
+            predecessor=organisation,
+            successor=None,
+            succession_date=effective_date,
+            succession_type="closure",
+            notes=notes,
+        )
+    logger.info(
+        "Deactivated Organisation %s (effective %s)",
+        organisation.ods_code,
+        effective_date,
+    )
+    return new_version
+
+
+def deactivate_paediatric_diabetes_unit(
+    paediatric_diabetes_unit, effective_date=None, notes=""
+):
+    """Deactivate a Paediatric Diabetes Unit (closure with no successor),
+    recording both a PaediatricDiabetesUnitVersion update with active=False and
+    a PaediatricDiabetesUnitSuccession row with succession_type='closure' and
+    successor=None.
+
+    Args:
+        paediatric_diabetes_unit: the PDU being closed.
+        effective_date: the date the closure takes effect. Defaults to today.
+        notes: optional free-text notes for the succession row.
+
+    Returns:
+        The new (current) PaediatricDiabetesUnitVersion row.
+    """
+    effective_date = _effective_date(effective_date)
+    PaediatricDiabetesUnitSuccession = apps.get_model(
+        "hospitals", "PaediatricDiabetesUnitSuccession"
+    )
+    with transaction.atomic():
+        new_version = update_paediatric_diabetes_unit_attributes(
+            paediatric_diabetes_unit, effective_date=effective_date, active=False
+        )
+        PaediatricDiabetesUnitSuccession.objects.create(
+            predecessor=paediatric_diabetes_unit,
+            successor=None,
+            succession_date=effective_date,
+            succession_type="closure",
+            notes=notes,
+        )
+    logger.info(
+        "Deactivated PDU %s (effective %s)",
+        paediatric_diabetes_unit.pz_code,
+        effective_date,
+    )
+    return new_version
+
+
+# ---------------------------------------------------------------------------
+# Backfill helpers (insert a historical state without snapshotting the current row)
+# ---------------------------------------------------------------------------
+# These are for recording historical states that were overwritten before the
+# temporal layer was installed. The forward-looking helpers (update_*, rename_*,
+# deactivate_*) snapshot the *current* entity row into the "old" version row,
+# which is wrong for a backfill: the old row would record the current name for
+# the period before the change date.
+#
+# The backfill helpers instead insert a version row with an explicit
+# [valid_from, valid_to) interval and explicit attribute values, without
+# touching the current entity row or the current version row. They are
+# idempotent: if a row already exists for the same interval, they update it
+# in place rather than creating a duplicate.
+#
+# These are not exposed in the admin — they are for shell use, documented in
+# temporal-history.md under "Backfilling historical states".
+
+
+def _backfill_version_row(
+    version_model, *, parent_field, parent, valid_from, valid_to, snapshot
+):
+    """Insert or update a version row, enforcing the single-current-row invariant.
+
+    If valid_to is None (the new row is intended to be the current state) and
+    a current row already exists with a different valid_from, the existing
+    current row is closed at the new row's valid_from date. This prevents two
+    open rows (valid_to=None) for the same entity.
+
+    If a row already exists for the exact same (parent, valid_from, valid_to)
+    tuple, it is updated in place rather than duplicated.
+
+    If valid_to is a real date (a historical backfill) and the backfilled
+    snapshot matches the current row's attributes, the current row is a
+    baseline migration artefact that records no real state change. Rather than
+    leaving a redundant row with the same attributes as the backfilled one, the
+    current row is deleted and the backfilled row is promoted to be current
+    (valid_to=None). This keeps the version table semantically honest: every
+    row represents a real state change, not a tracking-system event.
+    """
+    # Track whether the backfilled row should be promoted to be the current
+    # row (valid_to=None) because it matches and replaces a baseline artefact.
+    # Only set in the historical-backfill branch below.
+    promote_to_current = False
+    # If the new row is current (valid_to=None), handle the existing current row.
+    if valid_to is None:
+        existing_current = version_model.objects.filter(
+            **{parent_field: parent, "valid_to__isnull": True}
+        ).exclude(valid_from=valid_from).first()
+        if existing_current:
+            # If the existing current row starts AFTER the new row, it's a
+            # baseline artefact (e.g. from the baseline migration) that
+            # should be replaced — close it at the new row's valid_from and
+            # delete it, since it doesn't represent a real state change.
+            if existing_current.valid_from > valid_from:
+                existing_current.delete()
+            else:
+                # The existing current row starts before the new row — close
+                # it at the new row's valid_from, so the new row takes over
+                # as the current state from that date forward.
+                existing_current.valid_to = valid_from
+                existing_current.save(update_fields=["valid_to"])
+    else:
+        # Historical backfill (valid_to is a real date). If the backfilled
+        # snapshot matches the current row's attributes and the current row
+        # starts at or after the backfill interval ends, the current row is a
+        # baseline migration artefact recording no real state change —
+        # promote the backfilled row to be current instead, so the version
+        # table does not carry a redundant row with identical attributes.
+        # The >= (rather than >) covers the contiguous-handoff case where the
+        # backfill's valid_to equals the baseline row's valid_from: the two
+        # rows meet exactly, and the baseline row adds nothing.
+        existing_current = version_model.objects.filter(
+            **{parent_field: parent, "valid_to__isnull": True}
+        ).first()
+        promote_to_current = (
+            existing_current is not None
+            and existing_current.valid_from >= valid_to
+            and _snapshot_matches(version_model, existing_current, snapshot)
+        )
+        if promote_to_current:
+            existing_current.delete()
+    # Insert or update the new row using the ORIGINAL valid_to so
+    # update_or_create finds an existing backfill row with that interval
+    # rather than creating a duplicate.
+    obj, _ = version_model.objects.update_or_create(
+        **{
+            parent_field: parent,
+            "valid_from": valid_from,
+            "valid_to": valid_to,
+            "defaults": snapshot,
+        }
+    )
+    if promote_to_current:
+        # The backfilled row is promoted to be current (valid_to=None),
+        # replacing the deleted baseline artefact. Also delete any prior
+        # historical row with the same valid_from and matching attributes —
+        # it is now entirely subsumed by the promoted current row and would
+        # otherwise linger as an orphan (e.g. a bridge row from a previous
+        # run that used the baseline's valid_from as its valid_to).
+        obj.valid_to = None
+        obj.save(update_fields=["valid_to"])
+        orphaned = version_model.objects.filter(
+            **{parent_field: parent, "valid_from": valid_from}
+        ).exclude(pk=obj.pk).exclude(valid_to__isnull=True)
+        for orphan in orphaned:
+            if _snapshot_matches(version_model, orphan, snapshot):
+                orphan.delete()
+    return obj
+
+
+def backfill_trust_attributes(trust, valid_from, valid_to, **fields):
+    """Insert a historical TrustVersion row for the interval [valid_from, valid_to)
+    with the given attribute values, without touching the current entity row.
+
+    Use this to record a past state that was overwritten before the temporal
+    layer was installed. For example, to record that RM3 was called "Salford
+    Royal NHS Foundation Trust" from 2001-04-01 until it was renamed to
+    "Northern Care Alliance" on 2021-10-01:
+
+        backfill_trust_attributes(
+            trust,
+            valid_from=datetime.date(2001, 4, 1),
+            valid_to=datetime.date(2021, 10, 1),
+            name="Salford Royal NHS Foundation Trust",
+            active=True,
+        )
+
+    If a version row already exists for the same [valid_from, valid_to) interval,
+    it is updated in place rather than duplicated.
+
+    If valid_to is None (the new row is intended to be the current state) and
+    a current row already exists with a different valid_from, the existing
+    current row is closed at the new row's valid_from date. This prevents two
+    open rows (valid_to=None) for the same entity — the single-current-row
+    invariant.
+
+    Args:
+        trust: the Trust the historical state belongs to.
+        valid_from: the date the historical state began.
+        valid_to: the date the historical state ended (the date of the next
+            change). Use None if this is the current state (e.g. backfilling
+            the operational start date of a trust that is still active under
+            the same name).
+        **fields: the historical attribute values (name, active, address, etc.).
+    """
+    TrustVersion = apps.get_model("hospitals", "TrustVersion")
+    snapshot = _snapshot_entity_fields(TrustVersion, trust)
+    snapshot.update(fields)
+    with transaction.atomic():
+        row = _backfill_version_row(
+            TrustVersion, parent_field="trust", parent=trust,
+            valid_from=valid_from, valid_to=valid_to, snapshot=snapshot,
+        )
+    logger.info(
+        "Backfilled Trust %s version %s → %s: %s",
+        trust.ods_code,
+        valid_from,
+        valid_to or "now",
+        ", ".join(f"{k}={v!r}" for k, v in fields.items()),
+    )
+    return row
+
+
+def backfill_organisation_attributes(organisation, valid_from, valid_to, **fields):
+    """Insert a historical OrganisationVersion row for the interval
+    [valid_from, valid_to) with the given attribute values, without touching the
+    current entity row. See backfill_trust_attributes for the full description.
+    """
+    OrganisationVersion = apps.get_model("hospitals", "OrganisationVersion")
+    snapshot = _snapshot_entity_fields(OrganisationVersion, organisation)
+    snapshot.update(fields)
+    with transaction.atomic():
+        row = _backfill_version_row(
+            OrganisationVersion, parent_field="organisation", parent=organisation,
+            valid_from=valid_from, valid_to=valid_to, snapshot=snapshot,
+        )
+    logger.info(
+        "Backfilled Organisation %s version %s → %s: %s",
+        organisation.ods_code,
+        valid_from,
+        valid_to or "now",
+        ", ".join(f"{k}={v!r}" for k, v in fields.items()),
+    )
+    return row
+
+
+def backfill_organisation_trust_membership(
+    organisation, trust, valid_from, valid_to
+):
+    """Insert a historical OrganisationTrustMembership row for the interval
+    [valid_from, valid_to), recording that the organisation was a member of the
+    given trust during that period.
+
+    Use this to record a past affiliation that was overwritten before the
+    temporal layer was installed. For example, to record that an organisation
+    was in Pennine Acute (RW6) from 2001-04-01 until it moved to Northern Care
+    Alliance (RM3) on 2021-10-01:
+
+        backfill_organisation_trust_membership(
+            organisation,
+            trust=pennine_acute,
+            valid_from=datetime.date(2001, 4, 1),
+            valid_to=datetime.date(2021, 10, 1),
+        )
+
+    If a membership row already exists for the same organisation, trust, and
+    [valid_from, valid_to) interval, it is updated in place rather than
+    duplicated.
+
+    Args:
+        organisation: the Organisation.
+        trust: the Trust the organisation was affiliated to during the period.
+        valid_from: the date the affiliation began.
+        valid_to: the date the affiliation ended (the date of the reassignment).
+    """
+    OrganisationTrustMembership = apps.get_model(
+        "hospitals", "OrganisationTrustMembership"
+    )
+    with transaction.atomic():
+        obj, created = OrganisationTrustMembership.objects.update_or_create(
+            organisation=organisation,
+            trust=trust,
+            valid_from=valid_from,
+            valid_to=valid_to,
+        )
+    logger.info(
+        "Backfilled Organisation %s → Trust %s membership %s → %s (%s)",
+        organisation.ods_code,
+        trust.ods_code,
+        valid_from,
+        valid_to or "now",
+        "created" if created else "updated",
+    )
+    return obj

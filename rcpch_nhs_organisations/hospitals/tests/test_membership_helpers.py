@@ -25,6 +25,14 @@ from rcpch_nhs_organisations.hospitals.general_functions.membership import (
     reassign_paediatric_diabetes_unit_network,
     update_organisation_attributes,
     update_trust_attributes,
+    rename_trust,
+    rename_paediatric_diabetes_unit,
+    deactivate_trust,
+    deactivate_organisation,
+    deactivate_paediatric_diabetes_unit,
+    backfill_trust_attributes,
+    backfill_organisation_attributes,
+    backfill_organisation_trust_membership,
 )
 
 Organisation = apps.get_model("hospitals", "Organisation")
@@ -49,6 +57,14 @@ PaediatricDiabetesNetwork = apps.get_model("hospitals", "PaediatricDiabetesNetwo
 PaediatricDiabetesUnitNetworkMembership = apps.get_model(
     "hospitals", "PaediatricDiabetesUnitNetworkMembership"
 )
+TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+PaediatricDiabetesUnitSuccession = apps.get_model(
+    "hospitals", "PaediatricDiabetesUnitSuccession"
+)
+PaediatricDiabetesUnitVersion = apps.get_model(
+    "hospitals", "PaediatricDiabetesUnitVersion"
+)
+OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
 
 
 def _square_geom(easting, northing, side=200):
@@ -476,3 +492,735 @@ def test_reassign_is_atomic_on_error(organisation_with_baseline, trust_b):
         organisation=organisation_with_baseline, valid_to__isnull=True
     ).get()
     assert current.valid_to is None
+
+
+# ---------------------------------------------------------------------------
+# Composite rename helpers (Layer 1 version + Layer 3 succession)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_rename_trust_writes_version_and_succession(trust_a):
+    """rename_trust writes both a TrustVersion row and a TrustSuccession row
+    with succession_type='rename', in one transaction."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    new_version = rename_trust(
+        trust_a,
+        "Trust A (renamed)",
+        effective_date=datetime.date(2023, 4, 1),
+        notes="NHS England rename",
+    )
+
+    # Layer 1: version row written, old row closed.
+    assert new_version.is_current()
+    assert new_version.name == "Trust A (renamed)"
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+    old_version = TrustVersion.objects.get(trust=trust_a, name="Trust A")
+    assert old_version.valid_to == datetime.date(2023, 4, 1)
+
+    # Denormalised name on the Trust row updated.
+    trust_a.refresh_from_db()
+    assert trust_a.name == "Trust A (renamed)"
+
+    # Layer 3: succession row written, predecessor == successor == same trust.
+    succession = TrustSuccession.objects.get()
+    assert succession.predecessor_id == trust_a.pk
+    assert succession.successor_id == trust_a.pk
+    assert succession.succession_type == "rename"
+    assert succession.succession_date == datetime.date(2023, 4, 1)
+    assert succession.notes == "NHS England rename"
+
+    # Membership tables untouched.
+    assert OrganisationTrustMembership.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_rename_trust_defaults_effective_date_to_today(trust_a):
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    new_version = rename_trust(trust_a, "Trust A (renamed)")
+    assert new_version.valid_from == datetime.date.today()
+    succession = TrustSuccession.objects.get()
+    assert succession.succession_date == datetime.date.today()
+
+
+@pytest.mark.django_db
+def test_rename_trust_is_atomic_on_error(trust_a):
+    """If the succession row creation fails, the version write should roll back.
+    We simulate a failure by passing an empty new_name, which violates the
+    CharField's max_length=0 constraint... actually CharField allows empty.
+    Instead we patch the succession create to raise."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    from unittest.mock import patch
+    from django.db import IntegrityError
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.membership.apps.get_model"
+    ) as mock_get_model:
+        # Allow the update_trust_attributes call to succeed by returning the
+        # real TrustVersion model, but fail on the TrustSuccession lookup.
+        real_get_model = apps.get_model
+
+        def side_effect(app_label, model_name):
+            if model_name == "TrustSuccession":
+                raise IntegrityError("simulated failure")
+            return real_get_model(app_label, model_name)
+
+        mock_get_model.side_effect = side_effect
+        with pytest.raises(IntegrityError):
+            rename_trust(trust_a, "Trust A (renamed)", effective_date=datetime.date(2023, 4, 1))
+
+    # No version row should have been committed.
+    assert TrustVersion.objects.filter(trust=trust_a, name="Trust A (renamed)").count() == 0
+    # The original version row should still be current.
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.name == "Trust A"
+    # No succession row.
+    assert TrustSuccession.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_rename_paediatric_diabetes_unit_writes_version_and_succession(pdu_a):
+    """rename_paediatric_diabetes_unit writes both a PDU version row and a
+    PDU succession row with succession_type='rename'."""
+    PaediatricDiabetesUnitVersion.objects.create(
+        paediatric_diabetes_unit=pdu_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        active=True,
+    )
+
+    new_version = rename_paediatric_diabetes_unit(
+        pdu_a,
+        "New PDU Name",
+        effective_date=datetime.date(2023, 4, 1),
+    )
+
+    # Layer 1: version row written.
+    assert new_version.is_current()
+    assert new_version.unit_name == "New PDU Name"
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+
+    # Denormalised unit_name on the PDU row updated.
+    pdu_a.refresh_from_db()
+    assert pdu_a.unit_name == "New PDU Name"
+
+    # Layer 3: succession row written.
+    succession = PaediatricDiabetesUnitSuccession.objects.get()
+    assert succession.predecessor_id == pdu_a.pk
+    assert succession.successor_id == pdu_a.pk
+    assert succession.succession_type == "rename"
+    assert succession.succession_date == datetime.date(2023, 4, 1)
+
+
+# ---------------------------------------------------------------------------
+# Deactivation helpers (Layer 1 version write + Layer 3 closure succession row)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_deactivate_trust_writes_version_and_closure_succession(trust_a):
+    """deactivate_trust writes a TrustVersion row with active=False and a
+    TrustSuccession row with succession_type='closure' and successor=None."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    new_version = deactivate_trust(
+        trust_a,
+        effective_date=datetime.date(2023, 4, 1),
+        notes="Closed due to poor quality of care",
+    )
+
+    # Layer 1: version row written with active=False, old row closed.
+    assert new_version.is_current()
+    assert new_version.active is False
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+    old_version = TrustVersion.objects.get(trust=trust_a, name="Trust A", active=True)
+    assert old_version.valid_to == datetime.date(2023, 4, 1)
+
+    # Denormalised active flag on the Trust row updated.
+    trust_a.refresh_from_db()
+    assert trust_a.active is False
+
+    # Layer 3: closure succession row written, successor is None.
+    succession = TrustSuccession.objects.get()
+    assert succession.predecessor_id == trust_a.pk
+    assert succession.successor_id is None
+    assert succession.succession_type == "closure"
+    assert succession.succession_date == datetime.date(2023, 4, 1)
+    assert succession.notes == "Closed due to poor quality of care"
+
+    # Membership tables untouched.
+    assert OrganisationTrustMembership.objects.filter(trust=trust_a).count() == 0
+
+
+@pytest.mark.django_db
+def test_deactivate_trust_defaults_effective_date_to_today(trust_a):
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    deactivate_trust(trust_a)
+    new_version = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert new_version.valid_from == datetime.date.today()
+    assert new_version.active is False
+    succession = TrustSuccession.objects.get()
+    assert succession.succession_date == datetime.date.today()
+
+
+@pytest.mark.django_db
+def test_deactivate_organisation_writes_version_and_closure_succession(
+    organisation_with_baseline,
+):
+    """deactivate_organisation writes an OrganisationVersion row with
+    active=False and an OrganisationSuccession row with
+    succession_type='closure' and successor=None."""
+    new_version = deactivate_organisation(
+        organisation_with_baseline,
+        effective_date=datetime.date(2023, 4, 1),
+        notes="Wessex House closed",
+    )
+
+    # Layer 1: version row written with active=False.
+    assert new_version.is_current()
+    assert new_version.active is False
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+
+    # Denormalised active flag updated.
+    organisation_with_baseline.refresh_from_db()
+    assert organisation_with_baseline.active is False
+
+    # Layer 3: closure succession row written, successor is None.
+    succession = OrganisationSuccession.objects.get()
+    assert succession.predecessor_id == organisation_with_baseline.pk
+    assert succession.successor_id is None
+    assert succession.succession_type == "closure"
+    assert succession.notes == "Wessex House closed"
+
+
+@pytest.mark.django_db
+def test_deactivate_paediatric_diabetes_unit_writes_version_and_closure_succession(
+    pdu_a,
+):
+    """deactivate_paediatric_diabetes_unit writes a PDU version row with
+    active=False and a PDU succession row with succession_type='closure'."""
+    PaediatricDiabetesUnitVersion.objects.create(
+        paediatric_diabetes_unit=pdu_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        active=True,
+    )
+
+    new_version = deactivate_paediatric_diabetes_unit(
+        pdu_a,
+        effective_date=datetime.date(2023, 4, 1),
+    )
+
+    # Layer 1: version row written with active=False.
+    assert new_version.is_current()
+    assert new_version.active is False
+    assert new_version.valid_from == datetime.date(2023, 4, 1)
+
+    # Denormalised active flag updated.
+    pdu_a.refresh_from_db()
+    assert pdu_a.active is False
+
+    # Layer 3: closure succession row written, successor is None.
+    succession = PaediatricDiabetesUnitSuccession.objects.get()
+    assert succession.predecessor_id == pdu_a.pk
+    assert succession.successor_id is None
+    assert succession.succession_type == "closure"
+
+
+@pytest.mark.django_db
+def test_deactivate_trust_is_atomic_on_error(trust_a):
+    """If the succession row creation fails, the version write should roll back."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    from unittest.mock import patch
+    from django.db import IntegrityError
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.membership.apps.get_model"
+    ) as mock_get_model:
+        real_get_model = apps.get_model
+
+        def side_effect(app_label, model_name):
+            if model_name == "TrustSuccession":
+                raise IntegrityError("simulated failure")
+            return real_get_model(app_label, model_name)
+
+        mock_get_model.side_effect = side_effect
+        with pytest.raises(IntegrityError):
+            deactivate_trust(trust_a, effective_date=datetime.date(2023, 4, 1))
+
+    # No version row should have been committed.
+    assert TrustVersion.objects.filter(trust=trust_a, active=False).count() == 0
+    # The original version row should still be current.
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.active is True
+    # No succession row.
+    assert TrustSuccession.objects.count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Backfill helpers (insert a historical state without snapshotting the current row)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_inserts_historical_version(trust_a):
+    """backfill_trust_attributes inserts a version row with the given
+    attributes and interval, without touching the current entity row."""
+    # Create a baseline current version row.
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 1, 1),
+        valid_to=None,
+        name="Trust A (current)",
+        active=True,
+    )
+
+    # Backfill a historical state.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Trust A (old name)",
+        active=True,
+    )
+
+    # The historical row exists with the backfilled name.
+    historical = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert historical.name == "Trust A (old name)"
+    assert historical.active is True
+
+    # The current entity row is untouched.
+    trust_a.refresh_from_db()
+    assert trust_a.name == "Trust A"
+
+    # The current version row is untouched.
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.name == "Trust A (current)"
+
+    # As-of query returns the backfilled name for the historical period.
+    as_of = TrustVersion.objects.filter(
+        trust=trust_a,
+        valid_from__lte=datetime.date(2010, 1, 1),
+    ).filter(valid_to__gt=datetime.date(2010, 1, 1)).get()
+    assert as_of.name == "Trust A (old name)"
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_is_idempotent(trust_a):
+    """Calling backfill_trust_attributes twice with the same interval updates
+    the existing row rather than creating a duplicate."""
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Old Name",
+    )
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Corrected Old Name",
+    )
+    assert TrustVersion.objects.filter(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    ).count() == 1
+    row = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert row.name == "Corrected Old Name"
+
+
+@pytest.mark.django_db
+def test_backfill_organisation_trust_membership_inserts_historical_membership(
+    organisation, trust_a, trust_b
+):
+    """backfill_organisation_trust_membership records a past affiliation
+    without touching the current membership."""
+    # Current membership: organisation is in trust_b.
+    OrganisationTrustMembership.objects.create(
+        organisation=organisation,
+        trust=trust_b,
+        valid_from=datetime.date(2021, 10, 1),
+        valid_to=None,
+    )
+
+    # Backfill: organisation was in trust_a before the move.
+    backfill_organisation_trust_membership(
+        organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+
+    # The historical membership exists.
+    historical = OrganisationTrustMembership.objects.get(
+        organisation=organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+    )
+    assert historical.valid_to == datetime.date(2021, 10, 1)
+
+    # The current membership is untouched.
+    current = OrganisationTrustMembership.objects.get(
+        organisation=organisation, valid_to__isnull=True
+    )
+    assert current.trust == trust_b
+
+    # As-of query returns trust_a for the historical period.
+    from django.db.models import Q
+    as_of = OrganisationTrustMembership.objects.filter(
+        organisation=organisation,
+        valid_from__lte=datetime.date(2010, 1, 1),
+    ).filter(Q(valid_to__gt=datetime.date(2010, 1, 1))).get()
+    assert as_of.trust == trust_a
+
+
+@pytest.mark.django_db
+def test_backfill_organisation_trust_membership_is_idempotent(
+    organisation, trust_a
+):
+    """Calling backfill_organisation_trust_membership twice with the same
+    interval updates the existing row rather than creating a duplicate."""
+    backfill_organisation_trust_membership(
+        organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    backfill_organisation_trust_membership(
+        organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    )
+    assert OrganisationTrustMembership.objects.filter(
+        organisation=organisation,
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+    ).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# Backfill with valid_to=None (replacing the current row)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_valid_to_none_replaces_current_row(trust_a):
+    """If valid_to=None is passed and a current row already exists with a
+    later valid_from (e.g. a baseline migration artefact), the existing
+    current row is deleted and the new row becomes the current state.
+
+    This is the case where an operator backfills the operational start date
+    of a trust that is still active under the same name — there should be
+    only one current row when the backfill is done, not two."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill the real start date, with valid_to=None (still current).
+    new_row = backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2012, 3, 20),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Only one current row exists.
+    current_count = TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count()
+    assert current_count == 1
+
+    # The current row is the backfilled one.
+    assert new_row.valid_from == datetime.date(2012, 3, 20)
+    assert new_row.valid_to is None
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_valid_to_none_closes_earlier_current_row(
+    trust_a
+):
+    """If valid_to=None is passed and a current row already exists with an
+    EARLIER valid_from, the existing current row is closed at the new row's
+    valid_from (not deleted — it represents a real prior state)."""
+    # Existing current row from 2010.
+    existing = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2010, 1, 1),
+        valid_to=None,
+        name="Old Name",
+        active=True,
+    )
+
+    # Backfill a new current state from 2020.
+    new_row = backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+        name="New Name",
+        active=True,
+    )
+
+    # Only one current row exists.
+    current_count = TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count()
+    assert current_count == 1
+
+    # The new row is current.
+    assert new_row.valid_from == datetime.date(2020, 1, 1)
+    assert new_row.valid_to is None
+    assert new_row.name == "New Name"
+
+    # The old row was closed at the new row's valid_from.
+    existing.refresh_from_db()
+    assert existing.valid_to == datetime.date(2020, 1, 1)
+    assert existing.name == "Old Name"
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_historical_promotes_to_current_when_matching(
+    trust_a,
+):
+    """If a historical backfill (valid_to is a real date) carries the same
+    attributes as the current baseline row, the baseline row is deleted and
+    the backfilled row is promoted to be current (valid_to=None).
+
+    This is the RYR / University Hospitals Sussex case: the baseline row
+    records the migration date, not a real state change, so it should not
+    survive the backfill as a redundant row with identical attributes."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill a historical state with the SAME attributes as the baseline,
+    # closing at the rename date. The rename date is before the baseline date.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 4, 1),
+        name="Trust A",
+        active=True,
+    )
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+    # Only one current row exists, and it is the backfilled one promoted to
+    # current (valid_to=None).
+    assert TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count() == 1
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.valid_from == datetime.date(2001, 4, 1)
+    assert current.name == "Trust A"
+
+    # No row exists with valid_to=2021-04-01 — the backfilled row was promoted.
+    assert not TrustVersion.objects.filter(
+        trust=trust_a, valid_to=datetime.date(2021, 4, 1)
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_historical_promotes_on_contiguous_handoff(
+    trust_a,
+):
+    """If a historical backfill's valid_to EQUALS the current baseline row's
+    valid_from (a contiguous handoff) and the attributes match, the baseline
+    row is still deleted and the backfilled row promoted to current.
+
+    This is the exact RYR shape produced by the backfill_successions command's
+    'bridge the gap' step: it writes a row with valid_to=baseline.valid_from
+    carrying the current name. The baseline row adds nothing in that case."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill a historical state whose valid_to equals the baseline's
+    # valid_from (contiguous handoff), with matching attributes.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2021, 4, 1),
+        valid_to=datetime.date(2026, 8, 5),  # == baseline.valid_from
+        name="Trust A",
+        active=True,
+    )
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+    # Only one current row exists, promoted from the backfilled row.
+    assert TrustVersion.objects.filter(
+        trust=trust_a, valid_to__isnull=True
+    ).count() == 1
+    current = TrustVersion.objects.get(trust=trust_a, valid_to__isnull=True)
+    assert current.valid_from == datetime.date(2021, 4, 1)
+    assert current.name == "Trust A"
+
+    # No row exists with valid_to=2026-08-05 — the backfilled row was promoted.
+    assert not TrustVersion.objects.filter(
+        trust=trust_a, valid_to=datetime.date(2026, 8, 5)
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_promotion_cleans_up_orphaned_bridge_row(
+    trust_a,
+):
+    """When a backfilled row is promoted to current, any prior historical row
+    with the same valid_from and matching attributes is deleted as an orphan.
+
+    This covers the case where a previous run left a bridge row with the same
+    valid_from as a new backfill but a different valid_to (e.g. the bridge used
+    the baseline date, the new backfill uses a corrected rename date). The
+    orphan is not recycled by update_or_create (different valid_to), so the
+    cleanup step must delete it explicitly."""
+    # Baseline row from the migration (valid_from=installation day).
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    # Orphaned bridge row from a previous run: same valid_from as the
+    # backfill we're about to do, but a DIFFERENT valid_to (the baseline date),
+    # with matching attributes. update_or_create won't recycle this row
+    # because its valid_to differs from the backfill's valid_to.
+    orphan = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2021, 4, 1),
+        valid_to=datetime.date(2026, 8, 5),  # differs from backfill's valid_to
+        name="Trust A",
+        active=True,
+    )
+
+    # Backfill with a valid_to that is at the baseline's valid_from (contiguous
+    # handoff) but differs from the orphan's valid_to. The current row matches
+    # and is at valid_to, so the backfilled row is promoted. The orphan (same
+    # valid_from, matching attributes, different valid_to) is cleaned up.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2021, 4, 1),
+        valid_to=datetime.date(2026, 8, 1),  # differs from orphan's valid_to
+        name="Trust A",
+        active=True,
+    )
+
+    # The baseline artefact was deleted.
+    assert not TrustVersion.objects.filter(pk=baseline.pk).exists()
+
+    # The orphan was deleted by the cleanup step.
+    assert not TrustVersion.objects.filter(pk=orphan.pk).exists()
+
+    # Only one row exists for this trust: the promoted current row.
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 1
+    only = TrustVersion.objects.get(trust=trust_a)
+    assert only.valid_from == datetime.date(2021, 4, 1)
+    assert only.valid_to is None
+    assert only.name == "Trust A"
+
+
+@pytest.mark.django_db
+def test_backfill_trust_attributes_historical_keeps_baseline_when_attributes_differ(
+    trust_a,
+):
+    """If a historical backfill carries DIFFERENT attributes from the current
+    baseline row, the baseline row is kept (it records a real state change
+    relative to the backfilled row). Only matching rows are promoted."""
+    # Baseline row from the migration.
+    baseline = TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Trust A (new name)",
+        active=True,
+    )
+
+    # Backfill a historical state with a DIFFERENT name.
+    backfill_trust_attributes(
+        trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 4, 1),
+        name="Trust A (old name)",
+        active=True,
+    )
+
+    # The baseline row survives — it records a real rename.
+    baseline.refresh_from_db()
+    assert baseline.valid_to is None
+    assert baseline.name == "Trust A (new name)"
+
+    # The backfilled historical row exists with its real valid_to.
+    historical = TrustVersion.objects.get(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 4, 1),
+    )
+    assert historical.name == "Trust A (old name)"

@@ -60,7 +60,7 @@ class OrganisationVersion(TimeStampAbstractBaseClass):
     longitude = models.FloatField(null=True, blank=True, default=None)
     postcode = models.CharField(max_length=10, null=True, blank=True, default=None)
     geocode_coordinates = models.PointField(
-        null=True, blank=True, default=None, srid=27700
+        null=True, blank=True, default=None, srid=4326
     )
     active = models.BooleanField(default=True)
     published_at = models.DateField(null=True, blank=True, default=None)

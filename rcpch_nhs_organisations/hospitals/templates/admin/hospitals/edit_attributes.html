@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">{{ object }}</a> &rsaquo;
+  Edit attributes as of…
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Edit {{ opts.verbose_name }} attributes as of…</h1>
+
+<p>This will close the current version row for <strong>{{ object }}</strong>
+and open a new one with the values below, effective on the date you specify.
+The main {{ opts.verbose_name }} row will also be updated so existing
+current-state queries keep working. The change is recorded in the temporal
+history layer (Layer 1).</p>
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <p><input type="submit" value="Save"></p>
+  <p><a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_change' object.pk %}">Cancel</a></p>
+</form>
+{% endblock %}

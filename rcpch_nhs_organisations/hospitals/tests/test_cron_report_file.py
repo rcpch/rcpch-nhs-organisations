@@ -146,3 +146,114 @@ def test_report_file_empty_when_no_changes(monkeypatch, trust_with_baseline, tmp
     assert report_path.exists()
     content = report_path.read_text()
     assert content == ""
+
+
+# ---------------------------------------------------------------------------
+# --time-frame argument validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_time_frame_passed_through_to_sync(monkeypatch, trust_with_baseline, tmp_path):
+    """The --time-frame argument is passed through to the sync function."""
+    captured = {}
+
+    def fake_fetch(time_frame=30):
+        captured["time_frame"] = time_frame
+        # Return a matching record so no changes are found.
+        return [
+            {
+                "OrgLink": "https://ods.example/Organisation/RAA",
+                "LastChangeDate": "2024-03-15",
+            }
+        ]
+
+    monkeypatch.setattr(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.fetch_updated_organisations",
+        fake_fetch,
+    )
+    monkeypatch.setattr(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.get_organisation",
+        lambda org_link: {
+            "Name": trust_with_baseline.name,
+            "GeoLoc": {
+                "Location": {
+                    "AddrLn1": trust_with_baseline.address_line_1,
+                    "Town": trust_with_baseline.town,
+                    "PostCode": trust_with_baseline.postcode,
+                }
+            },
+            "Contacts": {"Contact": []},
+        },
+    )
+    call_command(
+        "cron",
+        "--service",
+        "organisations",
+        "--dry-run",
+        "--time-frame",
+        "185",
+        stdout=StringIO(),
+        stderr=StringIO(),
+    )
+    assert captured["time_frame"] == 185
+
+
+@pytest.mark.django_db
+def test_time_frame_rejects_zero(monkeypatch):
+    """--time-frame 0 is rejected (must be 1-185)."""
+    from django.core.management import CommandError
+
+    with pytest.raises(CommandError):
+        call_command(
+            "cron",
+            "--service",
+            "organisations",
+            "--dry-run",
+            "--time-frame",
+            "0",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+
+
+@pytest.mark.django_db
+def test_time_frame_rejects_over_185(monkeypatch):
+    """--time-frame 186 is rejected (ODS API hard limit)."""
+    from django.core.management import CommandError
+
+    with pytest.raises(CommandError):
+        call_command(
+            "cron",
+            "--service",
+            "organisations",
+            "--dry-run",
+            "--time-frame",
+            "186",
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+
+
+@pytest.mark.django_db
+def test_time_frame_defaults_to_30(monkeypatch, trust_with_baseline):
+    """Without --time-frame, the default of 30 days is used."""
+    captured = {}
+
+    def fake_fetch(time_frame=30):
+        captured["time_frame"] = time_frame
+        return []
+
+    monkeypatch.setattr(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.fetch_updated_organisations",
+        fake_fetch,
+    )
+    call_command(
+        "cron",
+        "--service",
+        "organisations",
+        "--dry-run",
+        stdout=StringIO(),
+        stderr=StringIO(),
+    )
+    assert captured["time_frame"] == 30

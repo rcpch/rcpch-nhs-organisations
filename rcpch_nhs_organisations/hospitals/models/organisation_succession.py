@@ -51,10 +51,13 @@ class OrganisationSuccession(TimeStampAbstractBaseClass):
         on_delete=models.PROTECT,
         related_name="succession_successor_links",
         verbose_name="Successor",
+        null=True,
+        blank=True,
+        default=None,
         help_text=(
             "The Organisation that took over from the predecessor on the "
             "succession date. This is usually a newly created Organisation "
-            "row with the new ODS code."
+            "row with the new ODS code. Leave blank for a closure (no successor)."
         ),
     )
     succession_date = models.DateField(
@@ -91,7 +94,8 @@ class OrganisationSuccession(TimeStampAbstractBaseClass):
         verbose_name_plural = "Organisation successions"
 
     def __str__(self) -> str:
+        successor = self.successor.ods_code if self.successor else "(closed)"
         return (
-            f"{self.predecessor.ods_code} → {self.successor.ods_code} "
+            f"{self.predecessor.ods_code} → {successor} "
             f"({self.succession_date}, {self.get_succession_type_display()})"
         )

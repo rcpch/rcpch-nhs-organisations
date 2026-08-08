@@ -228,6 +228,9 @@ class TrustSuccession(TimeStampAbstractBaseClass):
         "hospitals.Trust",
         on_delete=models.PROTECT,
         related_name="succession_successor_links",
+        null=True,
+        blank=True,
+        default=None,
     )
     succession_date = models.DateField()
     succession_type = models.CharField(
@@ -248,9 +251,16 @@ class TrustSuccession(TimeStampAbstractBaseClass):
         verbose_name_plural = "Trust successions"
 ```
 
-Equivalent `PaediatricDiabetesUnitSuccession` for PDU merges. These can be populated
-from the ODS `Rels` block when it surfaces a `Successor` link, and supplemented
-manually for cases ODS does not expose.
+Equivalent `PaediatricDiabetesUnitSuccession` for PDU merges, and
+`OrganisationSuccession` for organisation-level code changes. These can be
+populated from the ODS `Rels` block when it surfaces a `Successor` link, and
+supplemented manually for cases ODS does not expose.
+
+The `successor` FK is nullable to support closures with no successor — a trust
+or PDU that ceases to operate without being absorbed into another entity. A
+closure is recorded as a succession row with `succession_type="closure"` and
+`successor=None`. This keeps closures in the same audit table as mergers and
+renames rather than silently flipping `active=False` with no record of why.
 
 ## Write path
 
@@ -297,6 +307,34 @@ def update_organisation_attributes(organisation, effective_date=None, **fields):
         setattr(organisation, k, v)
     organisation.save(update_fields=list(fields.keys()))
 ```
+
+Equivalent helpers exist for every entity with a Layer 1 version table. Each closes
+the current version row and opens a new one carrying the changed fields, then updates
+the denormalised attribute on the main table:
+
+```python
+def update_trust_attributes(trust, effective_date=None, **fields):
+    effective_date = effective_date or timezone.now().date()
+    TrustVersion.objects.filter(
+        trust=trust,
+        valid_to__isnull=True,
+    ).update(valid_to=effective_date)
+    TrustVersion.objects.create(
+        trust=trust,
+        valid_from=effective_date,
+        name=fields.get("name", trust.name),
+        # ... etc for every snapshot field on TrustVersion
+    )
+    for k, v in fields.items():
+        setattr(trust, k, v)
+    trust.save(update_fields=list(fields.keys()))
+```
+
+The same shape applies to `update_local_health_board_attributes()`,
+`update_integrated_care_board_attributes()`, `update_nhs_england_region_attributes()`,
+`update_paediatric_diabetes_unit_attributes()`, and
+`update_paediatric_diabetes_unit_network_attributes()`. Each snapshots only the
+mutable attributes of its parent entity (see Layer 1).
 
 The existing `update_organisation_model_with_ORD_changes()` in `general_functions/ods_update.py`
 is refactored to call these helpers instead of overwriting in place. The
@@ -370,6 +408,47 @@ think about `valid_from` / `valid_to` manually. Concretely:
 - **Succession entries are added through a dedicated admin.** `TrustSuccession` and
   `PaediatricDiabetesUnitSuccession` get their own admin pages with dropdowns for
   predecessor / successor and a date picker. These are entered manually.
+- **Attribute changes are a single action.** On every versioned entity admin page
+  (`Organisation`, `Trust`, `LocalHealthBoard`, `IntegratedCareBoard`,
+  `NHSEnglandRegion`, `PaediatricDiabetesUnit`, `PaediatricDiabetesUnitNetwork`), a
+  custom form action (e.g. "Edit attributes as of…") opens a form pre-populated with
+  the current snapshot fields plus an effective date. On submit it calls the entity's
+  `update_<entity>_attributes()` helper, closing the current version row and opening
+  a new one. The user does not touch the version table directly. This is the write
+  path for any change to an entity's own attributes — address corrections,
+  `pz_code` updates, and renames. The `active` field is **intentionally excluded**
+  from this form: deactivation is a business event with audit implications and
+  belongs to the closure workflow (see the Deactivate bullet below), not the
+  attribute-edit form.
+- **Rename is a composite action for trusts and PDUs.** For `Trust` and
+  `PaediatricDiabetesUnit` only, a "Rename…" action performs two writes in one
+  transaction: a Layer 1 version update via `update_<entity>_attributes()` *and* a
+  `*Succession` row with `succession_type="rename"`, `predecessor` and `successor`
+  both pointing at the same entity instance, `succession_date = effective_date`. The
+  succession row is audit metadata — it distinguishes a genuine rename by NHS England
+  from a silent operator correction, which a bare version row cannot. For entities
+  with no succession table (e.g. `Organisation`, `IntegratedCareBoard`), an attribute
+  change is a pure Layer 1 write with no succession row. Membership tables are
+  untouched in all cases: a rename does not change any affiliation.
+- **Deactivation is a composite action with a danger UI.** For `Organisation`,
+  `Trust`, and `PaediatricDiabetesUnit` — the entities with succession tables — a
+  "Deactivate…" action records a closure (no successor). It performs two writes in
+  one transaction: a Layer 1 version update with `active=False` via the
+  `deactivate_<entity>()` helper, and a Layer 3 `*Succession` row with
+  `succession_type="closure"` and `successor=None`. The action is styled as a
+  danger event in the UI (red button, confirmation checkbox, warning panel) because
+  once inactive the entity is hidden from default lists. The form requires a
+  free-text `notes` field so the audit trail records *why* the entity closed (e.g.
+  "closed through poor quality of care"), not just the date. This is the only
+  sanctioned way to flip `active` to False; the attribute-edit form excludes
+  `active` precisely so that deactivation goes through this action. For entities
+  without a succession table (`IntegratedCareBoard`, `NHSEnglandRegion`,
+  `LocalHealthBoard`, `PaediatricDiabetesNetwork`), deactivation is a pure Layer 1
+  write via `update_<entity>_attributes(active=False)` with no succession row —
+  these entities do not have a closure workflow in the admin yet. Membership tables
+  are untouched in all cases: a closure does not reassign any child; if a closed
+  entity's children need to move, that is a separate `split` succession recorded
+  after the closure.
 - **Read-only history inline.** Each main entity admin page shows the version and
   membership history as read-only inlines, so the user can see the timeline without
   leaving the page.
@@ -389,7 +468,7 @@ write touches the temporal layer, and surfaces mergers / updates that ODS has
 published without anyone having to watch the API manually.
 
 ### Workflow shape
-
+{% raw %}
 ```yaml
 # .github/workflows/ods-change-detection.yml
 name: ODS change detection
@@ -423,7 +502,7 @@ jobs:
           content-filepath: ods_changes.md
           labels: ods-changes, needs-review
 ```
-
+{% endraw %}
 ### Requirements on the management command
 
 The `cron` management command's `--dry-run` mode must:
@@ -488,19 +567,16 @@ explanatory message (pre-install-day state is not recoverable).
 
 ## Backfill strategy
 
-The temporal layer can only record from installation day forward. The backfill plan:
+The temporal layer can only record from installation day forward. Backfilling
+historical states — whether within the 185-day ODS recovery window or older —
+is covered in a separate document:
 
-1. **Baseline migration.** A one-off data migration creates a `*Version` row and a
-   `*Membership` row for every existing entity, with `valid_from = installation_date`
-   and `valid_to = None`. This is the baseline. From this point forward, every
-   change is captured.
-2. **185-day recovery.** Run the ODS sync with `time_frame=185` once. For each change
-   returned, write a `*Version` / `*Membership` row with the *old* state's
-   `valid_to = change_date` and a new row with `valid_from = change_date`. This
-   recovers the last 6 months of history.
-3. **Pre-install-day state.** Anything older than 185 days is not recoverable from
-   the ODS API. If audit data going back further needs to be re-run, this would
-   require a one-off import from ODS Trac bulk dumps — a separate project.
+- **[`backfill.md`](backfill.md)** — the ODS-driven recovery workflow
+  (exposing the `--time-frame` argument on the `cron` command, surfacing the
+  ODS `LastChangeDate` in the dry-run report) and the manual `backfill_*`
+  helper workflow for historical mergers and renames older than the recovery
+  window, with a worked example for the Northern Care Alliance acquisition
+  (1 October 2021).
 
 After backfill, the existing 30-day cron (`cron.py` →
 `update_organisation_model_with_ORD_changes`) continues to run, but now writes
@@ -526,8 +602,12 @@ In order, with dependencies:
 6. **Refactor merger command with dry-run.** `mergers.py` and `create_organisations.py`
    call the helpers when creating or re-parenting, and support `--dry-run`.
 7. **Admin interface.** Custom admin actions for reassigning each versioned
-   relationship, read-only history inlines on each main entity page, and dedicated
-   admin pages for `TrustSuccession` and `PaediatricDiabetesUnitSuccession`.
+   relationship, an "Edit attributes as of…" action on every versioned entity
+   (Layer 1 writes via `update_<entity>_attributes()`), a composite "Rename…"
+   action on `Trust` and `PaediatricDiabetesUnit` (Layer 1 + Layer 3 via
+   `rename_trust()` / `rename_paediatric_diabetes_unit()`), read-only history
+   inlines on each main entity page, and dedicated admin pages for
+   `TrustSuccession` and `PaediatricDiabetesUnitSuccession`.
 8. **Snapshot API.** `GET /organisations/{ods_code}/snapshot?date=YYYY-MM-DD` +
    serializer.
 9. **GitHub Action for ODS change detection.** Scheduled workflow that runs the

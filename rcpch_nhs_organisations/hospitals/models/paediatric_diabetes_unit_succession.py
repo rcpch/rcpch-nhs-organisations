@@ -38,7 +38,13 @@ class PaediatricDiabetesUnitSuccession(TimeStampAbstractBaseClass):
         on_delete=models.PROTECT,
         related_name="succession_successor_links",
         verbose_name="Successor",
-        help_text="The PDU that took over from the predecessor on the succession date.",
+        null=True,
+        blank=True,
+        default=None,
+        help_text=(
+            "The PDU that took over from the predecessor on the succession date. "
+            "Leave blank for a closure (no successor)."
+        ),
     )
     succession_date = models.DateField(
         verbose_name="Succession date",
@@ -69,7 +75,8 @@ class PaediatricDiabetesUnitSuccession(TimeStampAbstractBaseClass):
         verbose_name_plural = "Paediatric Diabetes Unit successions"
 
     def __str__(self) -> str:
+        successor = self.successor.pz_code if self.successor else "(closed)"
         return (
-            f"{self.predecessor.pz_code} → {self.successor.pz_code} "
+            f"{self.predecessor.pz_code} → {successor} "
             f"({self.succession_date}, {self.get_succession_type_display()})"
         )
