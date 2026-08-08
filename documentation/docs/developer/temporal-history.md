@@ -462,10 +462,29 @@ succession entries that ODS does not surface.
 
 ## GitHub Action for ODS change detection
 
-A scheduled GitHub Action runs the ODS sync in `--dry-run` mode on a cron (monthly) and opens a GitHub issue detailing what *would* change if the sync were
-applied. This gives the team a human-in-the-loop review step before any automatic
-write touches the temporal layer, and surfaces mergers / updates that ODS has
-published without anyone having to watch the API manually.
+A scheduled GitHub Action runs three ODS-driven checks in `--dry-run` mode
+on a monthly cron and opens a single GitHub issue combining all three
+reports. This gives the team a human-in-the-loop review step before any
+automatic write touches the temporal layer, and surfaces mergers / updates
+that ODS has published without anyone having to watch the API manually.
+
+The three checks are:
+
+1. **ODS sync** (`cron --service organisations --dry-run`) — the `/sync`
+   endpoint for recent trust and organisation changes (last 30 days by
+default).
+2. **Trust succession backfill** (`backfill_successions --entity trust
+   --dry-run`) — the `/organisations/{ods_code}` `Succs` block for every
+   trust, reporting missing `TrustSuccession` rows.
+3. **ICB succession backfill** (`backfill_successions --entity icb
+   --dry-run`) — the `/organisations/{ods_code}` `Succs` block for every
+   ICB, reporting missing `IntegratedCareBoardSuccession` rows and missing
+   successor ICBs (e.g. the 2026 ICB reorganisation).
+
+All three reports are combined into a single GitHub issue so the team has
+one place to review all ODS-driven changes. See
+[`.github/workflows/ods-change-detection.yml`](https://github.com/rcpch/rcpch-nhs-organisations/blob/live/.github/workflows/ods-change-detection.yml)
+for the actual workflow.
 
 ### Workflow shape
 {% raw %}

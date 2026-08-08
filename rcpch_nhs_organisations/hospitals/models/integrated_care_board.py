@@ -17,12 +17,12 @@ from django.contrib.gis.db import models
 class IntegratedCareBoardBoundaries(models.Model):
     boundary_identifier = models.CharField(max_length=9)
     name = models.CharField(max_length=77)
-    bng_e = models.BigIntegerField()
-    bng_n = models.BigIntegerField()
-    long = models.FloatField()
-    lat = models.FloatField()
-    globalid = models.CharField(max_length=38)
-    geom = models.MultiPolygonField(srid=27700)
+    bng_e = models.BigIntegerField(null=True, blank=True, default=None)
+    bng_n = models.BigIntegerField(null=True, blank=True, default=None)
+    long = models.FloatField(null=True, blank=True, default=None)
+    lat = models.FloatField(null=True, blank=True, default=None)
+    globalid = models.CharField(max_length=38, null=True, blank=True, default=None)
+    geom = models.MultiPolygonField(srid=27700, null=True, blank=True, default=None)
 
     class Meta:
         abstract = True
@@ -31,6 +31,7 @@ class IntegratedCareBoardBoundaries(models.Model):
 class IntegratedCareBoard(IntegratedCareBoardBoundaries):
     ods_code = models.CharField()
     publication_date = models.DateField(blank=True, null=True)
+    active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = "Integrated Care Board"

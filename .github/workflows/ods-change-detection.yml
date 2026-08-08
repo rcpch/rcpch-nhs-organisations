@@ -6,6 +6,17 @@ name: ODS change detection
 # temporal layer, and surfaces mergers / updates that ODS has published
 # without anyone having to watch the API manually.
 #
+# The workflow runs three checks:
+#   1. ODS sync (trusts + organisations) — the /sync endpoint for recent changes.
+#   2. Trust succession backfill — the /organisations/{ods_code} Succs block
+#      for every trust, reporting missing TrustSuccession rows.
+#   3. ICB succession backfill — the /organisations/{ods_code} Succs block
+#      for every ICB, reporting missing IntegratedCareBoardSuccession rows
+#      and missing successor ICBs (e.g. the 2026 ICB reorganisation).
+#
+# All three reports are combined into a single GitHub issue so the team has
+# one place to review all ODS-driven changes.
+#
 # For a one-off backfill of up to 185 days of changes, run the cron command
 # manually with --dry-run --report-file (see merger-handling.md).
 #
@@ -46,12 +57,55 @@ jobs:
         run: |
           python manage.py cron --service organisations --dry-run --report-file ods_changes.md
 
-      - name: Check for changes
+      - name: Run trust succession backfill in dry-run mode
+        env:
+          NHS_ODS_API_URL: ${{ secrets.NHS_ODS_API_URL }}
+          POSTGRES_DB: ${{ secrets.ODS_REPORT_POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.ODS_REPORT_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.ODS_REPORT_POSTGRES_PASSWORD }}
+          POSTGRES_HOST: ${{ secrets.ODS_REPORT_POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.ODS_REPORT_POSTGRES_PORT }}
+        run: |
+          python manage.py backfill_successions --entity trust --dry-run > trust_successions.md || true
+
+      - name: Run ICB succession backfill in dry-run mode
+        env:
+          NHS_ODS_API_URL: ${{ secrets.NHS_ODS_API_URL }}
+          POSTGRES_DB: ${{ secrets.ODS_REPORT_POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.ODS_REPORT_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.ODS_REPORT_POSTGRES_PASSWORD }}
+          POSTGRES_HOST: ${{ secrets.ODS_REPORT_POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.ODS_REPORT_POSTGRES_PORT }}
+        run: |
+          python manage.py backfill_successions --entity icb --dry-run > icb_successions.md || true
+
+      - name: Combine reports
         id: check
         run: |
-          # The --report-file flag writes the markdown report to the file only
-          # if changes were found. An empty file means no changes were detected.
+          # Combine the three reports into a single file. Each section is
+          # only included if the report file is non-empty.
+          echo "" > combined_report.md
           if [ -s ods_changes.md ]; then
+            echo "## ODS sync changes (trusts + organisations)" >> combined_report.md
+            echo "" >> combined_report.md
+            cat ods_changes.md >> combined_report.md
+            echo "" >> combined_report.md
+          fi
+          if [ -s trust_successions.md ]; then
+            echo "## Trust succession backfill" >> combined_report.md
+            echo "" >> combined_report.md
+            cat trust_successions.md >> combined_report.md
+            echo "" >> combined_report.md
+          fi
+          if [ -s icb_successions.md ]; then
+            echo "## ICB succession backfill" >> combined_report.md
+            echo "" >> combined_report.md
+            cat icb_successions.md >> combined_report.md
+            echo "" >> combined_report.md
+          fi
+          # Check if the combined report has any content beyond the initial
+          # empty line.
+          if [ -s combined_report.md ] && [ $(wc -l < combined_report.md) -gt 1 ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -61,8 +115,8 @@ jobs:
         if: steps.check.outputs.has_changes == 'true'
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "ODS changes detected (week of $(date +'%Y-%m-%d'))"
-          content-filepath: ods_changes.md
+          title: "ODS changes detected ($(date +'%Y-%m-%d'))"
+          content-filepath: combined_report.md
           labels: |
             ods-changes
             needs-review

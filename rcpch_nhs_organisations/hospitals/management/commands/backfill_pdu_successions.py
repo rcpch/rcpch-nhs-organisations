@@ -144,6 +144,28 @@ class Command(BaseCommand):
                             + f"  {pz}: set lead_organisation={lead_org.ods_code}"
                             + W
                         )
+                # If the PDU exists but has no paediatric_diabetes_network
+                # FK (e.g. created by seed_pdus from PZ_CODES which does
+                # not carry the network for every PDU), set it from the
+                # last state's regional_network. This is idempotent.
+                if pdu.paediatric_diabetes_network_id is None and not dry_run:
+                    states = entry["states"]
+                    def sort_key(s):
+                        ay = s.get("first_audit_year") or "-"
+                        return (ay == "-", ay)
+                    states_sorted = sorted(states, key=sort_key)
+                    last_state = states_sorted[-1] if states_sorted else {}
+                    network = self._resolve_network(
+                        last_state.get("regional_network")
+                    )
+                    if network is not None:
+                        pdu.paediatric_diabetes_network = network
+                        pdu.save(update_fields=["paediatric_diabetes_network"])
+                        self.stdout.write(
+                            B
+                            + f"  {pz}: set network={network.name}"
+                            + W
+                        )
             except PaediatricDiabetesUnit.DoesNotExist:
                 # Create the missing PDU. Determine its active state from the
                 # last state in the spreadsheet (the current state).

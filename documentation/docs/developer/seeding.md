@@ -12,13 +12,13 @@ Seeding the database happens on initial migration (`002_seed_abstraction_levels`
   - England
   - Wales
   - Scotland
-  - Northern Island
+  - Northern Ireland
   - Jersey
   - Isle of Man
 
 Each one of these is associated with GIS shapes data loaded in from .csv in the `shape_files` folder. This goes through a LayerMapping step beforehand. We don't have a shape file for the Isle of Man yet.
 
-Subsequent seeding happens then from the command line and adds:
+Subsequent seeding happens from the command line and adds:
 
 - Organisations
 - Trusts
@@ -26,19 +26,18 @@ Subsequent seeding happens then from the command line and adds:
 - Paediatric Diabetes Units
 - OPENUK Networks
 
-To run this after initial migration therefore from the command line within the docker instance it is necessary to:
-To run this after initial migration therefore from the command line it is necessary to:
+To run this after initial migration from the command line:
 
 ```console
 python manage.py seed --level all
 ```
 
-If only individual models need seeding the `--model` attribute accepts these parameters:
+If only individual models need seeding the `--level` attribute accepts these parameters:
 `abstraction_levels` (this adds ODS codes to the existing ICBs, London Boroughs, NHS England regions, as well as ONS GSS codes to the Countries)
 `trusts`
 `organisations`
 `pdus`
-`all`  - Adds all the above as well
+`all`  - Adds all the above
 
 ### Temporal history baseline
 
@@ -52,5 +51,26 @@ as the baseline so that every change from install day forward is captured.
 See [temporal-history.md](temporal-history.md) for the full design. Note that
 the baseline backfill does **not** create relationship membership rows —
 those are created on demand when a relationship changes (via the helpers in
-`general_functions/membership.py`) or when a new organisation is created (via
-the `mergers --create` command).
+`general_functions/membership.py`), when a new organisation is created (via
+the `mergers --create` command), or by the backfill commands that recover
+historical memberships from the ODS API (see
+[backfill.md](backfill.md),
+[icb-history.md](icb-history.md), and
+[pdu-history.md](pdu-history.md)).
+
+### ICB boundary fields
+
+The `IntegratedCareBoardBoundaries` abstract base class has boundary geometry
+fields (`bng_e`, `bng_n`, `long`, `lat`, `globalid`, `geom`) that are now
+**nullable**. The existing 42 ICBs have geometry loaded from ONS shapefiles
+(`Integrated_Care_Boards_April_2023_EN_BSC` in the `shape_files` folder).
+New ICBs created by the backfill (e.g. the 6 new ICBs from the 2026
+reorganisation) do not have boundary data — the fields are left as `None`.
+The long-term intention is to deprecate the geometry fields from this
+project entirely and leave all boundary data to the
+[RCPCH Census Platform](https://github.com/rcpch/rcpch-census-platform).
+See [icb-history.md](icb-history.md) for details.
+
+The `IntegratedCareBoard` model also has an `active` boolean field
+(defaulting to `True`), mirroring the trust and PDU pattern. This allows
+the closure workflow to set `active=False` on dissolved ICBs.

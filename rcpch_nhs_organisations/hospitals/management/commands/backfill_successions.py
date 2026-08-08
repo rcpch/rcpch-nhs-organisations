@@ -14,10 +14,14 @@ from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
 from rcpch_nhs_organisations.hospitals.general_functions.membership import (
     backfill_trust_attributes,
     backfill_organisation_attributes,
+    backfill_integrated_care_board_attributes,
 )
 from rcpch_nhs_organisations.hospitals.constants.known_acquisitions import (
     lookup_known_acquisition,
     lookup_known_acquisition_no_name_change,
+)
+from rcpch_nhs_organisations.hospitals.constants.known_icb_acquisitions import (
+    lookup_known_icb_acquisition,
 )
 from rcpch_nhs_organisations.hospitals.models import (
     Trust,
@@ -26,6 +30,9 @@ from rcpch_nhs_organisations.hospitals.models import (
     Organisation,
     OrganisationSuccession,
     OrganisationVersion,
+    IntegratedCareBoard,
+    IntegratedCareBoardSuccession,
+    IntegratedCareBoardVersion,
 )
 
 from .image import rcpch_ascii_art
@@ -63,7 +70,17 @@ ENTITY_CONFIG = {
         "parent_fk_field": "predecessor",
         "backfill_helper": backfill_organisation_attributes,
         "name_field": "name",
-    }
+    },
+    "icb": {
+        "model": IntegratedCareBoard,
+        "succession_model": IntegratedCareBoardSuccession,
+        "version_model": IntegratedCareBoardVersion,
+        "version_parent_field": "integrated_care_board",
+        "ods_code_field": "ods_code",
+        "parent_fk_field": "predecessor",
+        "backfill_helper": backfill_integrated_care_board_attributes,
+        "name_field": "name",
+    },
 }
 
 
@@ -138,8 +155,10 @@ class Command(BaseCommand):
             type=str,
             required=True,
             choices=list(ENTITY_CONFIG.keys()),
-            help="Entity type to backfill: trust or organisation. (PDUs are "
-            "not in ODS, so they are not supported by this command.)",
+            help="Entity type to backfill: trust, organisation, or icb. "
+            "Trusts and organisations are fetched from the ODS API. ICBs "
+            "are also fetched from ODS; missing successor ICBs are created "
+            "from the ODS record.",
         )
         parser.add_argument(
             "--dry-run",
@@ -251,12 +270,31 @@ class Command(BaseCommand):
                     **{ods_code_field: target_ods_code}
                 ).first()
                 if target is None:
-                    self.stdout.write(
-                        O + f"  {ods_code}: {ev_type} → {target_ods_code} "
-                        f"({ev_date}) — target not in database, skipping" + W
-                    )
-                    skipped_count += 1
-                    continue
+                    # For ICBs, create missing successor ICBs from the ODS
+                    # record. The 2026 ICB reorganisation creates 6 new ICBs
+                    # that don't exist in the database or constants yet.
+                    if entity_type == "icb" and not dry_run:
+                        target = self._create_missing_icb(
+                            target_ods_code, ev_date, auto_yes
+                        )
+                        if target is None:
+                            skipped_count += 1
+                            continue
+                    elif entity_type == "icb" and dry_run:
+                        self.stdout.write(
+                            O + f"  {ods_code}: {ev_type} → {target_ods_code} "
+                            f"({ev_date}) — target not in database, "
+                            "would create from ODS" + W
+                        )
+                        skipped_count += 1
+                        continue
+                    else:
+                        self.stdout.write(
+                            O + f"  {ods_code}: {ev_type} → {target_ods_code} "
+                            f"({ev_date}) — target not in database, skipping" + W
+                        )
+                        skipped_count += 1
+                        continue
 
                 # Check if a succession row already exists.
                 # For "Successor" (this entity was absorbed into the target),
@@ -292,6 +330,17 @@ class Command(BaseCommand):
                     suggested_type = _detect_succession_type(
                         successor_legal_start, ev_date
                     )
+                    # For ICBs, check KNOWN_ICB_ACQUISITIONS to override
+                    # the type. ODS does not expose Legal.Start for existing
+                    # ICBs that gain territory, so the fallback would be
+                    # 'merger'. The constants table classifies these as
+                    # 'acquisition'.
+                    if entity_type == "icb":
+                        known_icb = lookup_known_icb_acquisition(
+                            successor.ods_code, ev_date
+                        )
+                        if known_icb is not None:
+                            suggested_type = "acquisition"
                     # Collect a backfill candidate for Pass 2 for EVERY
                     # Predecessor event, even if the succession row already
                     # exists. If the predecessor was iterated first, its
@@ -322,6 +371,16 @@ class Command(BaseCommand):
                     # backfill in Pass 2, which runs on Predecessor events.)
                     suggested_type = "merger"
                     successor_legal_start = None
+                    # For ICBs, check KNOWN_ICB_ACQUISITIONS to override
+                    # the type. This handles the case where the event is
+                    # seen from the predecessor's side (Successor event)
+                    # before the successor's iteration (Predecessor event).
+                    if entity_type == "icb":
+                        known_icb = lookup_known_icb_acquisition(
+                            successor.ods_code, ev_date
+                        )
+                        if known_icb is not None:
+                            suggested_type = "acquisition"
 
                 if existing:
                     continue  # already recorded
@@ -572,6 +631,25 @@ class Command(BaseCommand):
             # Acquisition: prompt for the pre-merger name, pre-populated from
             # the version table if available.
             #
+            # For ICBs, check the KNOWN_ICB_ACQUISITIONS table first. ICBs
+            # don't have pre-merger names (they are not renamed when they
+            # gain territory), so the acquisition is auto-classified and
+            # no name backfill is needed.
+            if entity_type == "icb":
+                known_icb = lookup_known_icb_acquisition(successor.ods_code, ev_date)
+                if known_icb is not None:
+                    self.stdout.write(
+                        G + f"  Auto-classified {successor} as acquisition "
+                        f"from KNOWN_ICB_ACQUISITIONS. Name unchanged — "
+                        "no name backfill needed." + W
+                    )
+                    name_unchanged_count += 1
+                    continue
+                # Fall through to the prompt path for ICB acquisitions not
+                # in the constants table. ICBs are not renamed when they
+                # gain territory, so the operator should skip the name
+                # backfill.
+
             # First, check the KNOWN_ACQUISITIONS table. If this (successor,
             # ev_date) is a known acquisition with a pre-merger name that ODS
             # no longer exposes, auto-backfill the name-change row without
@@ -824,3 +902,80 @@ class Command(BaseCommand):
             self.stdout.write(O + f"    Name unchanged / skipped: {name_unchanged_count}" + W)
         self.stdout.write("done.")
         rcpch_ascii_art()
+
+    def _create_missing_icb(self, ods_code, succession_date, auto_yes):
+        """Create a missing successor ICB from its ODS record.
+
+        Called when ``backfill_successions --entity icb`` encounters a
+        succession event pointing at an ICB that doesn't exist in the
+        database (e.g. one of the 6 new ICBs created by the 2026
+        reorganisation). Fetches the ODS record, creates the
+        ``IntegratedCareBoard`` row (without boundary data — the geometry
+        fields are nullable), and writes a baseline
+        ``IntegratedCareBoardVersion`` row at the ICB's ``Legal.Start``
+        date.
+
+        Returns the created ``IntegratedCareBoard`` instance, or ``None``
+        if the ODS record could not be fetched or the operator declines.
+        """
+        # Use the module-level get_organisation (already imported and
+        # patched in tests) rather than re-importing it.
+        try:
+            ord_record = get_organisation(
+                f"https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/{ods_code}"
+            )
+        except Exception as e:
+            self.stdout.write(
+                R + f"  Could not fetch ODS record for {ods_code}: {e}" + W
+            )
+            return None
+
+        name = ord_record.get("Name", ods_code)
+        # Extract Legal.Start for the baseline version row.
+        legal_start = _successor_legal_start(ord_record) or succession_date
+
+        # Extract publication_date if available.
+        publication_date = None
+        for d in ord_record.get("Date", []):
+            if d.get("Type") == "Operational" and d.get("Start"):
+                try:
+                    publication_date = datetime.date.fromisoformat(d["Start"])
+                except ValueError:
+                    pass
+                break
+
+        if not auto_yes:
+            try:
+                answer = input(
+                    f"  Create missing ICB {ods_code} ({name}) "
+                    f"from ODS? [y/n] "
+                )
+            except EOFError:
+                self.stdout.write(O + "  No input — skipping." + W)
+                return None
+            if answer.strip().lower() != "y":
+                self.stdout.write(O + f"  {ods_code}: not created." + W)
+                return None
+
+        with transaction.atomic():
+            icb = IntegratedCareBoard.objects.create(
+                ods_code=ods_code,
+                name=name,
+                boundary_identifier="",  # no boundary data loaded
+                active=True,
+                publication_date=publication_date,
+            )
+            # Write a baseline version row at Legal.Start.
+            IntegratedCareBoardVersion.objects.create(
+                integrated_care_board=icb,
+                valid_from=legal_start,
+                valid_to=None,
+                name=name,
+                active=True,
+                publication_date=publication_date,
+            )
+        self.stdout.write(
+            G + f"  Created ICB {ods_code} ({name}) from ODS, "
+            f"baseline version at {legal_start}." + W
+        )
+        return icb
