@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#macro-rendering-error" class="md-skip">
+        <a href="#temporal-history-and-merger-tracking" class="md-skip">
           Skip to content
         </a>
       
@@ -753,6 +753,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Temporal history and merger tracking
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -769,6 +787,285 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#background-and-motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background and motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-hand-rolled-rather-than-django-simple-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why hand-rolled rather than django-simple-history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layer-1-entity-version-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer 1 — Entity version tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-2-relationship-membership-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer 2 — Relationship membership tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-3-succession-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer 3 — Succession tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#admin-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin interface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#github-action-for-ods-change-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Action for ODS change detection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GitHub Action for ODS change detection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#workflow-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#requirements-on-the-management-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements on the management command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets-and-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets and environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-a-github-issue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a GitHub issue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-to-the-manual-admin-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to the manual admin path
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backfill-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backfill strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -790,6 +1087,34 @@
     
   
     How trust mergers are handled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backfilling historical states
   
 
     
@@ -1340,6 +1665,274 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#background-and-motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background and motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-hand-rolled-rather-than-django-simple-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why hand-rolled rather than django-simple-history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layer-1-entity-version-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer 1 — Entity version tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-2-relationship-membership-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer 2 — Relationship membership tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-3-succession-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer 3 — Succession tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#admin-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin interface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#github-action-for-ods-change-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Action for ODS change detection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GitHub Action for ODS change detection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#workflow-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#requirements-on-the-management-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements on the management command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets-and-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets and environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-a-github-issue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a GitHub issue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-to-the-manual-admin-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to the manual admin path
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backfill-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backfill strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1371,23 +1964,621 @@
   
 
 
-<h1 id="macro-rendering-error"><em>Macro Rendering Error</em><a class="headerlink" href="#macro-rendering-error" title="Permanent link">&para;</a></h1>
-<p><em>File</em>: <code>developer/temporal-history.md</code></p>
-<p><em>UndefinedError</em>: 'secrets' is undefined</p>
-<div class="highlight"><pre><span></span><code>Traceback (most recent call last):
-  File &quot;/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/mkdocs_macros/plugin.py&quot;, line 703, in render
-    return md_template.render(**page_variables)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File &quot;/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/jinja2/environment.py&quot;, line 1295, in render
-    self.environment.handle_exception()
-  File &quot;/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/jinja2/environment.py&quot;, line 942, in handle_exception
-    raise rewrite_traceback_stack(source=source)
-  File &quot;&lt;template&gt;&quot;, line 410, in top-level template code
-  File &quot;/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/jinja2/environment.py&quot;, line 490, in getattr
-    return getattr(obj, attribute)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-jinja2.exceptions.UndefinedError: &#39;secrets&#39; is undefined
+<h1 id="temporal-history-and-merger-tracking">Temporal history and merger tracking<a class="headerlink" href="#temporal-history-and-merger-tracking" title="Permanent link">&para;</a></h1>
+<h2 id="background-and-motivation">Background and motivation<a class="headerlink" href="#background-and-motivation" title="Permanent link">&para;</a></h2>
+<p>The RCPCH NHS Organisations API is consumed by national audits (e.g. NPDA) that report
+longitudinal data — outcomes are reported against the organisational geography that was
+in force at the time the data was collected. NHS organisational structures are not
+stable: trusts merge, are renamed, change ICB, or close; ICBs themselves were
+reorganised in 2022 (CCGs → ICBs); Paediatric Diabetes Units (PDUs) can also merge.</p>
+<p>Until now the database has stored only <strong>current state</strong>. The <code>Organisation.trust</code>
+foreign key is overwritten on a merger, and
+<code>update_organisation_model_with_ORD_changes()</code> overwrites <code>name</code>, <code>address</code>, etc. in
+place. Once overwritten, the previous state is unrecoverable.</p>
+<p>This document describes a hand-rolled temporal layer that captures every state change
+from the point of installation forward, so that the API can answer:</p>
+<blockquote>
+<p>"On date X, which Trust / ICB / NHS England Region / OPEN UK Network / PDU was
+organisation Y under, and what was its name and address?"</p>
+</blockquote>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<h3 id="in-scope">In scope<a class="headerlink" href="#in-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Temporal versioning of entity attributes (name, address, active flag) for:
+  <code>Organisation</code>, <code>Trust</code>, <code>LocalHealthBoard</code>, <code>IntegratedCareBoard</code>,
+  <code>NHSEnglandRegion</code>, <code>PaediatricDiabetesUnit</code>, <code>PaediatricDiabetesNetwork</code>.</li>
+<li>Temporal versioning of relationships (foreign keys that can be re-pointed) for:
+  org → trust, org → LHB, org → ICB, org → NHS England region, org → OPEN UK network,
+  org → PDU, PDU → network, and (if needed) org → London borough / LAD / LSOA.</li>
+<li>Explicit succession metadata for mergers, acquisitions, renames, closures, and
+  splits — for both Trusts and PDUs.</li>
+<li>A read API endpoint that returns the full snapshot of an organisation at a given
+  date.</li>
+<li>A backfill strategy that captures current state as the baseline and recovers the
+  last 185 days of changes from the ODS <code>/sync</code> endpoint.</li>
+</ul>
+<h3 id="out-of-scope">Out of scope<a class="headerlink" href="#out-of-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Recovering state from before installation day. The ODS <code>/sync</code> endpoint only
+  surfaces the last 185 days of changes; older history is not queryable via the API
+  and would require a one-off import from ODS Trac bulk dumps. That is a separate
+  project if needed.</li>
+<li>Live querying of ODS at request time. ODS remains a <em>source</em> used to keep the local
+  database current; it is not a query target for audit data.</li>
+<li>Versioning of relationships that essentially never change (e.g. country). These
+  can be added later if required.</li>
+</ul>
+<h2 id="why-hand-rolled-rather-than-django-simple-history">Why hand-rolled rather than <code>django-simple-history</code><a class="headerlink" href="#why-hand-rolled-rather-than-django-simple-history" title="Permanent link">&para;</a></h2>
+<p>A hand-rolled solution is preferred because:</p>
+<ul>
+<li><strong>Schema control.</strong> The succession tables carry <code>succession_type</code> and <code>notes</code> —
+  business metadata that does not fit cleanly into a generic history table.</li>
+<li><strong>Queryable relationships.</strong> Audit reports need queries like "list all
+  organisations that were under Trust X on date Y". A dedicated membership table
+  makes this a single indexed join; a generic history table would require filtering
+  on a stored FK id column with no relationship semantics.</li>
+<li><strong>No external dependency.</strong> No upgrade risk, no behaviour drift between releases.</li>
+<li><strong>Explicit write path.</strong> Every state change goes through a small set of helper
+  functions, which makes the audit trail of <em>how</em> history was written reviewable.</li>
+</ul>
+<p>The cost is more models, more migrations, and more helper code — but it is all
+boilerplate, written once.</p>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<p>The design separates <strong>entity snapshots</strong> (what an entity's own attributes were over
+time) from <strong>relationship snapshots</strong> (what an entity's parent was over time). These
+have different timelines — an organisation can change address without changing trust,
+and can change trust without changing address — so they are modelled separately.</p>
+<p>The existing main tables (<code>Organisation</code>, <code>Trust</code>, etc.) continue to represent
+<strong>current state</strong> and are unchanged in shape. The temporal layer is purely additive:
+existing serializers, views, and API responses are unaffected.</p>
+<pre class="mermaid"><code>graph TD
+    ORG[Organisation - current state]
+    ORG_V[OrganisationVersion - attribute history]
+    ORG_TR[OrganisationTrustMembership - relationship history]
+    TR[Trust - current state]
+    TR_V[TrustVersion - attribute history]
+    TR_SUC[TrustSuccession - merger metadata]
+    PDU[PaediatricDiabetesUnit - current state]
+    PDU_V[PaediatricDiabetesUnitVersion - attribute history]
+    PDU_NET[PaediatricDiabetesUnitNetworkMembership - relationship history]
+    PDU_SUC[PaediatricDiabetesUnitSuccession - merger metadata]
+
+    ORG --&gt; ORG_V
+    ORG --&gt; ORG_TR
+    ORG_TR --&gt; TR
+    TR --&gt; TR_V
+    TR_SUC --&gt; TR
+    ORG --&gt; PDU
+    PDU --&gt; PDU_V
+    PDU --&gt; PDU_NET
+    PDU_SUC --&gt; PDU</code></pre>
+<h3 id="layer-1-entity-version-tables">Layer 1 — Entity version tables<a class="headerlink" href="#layer-1-entity-version-tables" title="Permanent link">&para;</a></h3>
+<p>One append-only table per entity whose own attributes can change. Each row represents
+a state of the entity that was valid over a <code>[valid_from, valid_to)</code> interval. The
+current state is the row with <code>valid_to IS NULL</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OrganisationVersion</span><span class="p">(</span><span class="n">TimeStampAbstractBaseClass</span><span class="p">):</span>
+    <span class="n">organisation</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s2">&quot;hospitals.Organisation&quot;</span><span class="p">,</span>
+        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CASCADE</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;versions&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">valid_from</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">()</span>
+    <span class="n">valid_to</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># null = current</span>
+
+    <span class="c1"># Snapshot of mutable attributes</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">address1</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">address2</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">address3</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">telephone</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">city</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">county</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">postcode</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">latitude</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">FloatField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">longitude</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">FloatField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">geocode_coordinates</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">PointField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">srid</span><span class="o">=</span><span class="mi">27700</span><span class="p">)</span>
+    <span class="n">active</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">BooleanField</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">published_at</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;organisation&quot;</span><span class="p">,</span> <span class="s2">&quot;valid_from&quot;</span><span class="p">]),</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;valid_to&quot;</span><span class="p">]),</span>
+        <span class="p">]</span>
+        <span class="n">ordering</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;-valid_from&quot;</span><span class="p">,)</span>
+        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">&quot;Organisation version&quot;</span>
+        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">&quot;Organisation versions&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_current</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_to</span> <span class="ow">is</span> <span class="kc">None</span>
 </code></pre></div>
+<p>Equivalent <code>TrustVersion</code>, <code>LocalHealthBoardVersion</code>, <code>IntegratedCareBoardVersion</code>,
+<code>NHSEnglandRegionVersion</code>, <code>PaediatricDiabetesUnitVersion</code>,
+<code>PaediatricDiabetesNetworkVersion</code>. Each snapshots only the mutable attributes of
+its parent entity. For <code>PaediatricDiabetesUnit</code> this is <code>pz_code</code>, <code>active</code>, and the
+network FK id (the network relationship itself is versioned separately — see Layer 2).</p>
+<h3 id="layer-2-relationship-membership-tables">Layer 2 — Relationship membership tables<a class="headerlink" href="#layer-2-relationship-membership-tables" title="Permanent link">&para;</a></h3>
+<p>One append-only table per foreign key that can be re-pointed. Each row records that
+entity A was a member of entity B over a <code>[valid_from, valid_to)</code> interval.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OrganisationTrustMembership</span><span class="p">(</span><span class="n">TimeStampAbstractBaseClass</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Tracks which Trust an Organisation belonged to over time.</span>
+<span class="sd">    Append-only. The current row is the one with valid_to IS NULL.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">organisation</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s2">&quot;hospitals.Organisation&quot;</span><span class="p">,</span>
+        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CASCADE</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;trust_memberships&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">trust</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s2">&quot;hospitals.Trust&quot;</span><span class="p">,</span>
+        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>  <span class="c1"># don&#39;t let a trust vanish and lose history</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;organisation_memberships&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">valid_from</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">()</span>
+    <span class="n">valid_to</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;organisation&quot;</span><span class="p">,</span> <span class="s2">&quot;valid_to&quot;</span><span class="p">]),</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;trust&quot;</span><span class="p">,</span> <span class="s2">&quot;valid_from&quot;</span><span class="p">]),</span>
+        <span class="p">]</span>
+        <span class="n">ordering</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;-valid_from&quot;</span><span class="p">,)</span>
+        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">&quot;Organisation–Trust membership&quot;</span>
+        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">&quot;Organisation–Trust memberships&quot;</span>
+</code></pre></div>
+<p>The full set of membership tables:</p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Relationship</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OrganisationTrustMembership</code></td>
+<td>org → trust</td>
+<td>England only</td>
+</tr>
+<tr>
+<td><code>OrganisationLocalHealthBoardMembership</code></td>
+<td>org → LHB</td>
+<td>Wales only</td>
+</tr>
+<tr>
+<td><code>OrganisationIntegratedCareBoardMembership</code></td>
+<td>org → ICB</td>
+<td>England only</td>
+</tr>
+<tr>
+<td><code>OrganisationNHSEnglandRegionMembership</code></td>
+<td>org → NHS England region</td>
+<td>England only</td>
+</tr>
+<tr>
+<td><code>OrganisationOPENUKNetworkMembership</code></td>
+<td>org → OPEN UK network</td>
+<td></td>
+</tr>
+<tr>
+<td><code>OrganisationPaediatricDiabetesUnitMembership</code></td>
+<td>org → PDU</td>
+<td></td>
+</tr>
+<tr>
+<td><code>PaediatricDiabetesUnitNetworkMembership</code></td>
+<td>PDU → network</td>
+<td></td>
+</tr>
+<tr>
+<td><code>OrganisationLondonBoroughMembership</code></td>
+<td>org → London borough</td>
+<td>boundaries change</td>
+</tr>
+<tr>
+<td><code>OrganisationLocalAuthorityDistrictMembership</code></td>
+<td>org → LAD</td>
+<td>boundaries change</td>
+</tr>
+<tr>
+<td><code>OrganisationLowerLayerSuperOutputAreaMembership</code></td>
+<td>org → LSOA</td>
+<td>boundaries change</td>
+</tr>
+<tr>
+<td><code>TrustIntegratedCareBoardMembership</code></td>
+<td>trust → ICB</td>
+<td>trusts can move ICB on merger</td>
+</tr>
+<tr>
+<td><code>TrustNHSEnglandRegionMembership</code></td>
+<td>trust → NHS England region</td>
+<td>trusts can move region on merger</td>
+</tr>
+</tbody>
+</table>
+<p>Relationships that essentially never change (e.g. country) do not need a membership
+table. London borough / LAD / LSOA boundaries do change, so they are versioned. Trust
+→ ICB and trust → NHS England region are versioned because a trust can move ICB or
+region on merger, and this simplifies "which ICB was Trust X under on date Y" queries
+without having to traverse the organisation layer.</p>
+<h3 id="layer-3-succession-tables">Layer 3 — Succession tables<a class="headerlink" href="#layer-3-succession-tables" title="Permanent link">&para;</a></h3>
+<p>The membership tables record <em>what</em> changed. The succession tables record <em>why</em> —
+the business relationship between two trust rows (or two PDU rows) when a merger,
+acquisition, rename, closure, or split occurs.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TrustSuccession</span><span class="p">(</span><span class="n">TimeStampAbstractBaseClass</span><span class="p">):</span>
+    <span class="n">predecessor</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s2">&quot;hospitals.Trust&quot;</span><span class="p">,</span>
+        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;succession_predecessor_links&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">successor</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s2">&quot;hospitals.Trust&quot;</span><span class="p">,</span>
+        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;succession_successor_links&quot;</span><span class="p">,</span>
+        <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">succession_date</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">()</span>
+    <span class="n">succession_type</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span>
+        <span class="n">max_length</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;merger&quot;</span><span class="p">,</span> <span class="s2">&quot;Merger&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="s2">&quot;Acquisition&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;rename&quot;</span><span class="p">,</span> <span class="s2">&quot;Rename&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;closure&quot;</span><span class="p">,</span> <span class="s2">&quot;Closure&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;Split&quot;</span><span class="p">),</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">notes</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">TextField</span><span class="p">(</span><span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;succession_date&quot;</span><span class="p">])]</span>
+        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">&quot;Trust succession&quot;</span>
+        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">&quot;Trust successions&quot;</span>
+</code></pre></div>
+<p>Equivalent <code>PaediatricDiabetesUnitSuccession</code> for PDU merges, and
+<code>OrganisationSuccession</code> for organisation-level code changes. These can be
+populated from the ODS <code>Rels</code> block when it surfaces a <code>Successor</code> link, and
+supplemented manually for cases ODS does not expose.</p>
+<p>The <code>successor</code> FK is nullable to support closures with no successor — a trust
+or PDU that ceases to operate without being absorbed into another entity. A
+closure is recorded as a succession row with <code>succession_type="closure"</code> and
+<code>successor=None</code>. This keeps closures in the same audit table as mergers and
+renames rather than silently flipping <code>active=False</code> with no record of why.</p>
+<h2 id="write-path">Write path<a class="headerlink" href="#write-path" title="Permanent link">&para;</a></h2>
+<p>Every state change goes through a small set of helper functions in
+<code>hospitals/general_functions/membership.py</code>. The pattern is the same everywhere:</p>
+<ol>
+<li>Close the current membership/version row (<code>valid_to = effective_date</code>).</li>
+<li>Create a new membership/version row (<code>valid_from = effective_date</code>,
+   <code>valid_to = None</code>).</li>
+<li>Update the denormalised FK / attributes on the main table so existing current-state
+   queries keep working.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">reassign_organisation_trust</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">new_trust</span><span class="p">,</span> <span class="n">effective_date</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">effective_date</span> <span class="o">=</span> <span class="n">effective_date</span> <span class="ow">or</span> <span class="n">timezone</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+    <span class="n">OrganisationTrustMembership</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+        <span class="n">organisation</span><span class="o">=</span><span class="n">organisation</span><span class="p">,</span>
+        <span class="n">valid_to__isnull</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">valid_to</span><span class="o">=</span><span class="n">effective_date</span><span class="p">)</span>
+    <span class="n">OrganisationTrustMembership</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">organisation</span><span class="o">=</span><span class="n">organisation</span><span class="p">,</span>
+        <span class="n">trust</span><span class="o">=</span><span class="n">new_trust</span><span class="p">,</span>
+        <span class="n">valid_from</span><span class="o">=</span><span class="n">effective_date</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">organisation</span><span class="o">.</span><span class="n">trust</span> <span class="o">=</span> <span class="n">new_trust</span>
+    <span class="n">organisation</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;trust&quot;</span><span class="p">])</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_organisation_attributes</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">effective_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">):</span>
+    <span class="n">effective_date</span> <span class="o">=</span> <span class="n">effective_date</span> <span class="ow">or</span> <span class="n">timezone</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+    <span class="n">OrganisationVersion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+        <span class="n">organisation</span><span class="o">=</span><span class="n">organisation</span><span class="p">,</span>
+        <span class="n">valid_to__isnull</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">valid_to</span><span class="o">=</span><span class="n">effective_date</span><span class="p">)</span>
+    <span class="n">OrganisationVersion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">organisation</span><span class="o">=</span><span class="n">organisation</span><span class="p">,</span>
+        <span class="n">valid_from</span><span class="o">=</span><span class="n">effective_date</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">organisation</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+        <span class="n">address1</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;address1&quot;</span><span class="p">,</span> <span class="n">organisation</span><span class="o">.</span><span class="n">address1</span><span class="p">),</span>
+        <span class="c1"># ... etc for every snapshot field</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="n">organisation</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+</code></pre></div>
+<p>Equivalent helpers exist for every entity with a Layer 1 version table. Each closes
+the current version row and opens a new one carrying the changed fields, then updates
+the denormalised attribute on the main table:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_trust_attributes</span><span class="p">(</span><span class="n">trust</span><span class="p">,</span> <span class="n">effective_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">):</span>
+    <span class="n">effective_date</span> <span class="o">=</span> <span class="n">effective_date</span> <span class="ow">or</span> <span class="n">timezone</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+    <span class="n">TrustVersion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+        <span class="n">trust</span><span class="o">=</span><span class="n">trust</span><span class="p">,</span>
+        <span class="n">valid_to__isnull</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">valid_to</span><span class="o">=</span><span class="n">effective_date</span><span class="p">)</span>
+    <span class="n">TrustVersion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">trust</span><span class="o">=</span><span class="n">trust</span><span class="p">,</span>
+        <span class="n">valid_from</span><span class="o">=</span><span class="n">effective_date</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">trust</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+        <span class="c1"># ... etc for every snapshot field on TrustVersion</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">trust</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="n">trust</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+</code></pre></div>
+<p>The same shape applies to <code>update_local_health_board_attributes()</code>,
+<code>update_integrated_care_board_attributes()</code>, <code>update_nhs_england_region_attributes()</code>,
+<code>update_paediatric_diabetes_unit_attributes()</code>, and
+<code>update_paediatric_diabetes_unit_network_attributes()</code>. Each snapshots only the
+mutable attributes of its parent entity (see Layer 1).</p>
+<p>The existing <code>update_organisation_model_with_ORD_changes()</code> in <code>general_functions/ods_update.py</code>
+is refactored to call these helpers instead of overwriting in place. The
+<code>mergers.py</code> management command and <code>create_organisations.py</code> are similarly
+refactored to call the helpers when creating or re-parenting organisations.</p>
+<p>Any function that automatically applies ODS changes (the sync, the merger command)
+must support a <code>--dry-run</code> flag that reports what <em>would</em> change without writing.
+This is critical because ODS data is occasionally ambiguous or wrong, and a blind
+overwrite can corrupt the temporal layer. The dry-run output should list, per
+affected entity: the field/relationship, the old value, the new value, and the
+effective date that would be applied.</p>
+<h2 id="read-path">Read path<a class="headerlink" href="#read-path" title="Permanent link">&para;</a></h2>
+<p>The "snapshot at date X" query is a one-liner per relationship:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">trust_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">OrganisationTrustMembership</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+        <span class="n">organisation</span><span class="o">=</span><span class="n">organisation</span><span class="p">,</span>
+        <span class="n">valid_from__lte</span><span class="o">=</span><span class="n">on_date</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+        <span class="n">models</span><span class="o">.</span><span class="n">Q</span><span class="p">(</span><span class="n">valid_to__gt</span><span class="o">=</span><span class="n">on_date</span><span class="p">)</span> <span class="o">|</span> <span class="n">models</span><span class="o">.</span><span class="n">Q</span><span class="p">(</span><span class="n">valid_to__isnull</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">trust</span>
+</code></pre></div>
+<p>The full snapshot — "give me everything about this org as it was on date X" —
+assembles the entity version plus every relationship:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">organisation_snapshot</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">):</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="n">organisation</span><span class="o">.</span><span class="n">versions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="n">valid_from__lte</span><span class="o">=</span><span class="n">on_date</span><span class="p">,</span>
+        <span class="n">valid_to__gt</span><span class="o">=</span><span class="n">on_date</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;ods_code&quot;</span><span class="p">:</span> <span class="n">organisation</span><span class="o">.</span><span class="n">ods_code</span><span class="p">,</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">version</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">&quot;address1&quot;</span><span class="p">:</span> <span class="n">version</span><span class="o">.</span><span class="n">address1</span><span class="p">,</span>
+        <span class="c1"># ... etc</span>
+        <span class="s2">&quot;trust&quot;</span><span class="p">:</span> <span class="n">trust_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">&quot;local_health_board&quot;</span><span class="p">:</span> <span class="n">local_health_board_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">&quot;integrated_care_board&quot;</span><span class="p">:</span> <span class="n">icb_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">&quot;nhs_england_region&quot;</span><span class="p">:</span> <span class="n">nhs_england_region_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">&quot;openuk_network&quot;</span><span class="p">:</span> <span class="n">openuk_network_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">&quot;paediatric_diabetes_unit&quot;</span><span class="p">:</span> <span class="n">pdu_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>This is the function audit reports call. It returns a dict (or a small dataclass /
+serializer) representing the organisation's full geography at the audit date.</p>
+<h2 id="admin-interface">Admin interface<a class="headerlink" href="#admin-interface" title="Permanent link">&para;</a></h2>
+<p>A key requirement is that changing an affiliation from the Django admin is painless.
+The admin is the primary write path for succession entries (manual, per the resolved
+open question) and for corrections that the ODS sync does not pick up.</p>
+<p>The admin must present the temporal layer in a way that does not require the user to
+think about <code>valid_from</code> / <code>valid_to</code> manually. Concretely:</p>
+<ul>
+<li><strong>Affiliation changes are a single action.</strong> On the <code>Organisation</code> admin page, a
+  custom form action (e.g. "Reassign trust...") opens a small form with two fields:
+  the new parent and the effective date. On submit, the helper function closes the
+  current <code>OrganisationTrustMembership</code> row and opens a new one. The user does not
+  touch the membership table directly.</li>
+<li><strong>Equivalent actions for every versioned relationship.</strong> Reassign ICB, reassign
+  NHS England region, reassign OPEN UK network, reassign PDU, reassign London
+  borough / LAD / LSOA, reassign PDU network, reassign trust ICB / NHS England region.</li>
+<li><strong>Succession entries are added through a dedicated admin.</strong> <code>TrustSuccession</code> and
+  <code>PaediatricDiabetesUnitSuccession</code> get their own admin pages with dropdowns for
+  predecessor / successor and a date picker. These are entered manually.</li>
+<li><strong>Attribute changes are a single action.</strong> On every versioned entity admin page
+  (<code>Organisation</code>, <code>Trust</code>, <code>LocalHealthBoard</code>, <code>IntegratedCareBoard</code>,
+  <code>NHSEnglandRegion</code>, <code>PaediatricDiabetesUnit</code>, <code>PaediatricDiabetesUnitNetwork</code>), a
+  custom form action (e.g. "Edit attributes as of…") opens a form pre-populated with
+  the current snapshot fields plus an effective date. On submit it calls the entity's
+  <code>update_&lt;entity&gt;_attributes()</code> helper, closing the current version row and opening
+  a new one. The user does not touch the version table directly. This is the write
+  path for any change to an entity's own attributes — address corrections,
+  <code>pz_code</code> updates, and renames. The <code>active</code> field is <strong>intentionally excluded</strong>
+  from this form: deactivation is a business event with audit implications and
+  belongs to the closure workflow (see the Deactivate bullet below), not the
+  attribute-edit form.</li>
+<li><strong>Rename is a composite action for trusts and PDUs.</strong> For <code>Trust</code> and
+  <code>PaediatricDiabetesUnit</code> only, a "Rename…" action performs two writes in one
+  transaction: a Layer 1 version update via <code>update_&lt;entity&gt;_attributes()</code> <em>and</em> a
+  <code>*Succession</code> row with <code>succession_type="rename"</code>, <code>predecessor</code> and <code>successor</code>
+  both pointing at the same entity instance, <code>succession_date = effective_date</code>. The
+  succession row is audit metadata — it distinguishes a genuine rename by NHS England
+  from a silent operator correction, which a bare version row cannot. For entities
+  with no succession table (e.g. <code>Organisation</code>, <code>IntegratedCareBoard</code>), an attribute
+  change is a pure Layer 1 write with no succession row. Membership tables are
+  untouched in all cases: a rename does not change any affiliation.</li>
+<li><strong>Deactivation is a composite action with a danger UI.</strong> For <code>Organisation</code>,
+  <code>Trust</code>, and <code>PaediatricDiabetesUnit</code> — the entities with succession tables — a
+  "Deactivate…" action records a closure (no successor). It performs two writes in
+  one transaction: a Layer 1 version update with <code>active=False</code> via the
+  <code>deactivate_&lt;entity&gt;()</code> helper, and a Layer 3 <code>*Succession</code> row with
+  <code>succession_type="closure"</code> and <code>successor=None</code>. The action is styled as a
+  danger event in the UI (red button, confirmation checkbox, warning panel) because
+  once inactive the entity is hidden from default lists. The form requires a
+  free-text <code>notes</code> field so the audit trail records <em>why</em> the entity closed (e.g.
+  "closed through poor quality of care"), not just the date. This is the only
+  sanctioned way to flip <code>active</code> to False; the attribute-edit form excludes
+  <code>active</code> precisely so that deactivation goes through this action. For entities
+  without a succession table (<code>IntegratedCareBoard</code>, <code>NHSEnglandRegion</code>,
+  <code>LocalHealthBoard</code>, <code>PaediatricDiabetesNetwork</code>), deactivation is a pure Layer 1
+  write via <code>update_&lt;entity&gt;_attributes(active=False)</code> with no succession row —
+  these entities do not have a closure workflow in the admin yet. Membership tables
+  are untouched in all cases: a closure does not reassign any child; if a closed
+  entity's children need to move, that is a separate <code>split</code> succession recorded
+  after the closure.</li>
+<li><strong>Read-only history inline.</strong> Each main entity admin page shows the version and
+  membership history as read-only inlines, so the user can see the timeline without
+  leaving the page.</li>
+<li><strong>Dry-run for ODS-driven writes.</strong> The <code>cron</code> management command (and any other
+  automatic ODS write path) accepts <code>--dry-run</code>, which reports what would change
+  without writing. See the Write path section below.</li>
+</ul>
+<p>The admin is not the only write path — the ODS sync and the <code>mergers</code> command also
+write through the helpers — but it is the path for manual corrections and for
+succession entries that ODS does not surface.</p>
+<h2 id="github-action-for-ods-change-detection">GitHub Action for ODS change detection<a class="headerlink" href="#github-action-for-ods-change-detection" title="Permanent link">&para;</a></h2>
+<p>A scheduled GitHub Action runs the ODS sync in <code>--dry-run</code> mode on a cron (monthly) and opens a GitHub issue detailing what <em>would</em> change if the sync were
+applied. This gives the team a human-in-the-loop review step before any automatic
+write touches the temporal layer, and surfaces mergers / updates that ODS has
+published without anyone having to watch the API manually.</p>
+<h3 id="workflow-shape">Workflow shape<a class="headerlink" href="#workflow-shape" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># .github/workflows/ods-change-detection.yml</span>
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ODS change detection</span>
+
+<span class="nt">on</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">schedule</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cron</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0</span><span class="nv"> </span><span class="s">7</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">1&quot;</span><span class="w">  </span><span class="c1"># 07:00 UTC every Monday</span>
+<span class="w">  </span><span class="nt">workflow_dispatch</span><span class="p">:</span><span class="w">       </span><span class="c1"># allow manual runs</span>
+
+<span class="nt">jobs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">detect-changes</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
+<span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set up Python</span>
+<span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/setup-python@v5</span>
+<span class="w">        </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;3.11&quot;</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install dependencies</span>
+<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip install -r requirements.txt</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run ODS sync in dry-run mode</span>
+<span class="w">        </span><span class="nt">env</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">NHS_ODS_API_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.NHS_ODS_API_URL }}</span>
+<span class="w">          </span><span class="c1"># database connection secrets as needed for the read-only comparison</span>
+<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">          </span><span class="no">python manage.py cron --service organisations --dry-run &gt; ods_changes.md</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Open issue if changes detected</span>
+<span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">peter-evans/create-issue-from-file@v5</span>
+<span class="w">        </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ODS</span><span class="nv"> </span><span class="s">changes</span><span class="nv"> </span><span class="s">detected</span><span class="nv"> </span><span class="s">(week</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">$(date</span><span class="nv"> </span><span class="s">+&#39;%Y-%m-%d&#39;))&quot;</span>
+<span class="w">          </span><span class="nt">content-filepath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ods_changes.md</span>
+<span class="w">          </span><span class="nt">labels</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ods-changes, needs-review</span>
+</code></pre></div>
+<h3 id="requirements-on-the-management-command">Requirements on the management command<a class="headerlink" href="#requirements-on-the-management-command" title="Permanent link">&para;</a></h3>
+<p>The <code>cron</code> management command's <code>--dry-run</code> mode must:</p>
+<ul>
+<li>Exit cleanly with a non-zero status if no changes are found, so the issue-creation
+  step can be skipped (or alternatively write an empty file and conditionally skip
+  the issue step — either is fine, but the workflow must not open empty issues every
+  week).</li>
+<li>Write a markdown report to stdout (or a configurable file path) listing, per
+  affected entity: the ODS code, the field/relationship, the old value, the new
+  value, and the effective date that would be applied. This is the same output the
+  interactive <code>--dry-run</code> produces, just captured to a file.</li>
+<li>Run against a database connection that has read access to the current state but
+  does not write. In practice the dry-run code path simply never calls the write
+  helpers, so this is enforced in code rather than at the database permission level.</li>
+</ul>
+<h3 id="secrets-and-environment">Secrets and environment<a class="headerlink" href="#secrets-and-environment" title="Permanent link">&para;</a></h3>
+<p>The workflow needs:</p>
+<ul>
+<li><code>NHS_ODS_API_URL</code> — already used by <code>ods_update.py</code> via <code>os.getenv</code>.</li>
+<li>A read-only database connection (or the same connection the app uses) so the
+  dry-run can compare ODS state against current state. This is the main
+  infrastructure consideration: the action runner needs network access to the
+  database. If the database is not reachable from GitHub-hosted runners, the
+  alternative is to run this as a self-hosted runner inside the same VNet, or to
+  run the dry-run inside the existing app container via a scheduled k8s CronJob
+  that opens the issue through the GitHub API instead. The design is the same
+  either way; only the execution environment differs.</li>
+</ul>
+<h3 id="why-a-github-issue">Why a GitHub issue<a class="headerlink" href="#why-a-github-issue" title="Permanent link">&para;</a></h3>
+<p>An issue is preferred over a notification (Slack, email) because:</p>
+<ul>
+<li>It is the natural place to discuss whether a change should be applied as-is,
+  corrected, or rejected.</li>
+<li>It persists alongside the repo, so the audit trail of <em>which ODS changes were
+  reviewed and what was decided</em> lives with the code.</li>
+<li>It can be closed with a reference to the PR / migration that applied the change,
+  closing the loop.</li>
+</ul>
+<h3 id="relationship-to-the-manual-admin-path">Relationship to the manual admin path<a class="headerlink" href="#relationship-to-the-manual-admin-path" title="Permanent link">&para;</a></h3>
+<p>The GitHub Action does not write anything. It only surfaces what ODS has published.
+Applying the changes is still a manual step — either through the admin interface
+(for affiliations and successions) or by re-running the sync without <code>--dry-run</code>
+(for straightforward attribute updates that the team has reviewed). This keeps a
+human in the loop for every write to the temporal layer, which is important given
+that ODS data is occasionally ambiguous or wrong.</p>
+<h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
+<p>A new endpoint exposes the snapshot:</p>
+<div class="highlight"><pre><span></span><code>GET /organisations/{ods_code}/snapshot?date=YYYY-MM-DD
+</code></pre></div>
+<p>Returns the assembled snapshot dict. If <code>date</code> is omitted, returns the current state.
+If the date is before the organisation's first <code>valid_from</code>, returns 404 with an
+explanatory message (pre-install-day state is not recoverable).</p>
+<h2 id="backfill-strategy">Backfill strategy<a class="headerlink" href="#backfill-strategy" title="Permanent link">&para;</a></h2>
+<p>The temporal layer can only record from installation day forward. Backfilling
+historical states — whether within the 185-day ODS recovery window or older —
+is covered in a separate document:</p>
+<ul>
+<li><strong><a href="../backfill/"><code>backfill.md</code></a></strong> — the ODS-driven recovery workflow
+  (exposing the <code>--time-frame</code> argument on the <code>cron</code> command, surfacing the
+  ODS <code>LastChangeDate</code> in the dry-run report) and the manual <code>backfill_*</code>
+  helper workflow for historical mergers and renames older than the recovery
+  window, with a worked example for the Northern Care Alliance acquisition
+  (1 October 2021).</li>
+</ul>
+<p>After backfill, the existing 30-day cron (<code>cron.py</code> →
+<code>update_organisation_model_with_ORD_changes</code>) continues to run, but now writes
+through the helper functions so that every change is captured in the temporal layer.</p>
+<h2 id="implementation-plan">Implementation plan<a class="headerlink" href="#implementation-plan" title="Permanent link">&para;</a></h2>
+<p>In order, with dependencies:</p>
+<ol>
+<li><strong>Entity version tables.</strong> <code>OrganisationVersion</code>, <code>TrustVersion</code>,
+   <code>LocalHealthBoardVersion</code>, <code>IntegratedCareBoardVersion</code>,
+   <code>NHSEnglandRegionVersion</code>, <code>PaediatricDiabetesUnitVersion</code>,
+   <code>PaediatricDiabetesNetworkVersion</code> + migration + baseline backfill.</li>
+<li><strong>Relationship membership tables.</strong> All membership tables listed above +
+   migration + baseline backfill.</li>
+<li><strong>Succession tables.</strong> <code>TrustSuccession</code>, <code>PaediatricDiabetesUnitSuccession</code> +
+   migration.</li>
+<li><strong>Helper functions.</strong> <code>reassign_*</code> and <code>update_*_attributes</code> in
+   <code>general_functions/membership.py</code>.</li>
+<li><strong>Refactor ODS sync with dry-run.</strong> <code>update_organisation_model_with_ORD_changes()</code>
+   in <code>ods_update.py</code> calls the helpers and supports <code>--dry-run</code> (reports what would
+   change without writing). The <code>cron</code> management command passes the flag through.</li>
+<li><strong>Refactor merger command with dry-run.</strong> <code>mergers.py</code> and <code>create_organisations.py</code>
+   call the helpers when creating or re-parenting, and support <code>--dry-run</code>.</li>
+<li><strong>Admin interface.</strong> Custom admin actions for reassigning each versioned
+   relationship, an "Edit attributes as of…" action on every versioned entity
+   (Layer 1 writes via <code>update_&lt;entity&gt;_attributes()</code>), a composite "Rename…"
+   action on <code>Trust</code> and <code>PaediatricDiabetesUnit</code> (Layer 1 + Layer 3 via
+   <code>rename_trust()</code> / <code>rename_paediatric_diabetes_unit()</code>), read-only history
+   inlines on each main entity page, and dedicated admin pages for
+   <code>TrustSuccession</code> and <code>PaediatricDiabetesUnitSuccession</code>.</li>
+<li><strong>Snapshot API.</strong> <code>GET /organisations/{ods_code}/snapshot?date=YYYY-MM-DD</code> +
+   serializer.</li>
+<li><strong>GitHub Action for ODS change detection.</strong> Scheduled workflow that runs the
+   sync in <code>--dry-run</code> mode and opens a GitHub issue with the report. Requires the
+   <code>cron</code> command's dry-run mode to write a markdown report and signal
+   no-changes-found so empty issues are not created.</li>
+<li><strong>Tests.</strong> Rename, address change, trust merger, PDU merger, as-of query
+    before/after the change date, 404 for pre-install-day dates, dry-run output for
+    ODS sync, admin reassignment action.</li>
+</ol>
+<h2 id="open-questions">Open questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<p>All four open questions from the first draft have been resolved:</p>
+<ul>
+<li><strong>London borough / LAD / LSOA</strong> — boundaries change, so these get membership tables.</li>
+<li><strong>Trust → ICB and trust → NHS England region</strong> — versioned via
+  <code>TrustIntegratedCareBoardMembership</code> and <code>TrustNHSEnglandRegionMembership</code>, since a
+  trust can move ICB or region on merger.</li>
+<li><strong>Pre-install-day backfill</strong> — backfill trusts, organisations, ICBs, and NHS England
+  regions from ODS where information is available; otherwise accept "best known current
+  state, undated" for the period before installation.</li>
+<li><strong>Succession population</strong> — manual entry via the admin, not automatic. This avoids
+  creating succession rows for semantically ambiguous cases surfaced by the ODS <code>Rels</code>
+  block.</li>
+</ul>
 
 
 
