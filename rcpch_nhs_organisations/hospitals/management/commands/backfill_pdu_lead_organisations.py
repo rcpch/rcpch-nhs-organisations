@@ -39,6 +39,15 @@ HARDCODED_LEAD_ORGANISATIONS = {
     "PZ249": "RTRAT",  # South Tees Hospital NHS Foundation Trust
     "PZ250": "R0B01",  # Sunderland Royal Hospital
     "PZ242": "RTE03",  # Gloucestershire Royal Hospital (lead)
+    # The following were previously handled by the old
+    # primary_organisation property's `else: return organisations.first()`
+    # fallback. They are multi-site PDUs where the lead site is not the
+    # first child in database ordering. Added here so the lead_organisation
+    # FK is set correctly by the backfill command.
+    "PZ167": "RTX02",  # Royal Lancaster Infirmary (Morecambe Bay)
+    "PZ244": "7A2AA",  # Glangwili Hospital (Hywel Dda, Welsh)
+    "PZ246": "RM315",  # Fairfield General Hospital (Northern Care Alliance)
+    "PZ253": "RWFTW",  # Tunbridge Wells Hospital (Maidstone and Tunbridge Wells)
 }
 
 # The hardcoded name-source mappings that were in PaediatricDiabetesUnit.name
@@ -127,21 +136,49 @@ class Command(BaseCommand):
                 if child_count == 1:
                     lead_ods_code = pdu.organisations.first().ods_code
                 elif child_count == 0:
-                    self.stdout.write(
-                        O + f"  {pz}: no child organisations, skipping lead."
-                        + W
-                    )
+                    if pdu.active:
+                        # Active PDU with no child organisations — the
+                        # organisations may not be seeded yet, or the PDU
+                        # is new and has no children assigned.
+                        network = pdu.paediatric_diabetes_network
+                        net_name = network.name if network else "no network"
+                        self.stdout.write(
+                            R
+                            + f"  {pz}: active PDU with no child "
+                            f"organisations (network: {net_name}, name: "
+                            f"{pdu.name or '(none)'}). No lead "
+                            "organisation was ever set. Create the child "
+                            "organisations via `mergers --create` or add "
+                            "them to PZ_CODES, then re-run this command."
+                            + W
+                        )
+                    else:
+                        # Inactive predecessor or never-participated code —
+                        # no lead is expected. Its lead organisation was
+                        # reassigned to the successor PDU (if it had one).
+                        self.stdout.write(
+                            O
+                            + f"  {pz}: inactive PDU, no child "
+                            "organisations — no lead organisation set "
+                            "(expected for inactive predecessors)."
+                            + W
+                        )
                     lead_skipped += 1
                 else:
                     # Multiple children and no hardcoded lead — ambiguous.
                     # The operator must set lead_organisation manually via the
                     # admin.
+                    network = pdu.paediatric_diabetes_network
+                    net_name = network.name if network else "no network"
                     self.stdout.write(
                         R
-                        + f"  {pz}: {child_count} child organisations and no "
-                        "hardcoded lead. Set lead_organisation manually via "
-                        "the admin (Acquire another… or Merge into a new… "
-                        "wizard, or edit the PDU row directly)."
+                        + f"  {pz}: {child_count} child organisations and "
+                        "no hardcoded lead (network: "
+                        f"{net_name}, name: {pdu.name or '(none)'}). "
+                        "No lead organisation was ever set. Set "
+                        "lead_organisation manually via the admin "
+                        "(Acquire another… or Merge into a new… wizard, "
+                        "or edit the PDU row directly)."
                         + W
                     )
                     ambiguous += 1
