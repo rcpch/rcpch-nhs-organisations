@@ -18,6 +18,86 @@ which describes the merger types and the forward-looking admin workflow.
 For ICB-specific backfill, see [`icb-history.md`](icb-history.md).
 For PDU-specific backfill, see [`pdu-history.md`](pdu-history.md).
 
+## Quick start: running the full backfill
+
+After a fresh seed (`python manage.py seed --level all`), run the
+following commands in order. Each command depends on entities created by
+the previous one. All commands are idempotent and support `--dry-run` for
+a preview before writing.
+
+```bash
+# 1. Set lead_organisation FKs and name_source on PDUs
+#    (replaces the hardcoded PZ-code lists that were in the model)
+python manage.py backfill_pdu_lead_organisations --yes
+
+# 2. Backfill trust successions (mergers, acquisitions, splits)
+#    Creates predecessor trust rows marked inactive + TrustSuccession rows.
+#    Also backfills successor establishment/name rows (Pass 2).
+python manage.py backfill_successions --entity trust --yes
+
+# 3. Backfill organisation successions (ODS code changes)
+#    Creates OrganisationSuccession rows for sites that were re-coded
+#    when their parent trust was dissolved (e.g. RYQ30 -> RJZ30).
+python manage.py backfill_successions --entity organisation --yes
+
+# 4. Backfill ICB successions (the 2026 ICB reorganisation)
+#    Creates missing successor ICB rows from the ODS record +
+#    IntegratedCareBoardSuccession rows. Closes predecessor ICBs.
+#    Auto-classifies QRL as an acquisition via KNOWN_ICB_ACQUISITIONS.
+python manage.py backfill_successions --entity icb --yes
+
+# 5. Backfill trust -> trust membership history (org -> trust)
+#    Reads RE6 rels from each organisation's ODS record.
+#    Recovers which trust each hospital site was under, and when.
+#    Depends on step 2 (predecessor trust rows must exist).
+python manage.py backfill_trust_memberships --yes
+
+# 6. Backfill trust -> ICB membership history
+#    Reads RE5/RE8 rels pointing at RO261 (ICBs) from each trust's ODS
+#    record. Ignores CCGs (RO210) and STPs (RO132).
+#    Depends on step 4 (successor ICBs must exist).
+python manage.py backfill_icb_memberships --yes
+
+# 7. Backfill PDU history (versions, network memberships, lead-org
+#    memberships, successions)
+#    Reads from Master_PDU_Lookup.xlsx via generated constants.
+#    Creates missing PDU rows (inactive predecessors, never-participated
+#    codes), writes PaediatricDiabetesUnitVersion rows, network
+#    memberships, lead-org OrganisationPaediatricDiabetesUnitMembership
+#    rows, and PaediatricDiabetesUnitSuccession rows. Closes predecessors
+#    and reassigns lead organisations to successors.
+python manage.py backfill_pdu_successions --yes
+```
+
+**Why this order?**
+
+- Step 2 creates predecessor trust rows that step 5 needs to look up
+  (the `RE6` rels point at dissolved trusts that no longer exist in the
+  seed).
+- Step 4 creates successor ICB rows that step 6 needs to look up (the
+  `RE5`/`RE8` rels point at the new ICBs that don't exist in the seed).
+- Step 7 is independent of the ODS-driven steps (it reads from the
+  spreadsheet, not the ODS), but it does set `lead_organisation` FKs that
+  step 1 may have already set — the two commands are idempotent and
+  don't conflict.
+
+All commands support `--dry-run` (report without writing) for a preview
+before applying. Remove `--yes` for interactive `y/n/s` prompts per row.
+
+**Do not run `cron` until the backfill is complete.** The `cron` command
+(`cron --service organisations`) is the ongoing ODS sync — it fetches
+recent changes from the ODS `/sync` endpoint (last 30 days by default)
+and applies them through the temporal helpers. It is the forward-looking
+maintenance path, not a backfill tool. Running it before the backfill
+commands have populated the historical rows can produce inconsistent
+state: the sync may overwrite a current-state row that the backfill has
+not yet snapshotted into a version row, or it may apply a name change at
+today's date when the backfill would have backfilled the old name at the
+historical date. Run the backfill commands first (steps 1–7 above), then
+start the monthly `cron` sync to keep the database up to date going
+forward. See [Part 1](#part-1--ods-driven-recovery-within-185-days) for
+the `cron` command's `--time-frame` and `--dry-run` options.
+
 ## Background
 
 The temporal history layer (see [`temporal-history.md`](temporal-history.md))
