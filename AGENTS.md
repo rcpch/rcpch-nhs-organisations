@@ -132,6 +132,7 @@ All commands are in `rcpch_nhs_organisations/hospitals/management/commands/`.
 | `mergers --organisations <codes> --create/--delete [--dry-run]` | Create or delete organisations from the ODS Spine. |
 | `backfill_successions --entity trust/organisation/icb [--dry-run] [--yes]` | Backfill succession rows from the ODS `Succs` block. |
 | `backfill_trust_memberships [--dry-run] [--yes]` | Backfill `OrganisationTrustMembership` rows from the ODS `Rels` block. |
+| `backfill_icb_memberships [--dry-run] [--yes]` | Backfill `TrustIntegratedCareBoardMembership` rows from the ODS `Rels` block (RE5/RE8 → RO261). |
 | `backfill_pdu_lead_organisations [--dry-run] [--yes]` | Set `lead_organisation` FK and `name_source` on PDUs. |
 | `backfill_pdu_successions [--dry-run] [--yes]` | Backfill PDU history from `Master_PDU_Lookup.xlsx` (via generated constants). |
 
@@ -187,6 +188,7 @@ All tests live in `rcpch_nhs_organisations/hospitals/tests/`. There are
 | `test_backfill_successions.py` | `backfill_successions --entity trust/organisation`. |
 | `test_backfill_trust_memberships.py` | `backfill_trust_memberships`. |
 | `test_backfill_icb_successions.py` | `backfill_successions --entity icb`. |
+| `test_backfill_icb_memberships.py` | `backfill_icb_memberships`. |
 | `test_backfill_pdu_successions.py` | `backfill_pdu_successions`. |
 | `test_viewsets.py` | API viewset smoke tests. |
 

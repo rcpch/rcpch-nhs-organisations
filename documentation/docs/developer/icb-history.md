@@ -284,35 +284,56 @@ Action for ODS change detection".
   reporting does not rely on them. Reporting walks the chain
   organisation → trust/LHB → ICB → NHS England region → country, so
   only ICB-level affiliations are recovered.
+- **Organisation → ICB membership backfill.** Organisations do not have
+  their own ICB rels in the ODS — only trusts do. An organisation's ICB
+  affiliation is implicit through its parent trust. The
+  `OrganisationIntegratedCareBoardMembership` table is populated by the
+  seed (current state) and the forward-looking `reassign_*` helper
+  (future changes). Recovering historical org → ICB memberships would
+  require deriving them from the trust → ICB + org → trust membership
+  intervals — a separate command if needed.
 
-## Follow-up: child membership reassignment
+## Child membership backfill
 
-When the 12 old ICBs dissolve on 2026-04-01, the trusts and organisations
-under them need to be reassigned to the correct successor ICB. The ODS
-holds the full trust → ICB affiliation history in the `Rels` block of
-each trust's record — `RE5` ("managed by / reports to") and `RE8`
-("operates / is operated by") rels pointing at ICBs (`RO261`), with
-operational `[Start, End]` intervals.
+When the 12 old ICBs dissolve on 2026-04-01, the trusts under them need
+to be reassigned to the correct successor ICB. The ODS holds the full
+trust → ICB affiliation history in the `Rels` block of each trust's
+record — `RE5` ("managed by / reports to") and `RE8` ("operates /
+is operated by") rels pointing at ICBs (`RO261`), with operational
+`[Start, End]` intervals.
 
-A `backfill_icb_memberships` command (mirroring `backfill_trust_memberships`)
-would:
+The `backfill_icb_memberships` command recovers this history:
 
-1. Iterate every trust in the database.
-2. Fetch its ODS record via `/organisations/{ods_code}`.
-3. Read the `RE5`/`RE8` rels pointing at `RO261` (ICBs) — ignoring
-   `RO210` (CCGs) and `RO132` (STPs).
-4. For each rel, backfill a `TrustIntegratedCareBoardMembership` row with
-   the operational `[Start, End]` interval (idempotent on
-   `(trust, icb, valid_from)`).
-5. Derive `OrganisationIntegratedCareBoardMembership` rows from the
-   trust → ICB membership + the organisation → trust membership (both
-   recoverable from the ODS). An organisation inherits its trust's ICB,
-   so the org → ICB membership interval is the intersection of the two.
+```bash
+# Preview what would be backfilled (no writes)
+python manage.py backfill_icb_memberships --dry-run
+
+# Apply with interactive prompts
+python manage.py backfill_icb_memberships
+
+# Apply all without prompts
+python manage.py backfill_icb_memberships --yes
+```
+
+The command:
+
+1. Iterates every trust in the database.
+2. Fetches its ODS record via `/organisations/{ods_code}`.
+3. Reads the `RE5`/`RE8` rels pointing at `RO261` (ICBs) — ignoring
+   `RO210` (CCGs) and `RO132` (STPs), which are not needed for audit
+   reporting.
+4. For each rel, backfills a `TrustIntegratedCareBoardMembership` row
+   with the operational `[Start, End]` interval (idempotent on
+   `(trust, icb, valid_from, valid_to)`).
 
 Organisations do not have their own ICB rels in the ODS — only trusts do.
-An organisation's ICB affiliation is implicit through its parent trust.
+An organisation's ICB affiliation is implicit through its parent trust:
+the `as_of` workflow walks organisation → trust → ICB, so recovering the
+trust → ICB membership is sufficient. The `OrganisationIntegratedCareBoardMembership`
+table is populated by the seed (current state) and the forward-looking
+`reassign_organisation_integrated_care_board` helper (future changes).
 
-This command is the same pattern as `backfill_trust_memberships` (which
-reads `RE6` rels to recover trust membership history) and can reuse the
-same ODS-fetch and idempotency infrastructure. It is a follow-up to the
-ICB succession backfill, not part of the initial release.
+The command mirrors `backfill_trust_memberships` (which reads `RE6` rels
+to recover trust membership history) and reuses the same ODS-fetch,
+idempotency, `--dry-run`, `--yes`, and `--since`/`--all` window patterns.
+The default window is 2020-04-01 (when ICB rels first appear in ODS).
