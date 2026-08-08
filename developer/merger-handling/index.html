@@ -1202,6 +1202,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../pdu-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDU history backfill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../shapes/" class="md-nav__link">
         
   
@@ -2514,30 +2542,20 @@ migrated into the temporal layer, to avoid two sources of truth.</p>
 <h3 id="backfilling-previous-pdu-mergers">Backfilling previous PDU mergers<a class="headerlink" href="#backfilling-previous-pdu-mergers" title="Permanent link">&para;</a></h3>
 <p>The temporal layer only records changes from installation day forward. To
 backfill the previous PDU mergers that are currently hardcoded in the
-<code>organisations</code> property, a one-off data migration or management command
-would need to:</p>
-<ol>
-<li><strong>Create the predecessor PDU rows</strong> if they don't already exist (PZ216,
-   PZ125, PZ080, PZ141, PZ003, etc.), marked <code>active=False</code>.</li>
-<li><strong>Create baseline <code>PaediatricDiabetesUnitVersion</code> rows</strong> for each
-   predecessor, with <code>valid_from</code> set to the date the PDU was originally
-   established and <code>valid_to</code> set to the merger date.</li>
-<li><strong>Create <code>PaediatricDiabetesUnitSuccession</code> rows</strong> linking each
-   predecessor to its successor, with the merger date and type=merger.</li>
-<li><strong>Create <code>OrganisationPaediatricDiabetesUnitMembership</code> rows</strong> for each
-   child organisation, with <code>valid_from</code> set to the date the org joined the
-   predecessor PDU and <code>valid_to</code> set to the merger date. Then create new
-   rows pointing to the successor PDU with <code>valid_from</code> = merger date and
-   <code>valid_to = NULL</code>.</li>
-<li><strong>Remove the hardcoded case</strong> from the <code>organisations</code> property once the
-   temporal rows are in place.</li>
-</ol>
+<code>organisations</code> property, run the <code>backfill_pdu_successions</code> management
+command. This command reads the curated PDU history from
+<code>Master_PDU_Lookup.xlsx</code> (the NPDA team's authoritative contact database,
+committed to the constants folder) and writes the full PDU entity history
+into the temporal layer: <code>PaediatricDiabetesUnitVersion</code> rows,
+<code>PaediatricDiabetesUnitNetworkMembership</code> rows, lead-organisation
+<code>OrganisationPaediatricDiabetesUnitMembership</code> rows, and
+<code>PaediatricDiabetesUnitSuccession</code> rows. See
+<a href="../pdu-history/"><code>pdu-history.md</code></a> for the full design and usage guide.</p>
 <p>The merger dates and original establishment dates for these PDUs are not
 available from the ODS — PDUs are not tracked by the ODS at all. They are
 maintained manually by RCPCH. The ODS is used only for trusts, ICBs, and
-organisations. The dates would need to be sourced from the NPDA's own
-records or from the hardcoded comments in the <code>organisations</code> property
-itself (which include dates for some mergers).</p>
+organisations. The dates are sourced from the NPDA's own records, encoded
+as NPDA audit years in the spreadsheet.</p>
 <p>This backfill is a one-off project, not an ongoing pattern. Once it is
 done, the 30-day cron and the manual admin workflow keep the temporal layer
 up to date for future mergers.</p>
