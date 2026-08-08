@@ -5,6 +5,7 @@
 coverage==7.14.1
 pytest==9.1.0
 pytest-django==4.12.0
+openpyxl==3.1.5  # used by scripts/generate_pdu_history_constants.py to read Master_PDU_Lookup.xlsx
 
 # third party imports
 bump2version==1.0.1

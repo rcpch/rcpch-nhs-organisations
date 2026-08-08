@@ -141,6 +141,7 @@ nav:
     - 'developer/temporal-history.md'
     - 'developer/merger-handling.md'
     - 'developer/backfill.md'
+    - 'developer/pdu-history.md'
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
     - 'developer/seeding.md'
