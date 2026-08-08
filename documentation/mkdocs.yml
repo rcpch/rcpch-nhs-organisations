@@ -138,10 +138,13 @@ nav:
     - 'researchers/api.md'
   - Developers:
     - 'developer/models.md'
+    - 'developer/temporal-history.md'
+    - 'developer/merger-handling.md'
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
     - 'developer/seeding.md'
     - 'developer/database_maintenance.md'
+    - 'developer/testing.md'
     - 'developer/contributing.md'
   - Contact:
     - 'contact/contact-rcpch.md'

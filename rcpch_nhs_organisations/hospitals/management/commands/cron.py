@@ -25,11 +25,54 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--service", type=str, help="Service")
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Report what would change without writing to the database.",
+        )
+        parser.add_argument(
+            "--report-file",
+            type=str,
+            default=None,
+            help=(
+                "When used with --dry-run, write the markdown report to this "
+                "file path instead of stdout. Used by the GitHub Action for ODS "
+                "change detection."
+            ),
+        )
 
     def handle(self, *args, **options):
         if options["service"] == "organisations":
             self.stdout.write(B + "Checking for organisation updates..." + W)
-            update_organisation_model_with_ORD_changes()
+            report_file = options.get("report_file")
+            if options["dry_run"] and report_file:
+                # Write the report to a file so the GitHub Action can detect
+                # empty (no changes) vs non-empty (changes detected) without
+                # stdout pollution from the ASCII art / status messages.
+                import io
+                file_stdout = io.StringIO()
+                changes_found = update_organisation_model_with_ORD_changes(
+                    dry_run=True,
+                    stdout=file_stdout,
+                )
+                report = file_stdout.getvalue()
+                with open(report_file, "w") as f:
+                    f.write(report)
+            else:
+                changes_found = update_organisation_model_with_ORD_changes(
+                    dry_run=options["dry_run"],
+                    stdout=self.stdout if options["dry_run"] else None,
+                )
+            if options["dry_run"]:
+                if changes_found:
+                    self.stdout.write(
+                        G + "Dry run complete: changes detected (see report above)." + W
+                    )
+                else:
+                    self.stdout.write(
+                        G + "Dry run complete: no changes detected." + W
+                    )
             rcpch_ascii_art()
 
         else:

@@ -1,0 +1,68 @@
+name: ODS change detection
+
+# Runs the ODS sync in --dry-run mode on a monthly schedule and opens a GitHub
+# issue detailing what would change if the sync were applied. This gives the
+# team a human-in-the-loop review step before any automatic write touches the
+# temporal layer, and surfaces mergers / updates that ODS has published
+# without anyone having to watch the API manually.
+#
+# For a one-off backfill of up to 185 days of changes, run the cron command
+# manually with --dry-run --report-file (see merger-handling.md).
+#
+# See documentation/docs/developer/temporal-history.md for the design.
+
+on:
+  schedule:
+    # 07:00 UTC on the 1st of every month
+    - cron: "0 7 1 * *"
+  # Allow manual runs from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run ODS sync in dry-run mode
+        env:
+          NHS_ODS_API_URL: ${{ secrets.NHS_ODS_API_URL }}
+          POSTGRES_DB: ${{ secrets.ODS_REPORT_POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.ODS_REPORT_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.ODS_REPORT_POSTGRES_PASSWORD }}
+          POSTGRES_HOST: ${{ secrets.ODS_REPORT_POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.ODS_REPORT_POSTGRES_PORT }}
+        run: |
+          python manage.py cron --service organisations --dry-run --report-file ods_changes.md
+
+      - name: Check for changes
+        id: check
+        run: |
+          # The --report-file flag writes the markdown report to the file only
+          # if changes were found. An empty file means no changes were detected.
+          if [ -s ods_changes.md ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Open issue if changes detected
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "ODS changes detected (week of $(date +'%Y-%m-%d'))"
+          content-filepath: ods_changes.md
+          labels: |
+            ods-changes
+            needs-review

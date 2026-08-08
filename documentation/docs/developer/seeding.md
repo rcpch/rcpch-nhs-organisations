@@ -27,6 +27,7 @@ Subsequent seeding happens then from the command line and adds:
 - OPENUK Networks
 
 To run this after initial migration therefore from the command line within the docker instance it is necessary to:
+To run this after initial migration therefore from the command line it is necessary to:
 
 ```console
 python manage.py seed --level all
@@ -38,3 +39,18 @@ If only individual models need seeding the `--model` attribute accepts these par
 `organisations`
 `pdus`
 `all`  - Adds all the above as well
+
+### Temporal history baseline
+
+Migration `0024_baseline_version_backfill` runs automatically after the entity
+version tables are created. It creates a baseline `*Version` row for every
+existing entity (Organisation, Trust, LocalHealthBoard, IntegratedCareBoard,
+NHSEnglandRegion, PaediatricDiabetesUnit, PaediatricDiabetesNetwork), with
+`valid_from = today` and `valid_to = NULL`. This snapshots the current state
+as the baseline so that every change from install day forward is captured.
+
+See [temporal-history.md](temporal-history.md) for the full design. Note that
+the baseline backfill does **not** create relationship membership rows —
+those are created on demand when a relationship changes (via the helpers in
+`general_functions/membership.py`) or when a new organisation is created (via
+the `mergers --create` command).

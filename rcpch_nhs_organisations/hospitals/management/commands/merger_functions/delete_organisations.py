@@ -21,7 +21,7 @@ END = "\033[0m"
 logger = logging.getLogger("hospitals")
 
 
-def delete_organisations(self, organisations):
+def delete_organisations(self, organisations, dry_run=False):
     """
     Delete organisations from the database.
     """
@@ -31,6 +31,14 @@ def delete_organisations(self, organisations):
     for organisation in organisations:
         try:
             organisation = Organisation.objects.get(ods_code=organisation)
+            if dry_run:
+                self.stdout.write(
+                    G
+                    + f"Would delete {organisation}, but dry_run is enabled."
+                    + W,
+                )
+                continue
+
             self.stdout.write(
                 R
                 + f"You are about to delete {organisation}! It has the following relationships."

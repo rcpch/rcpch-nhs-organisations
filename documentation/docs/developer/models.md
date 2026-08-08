@@ -59,4 +59,41 @@ This continues to evolve but it is expected that as this project develops, more 
 
 - OPENUK Networks: These are regional networks for Paediatric Epilepsy. Although members are meant to pay to contribute to their maintenance, not all do, so some organisations that care for children with Epilepsy are allocated to a network but may not formally be paid-up members. These each have a unique identifier.
 - Paediatric Diabetes Networks: These are important particuarly for the diabetes audit, since any centres that look after children with diabetes are expected to participate in network governance and activity. These do not have a formal identifier but have been allocated one for the purposes of this project.
+
+## Temporal history layer
+
+The models above represent **current state**. On top of them sits a temporal
+history layer that records every state change from installation day forward,
+so that the API can answer "what was this organisation's parent trust on date X?"
+This is essential for national audits (e.g. NPDA) that report longitudinal
+data against the organisational geography that was in force at the time the
+data was collected.
+
+The temporal layer has three components:
+
+1. **Entity version tables** (`OrganisationVersion`, `TrustVersion`,
+   `LocalHealthBoardVersion`, `IntegratedCareBoardVersion`,
+   `NHSEnglandRegionVersion`, `PaediatricDiabetesUnitVersion`,
+   `PaediatricDiabetesNetworkVersion`) — append-only snapshots of mutable
+   attributes (name, address, active flag) with `[valid_from, valid_to)`
+   intervals.
+
+2. **Relationship membership tables** (e.g. `OrganisationTrustMembership`,
+   `OrganisationIntegratedCareBoardMembership`,
+   `PaediatricDiabetesUnitNetworkMembership`) — append-only snapshots of the
+   FK relationships that can be re-pointed (org → trust, org → ICB, PDU →
+   network, etc.). When a merger occurs, the current row is closed
+   (`valid_to` set) and a new one opened pointing to the successor.
+
+3. **Succession tables** (`TrustSuccession`, `OrganisationSuccession`,
+   `PaediatricDiabetesUnitSuccession`) — the *why* layer for mergers:
+   explicit predecessor → successor links with a date and a type (merger,
+   acquisition, rename, closure, split, ODS code change).
+
+The main tables (`Organisation`, `Trust`, etc.) continue to represent current
+state and are unchanged in shape. The temporal layer is purely additive.
+
+For the full design, see [temporal-history.md](temporal-history.md). For how
+mergers are handled, see [merger-handling.md](merger-handling.md). For test
+coverage, see [testing.md](testing.md).
   

@@ -7,6 +7,7 @@ from .views import (
     LocalHealthBoardViewSet,
     LondonBoroughViewSet,
     NHSEnglandRegionViewSet,
+    OrganisationSnapshotView,
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
     TrustViewSet,
@@ -93,6 +94,12 @@ drf_routes = [
     path("schema/", SpectacularJSONAPIView.as_view(), name="schema"),
     # Swagger UI
     path("swagger-ui/", SpectacularSwaggerView.as_view(), name="swagger-ui"),
+    # Temporal history snapshot
+    path(
+        "organisations/<str:ods_code>/snapshot/",
+        OrganisationSnapshotView.as_view(),
+        name="organisation_snapshot",
+    ),
 ]
 
 urlpatterns = []
