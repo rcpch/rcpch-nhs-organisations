@@ -1,0 +1,2779 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="RCPCH NHS Organisations - Documentation">
+      
+      
+        <meta name="author" content="Dr Simon Chapman">
+      
+      
+        <link rel="canonical" href="https://rcpch.github.io/rcpch-nhs-organisations/developer/merger-handling/">
+      
+      
+        <link rel="prev" href="../temporal-history/">
+      
+      
+        <link rel="next" href="../shapes/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>How trust mergers are handled - RCPCH NHS Organisations - Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Montserrat";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../_assets/_stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#how-trust-mergers-are-handled" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="RCPCH NHS Organisations - Documentation" class="md-header__button md-logo" aria-label="RCPCH NHS Organisations - Documentation" data-md-component="logo">
+      
+  <img src="../../_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            RCPCH NHS Organisations - Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              How trust mergers are handled
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rcpch/rcpch-nhs-organisations" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rcpch/rcpch-nhs-organisations
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../researchers/api/" class="md-tabs__link">
+          
+  
+  
+  Researchers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../models/" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contact/contact-rcpch/" class="md-tabs__link">
+          
+  
+  
+  Contact
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../legal/intellectual-property/" class="md-tabs__link">
+          
+  
+  
+  Legal
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="RCPCH NHS Organisations - Documentation" class="md-nav__button md-logo" aria-label="RCPCH NHS Organisations - Documentation" data-md-component="logo">
+      
+  <img src="../../_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg" alt="logo">
+
+    </a>
+    RCPCH NHS Organisations - Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rcpch/rcpch-nhs-organisations" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rcpch/rcpch-nhs-organisations
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../home/nhs-organisations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NHS Organisational Structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../home/child-health-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NHS Child Health Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../home/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../home/routes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Routes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../home/citation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citing the RCPCH NHS Organisations service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Researchers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Researchers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../researchers/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using the RCPCH NHS Organisations resource
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models in the RCPCH NHS Organisations service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../temporal-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Temporal history and merger tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How trust mergers are handled
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How trust mergers are handled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-merger-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three merger types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The three merger types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Acquisition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-full-merger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Full merger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-dissolution-with-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Dissolution with split
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#organisation-succession" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organisation succession
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-boundary-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-boundary mergers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-relationship-changes-during-a-merger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other relationship changes during a merger
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rename-and-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rename and closure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rename and closure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rename
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Closure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-ods-management-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the ODS management command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the ODS management command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#detecting-changes-from-ods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detecting changes from ODS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-off-backfill-sync-up-to-185-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One-off backfill sync (up to 185 days)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ongoing-sync-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ongoing sync schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-organisations-from-a-merger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating organisations from a merger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recording-the-succession-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recording the succession links
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deleting-organisations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleting organisations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pdu-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDU mergers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PDU mergers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worked-example-pz216-pz125-pz253-january-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked example: PZ216 + PZ125 → PZ253 (January 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worked-example-pz086-pz131-pz254-april-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked example: PZ086 + PZ131 → PZ254 (April 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-to-the-hardcoded-organisations-property" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to the hardcoded organisations property
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backfilling-previous-pdu-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backfilling previous PDU mergers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-steps-for-implementing-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User steps for implementing mergers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="User steps for implementing mergers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-admin-can-do-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the admin can do today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-admin-cannot-do-yet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the admin cannot do yet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pdu-merger-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDU merger workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-example-south-london-healthcare-nhs-trust-ryq-dissolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked example: South London Healthcare NHS Trust (RYQ) dissolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Geojson, ONS boundary data and mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ordnance Survey and Boundaries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../seeding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seeding the RCPCH NHS Organisations service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database_maintenance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintaining the RCPCH NHS Organisations service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing the temporal history layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contact
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contact
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contact/contact-rcpch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contact us
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Legal
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Legal
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/intellectual-property/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Intellectual Property
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License (CC-BY-SA 4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/clinical-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clinical Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/privacy-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Privacy Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/privacy-notice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Privacy Notice
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/privacy-impact-assessment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Protection Impact Assessment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/terms-of-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terms of Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-merger-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three merger types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The three merger types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Acquisition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-full-merger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Full merger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-dissolution-with-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Dissolution with split
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#organisation-succession" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organisation succession
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-boundary-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-boundary mergers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-relationship-changes-during-a-merger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other relationship changes during a merger
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rename-and-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rename and closure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rename and closure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rename
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Closure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-ods-management-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the ODS management command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the ODS management command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#detecting-changes-from-ods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detecting changes from ODS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-off-backfill-sync-up-to-185-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One-off backfill sync (up to 185 days)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ongoing-sync-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ongoing sync schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-organisations-from-a-merger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating organisations from a merger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recording-the-succession-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recording the succession links
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deleting-organisations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleting organisations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pdu-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDU mergers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PDU mergers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worked-example-pz216-pz125-pz253-january-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked example: PZ216 + PZ125 → PZ253 (January 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worked-example-pz086-pz131-pz254-april-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked example: PZ086 + PZ131 → PZ254 (April 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-to-the-hardcoded-organisations-property" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to the hardcoded organisations property
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backfilling-previous-pdu-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backfilling previous PDU mergers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-steps-for-implementing-mergers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User steps for implementing mergers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="User steps for implementing mergers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-admin-can-do-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the admin can do today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-admin-cannot-do-yet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the admin cannot do yet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pdu-merger-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDU merger workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-example-south-london-healthcare-nhs-trust-ryq-dissolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked example: South London Healthcare NHS Trust (RYQ) dissolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/rcpch/rcpch-nhs-organisations/blob/development/documentation/docs/developer/merger-handling.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/rcpch/rcpch-nhs-organisations/raw/development/documentation/docs/developer/merger-handling.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
+    </a>
+  
+
+
+<h1 id="how-trust-mergers-are-handled">How trust mergers are handled<a class="headerlink" href="#how-trust-mergers-are-handled" title="Permanent link">&para;</a></h1>
+<p>This document describes the different types of trust merger that occur in the NHS,
+what happens to the trusts and their child organisations in each case, and how each
+case is recorded by the temporal history layer. It should be read alongside
+<a href="../temporal-history/">temporal-history.md</a>, which describes the schema, and the
+<a href="#using-the-ods-management-command">ODS management command</a> section below for the
+practical steps.</p>
+<p>Worked examples are drawn from real mergers to make the semantics concrete.</p>
+<h2 id="the-three-merger-types">The three merger types<a class="headerlink" href="#the-three-merger-types" title="Permanent link">&para;</a></h2>
+<h3 id="1-acquisition">1. Acquisition<a class="headerlink" href="#1-acquisition" title="Permanent link">&para;</a></h3>
+<p>One trust acquires another. The acquiring trust retains its ODS code; the
+acquired trust is dissolved and relinquishes its code.</p>
+<p><strong>Example:</strong> In 2014, Barnet &amp; Chase Farm Hospitals NHS Trust (RVL) was acquired
+by Royal Free London NHS Foundation Trust (RAL). RVL was dissolved; Barnet
+Hospital adopted RAL as its parent.</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Acquiring trust (RAL)</td>
+<td>Retains ODS code. No change to the trust row.</td>
+</tr>
+<tr>
+<td>Acquired trust (RVL)</td>
+<td>Marked <code>active=False</code>. A <code>TrustSuccession</code> row is created: predecessor=RVL, successor=RAL, type=acquisition.</td>
+</tr>
+<tr>
+<td>Child organisations</td>
+<td>Reassigned from RVL to RAL. An <code>OrganisationTrustMembership</code> row is closed (valid_to set) for RVL and a new one opened for RAL. The <code>Organisation.trust</code> FK is updated.</td>
+</tr>
+<tr>
+<td>Child ODS codes</td>
+<td>Usually <strong>retained</strong> (Barnet keeps its org code; only the parent stem changes). If the ODS code does change, see <a href="#organisation-succession">Organisation succession</a> below.</td>
+</tr>
+<tr>
+<td>ICB / NHS England region</td>
+<td>May change if the acquiring trust is in a different ICB or region. If so, the relevant membership rows are closed and new ones opened. See <a href="#cross-boundary-mergers">Cross-boundary mergers</a> for the case where a merger spans an ICB boundary.</td>
+</tr>
+<tr>
+<td>OPEN UK network</td>
+<td>May change. Handled the same way via <code>OrganisationOPENUKNetworkMembership</code>.</td>
+</tr>
+<tr>
+<td>PDU</td>
+<td>Usually unchanged (the diabetes service continues), but can be reassigned via <code>OrganisationPaediatricDiabetesUnitMembership</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-full-merger">2. Full merger<a class="headerlink" href="#2-full-merger" title="Permanent link">&para;</a></h3>
+<p>Both predecessor trusts are dissolved and a new entity is created with a new ODS
+code.</p>
+<p><strong>Example:</strong> In 2018, Ipswich Hospital NHS Trust (RGQ) and Colchester University
+Hospitals NHS Foundation Trust (RDE) merged. Both RGQ and RDE were terminated,
+and a new ODS code RJL was established for the merged entity (East Suffolk and
+North Essex NHS Foundation Trust).</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Predecessor trusts (RGQ, RDE)</td>
+<td>Both marked <code>active=False</code>. Two <code>TrustSuccession</code> rows are created: RGQ → RJL and RDE → RJL, both type=merger.</td>
+</tr>
+<tr>
+<td>Successor trust (RJL)</td>
+<td>A new <code>Trust</code> row is created with the new ODS code. A baseline <code>TrustVersion</code> row is created.</td>
+</tr>
+<tr>
+<td>Child organisations</td>
+<td>All child orgs of RGQ and RDE are reassigned to RJL. <code>OrganisationTrustMembership</code> rows are closed for the old trusts and opened for RJL.</td>
+</tr>
+<tr>
+<td>Child ODS codes</td>
+<td>May or may not change. If the ODS reissues org codes with the new parent stem, see <a href="#organisation-succession">Organisation succession</a> below.</td>
+</tr>
+<tr>
+<td>ICB / NHS England region</td>
+<td>The new trust (RJL) sits in one ICB and one region. Child orgs inherit these via new membership rows.</td>
+</tr>
+<tr>
+<td>OPEN UK network / PDU</td>
+<td>As for acquisition.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-dissolution-with-split">3. Dissolution with split<a class="headerlink" href="#3-dissolution-with-split" title="Permanent link">&para;</a></h3>
+<p>A trust is dissolved and its child organisations are split between different
+successor trusts. This is the most complex case because the child organisations
+move to <em>different</em> parents and typically get <em>new ODS codes</em>.</p>
+<p><strong>Example:</strong> South London Healthcare NHS Trust (RYQ) was dissolved in 2013. Its
+child organisations were split:</p>
+<ul>
+<li>Princess Royal University Hospital (RYQ30) moved to King's College Hospital
+  NHS Foundation Trust (RJZ) and became <strong>RJZ30</strong>.</li>
+<li>Queen Elizabeth Hospital in Woolwich (RYQ01) moved to the new merged Lewisham
+  and Greenwich NHS Trust (RJ2) and became <strong>RJ201</strong>.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dissolved trust (RYQ)</td>
+<td>Marked <code>active=False</code>. Multiple <code>TrustSuccession</code> rows are created: RYQ → RJZ (type=split) and RYQ → RJ2 (type=split). One predecessor, multiple successors.</td>
+</tr>
+<tr>
+<td>Successor trusts (RJZ, RJ2)</td>
+<td>May already exist (RJZ) or be newly created (RJ2). If new, a <code>Trust</code> row + baseline <code>TrustVersion</code> is created.</td>
+</tr>
+<tr>
+<td>Child organisations</td>
+<td>Each child is reassigned to its specific successor trust. <code>OrganisationTrustMembership</code> rows are closed for RYQ and opened for the relevant successor.</td>
+</tr>
+<tr>
+<td>Child ODS codes</td>
+<td><strong>Change.</strong> The child gets a new ODS code reflecting the new parent stem (RYQ30 → RJZ30, RYQ01 → RJ201). This is an organisation-level succession — see below.</td>
+</tr>
+<tr>
+<td>ICB / NHS England region</td>
+<td>May differ between the successor trusts. Each child inherits its new parent's ICB and region.</td>
+</tr>
+<tr>
+<td>OPEN UK network / PDU</td>
+<td>As for acquisition.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="organisation-succession">Organisation succession<a class="headerlink" href="#organisation-succession" title="Permanent link">&para;</a></h2>
+<p>In the acquisition and full-merger cases, child organisations usually <strong>retain
+their ODS code</strong> — only the parent trust changes. This is handled cleanly by
+<code>OrganisationTrustMembership</code>: close the old row, open a new one pointing to the
+successor trust. The <code>Organisation</code> row is unchanged.</p>
+<p>In the split case (and sometimes in the other cases), the child organisation
+gets a <strong>new ODS code</strong> because its parent stem has changed (RYQ30 → RJZ30).
+The ODS treats this as a new organisation: the old code ceases to exist and a
+new code is created. But from an audit perspective, RJZ30 in 2014 is the <em>same
+physical hospital</em> as RYQ30 in 2012 — the audit data needs to trace that chain.</p>
+<p>This is recorded by the <code>OrganisationSuccession</code> table, which links a
+predecessor organisation to its successor with a date and a type. The
+<code>code_change</code> type covers the case where an organisation's ODS code changes but
+it remains under the same parent trust (a pure rename/recode by ODS).</p>
+<p>When an organisation succession occurs:</p>
+<ol>
+<li>The old <code>Organisation</code> row (e.g. RYQ30) is marked <code>active=False</code>.</li>
+<li>A new <code>Organisation</code> row (e.g. RJZ30) is created with the new ODS code.</li>
+<li>An <code>OrganisationSuccession</code> row links them.</li>
+<li>The new organisation inherits the old one's relationships (ICB, region, OPEN
+   UK network, PDU, London borough, LAD, LSOA) via new baseline membership rows.</li>
+<li>The new organisation's <code>OrganisationTrustMembership</code> points to the successor
+   trust (RJZ), not the dissolved one (RYQ).</li>
+</ol>
+<h2 id="cross-boundary-mergers">Cross-boundary mergers<a class="headerlink" href="#cross-boundary-mergers" title="Permanent link">&para;</a></h2>
+<p>Most mergers happen within a single ICB and NHS England region, in which case
+the child organisations' ICB and region memberships simply follow the successor
+trust. A merger that crosses an ICB or region boundary is more nuanced.</p>
+<p><strong>Example:</strong> In 2020, University Hospitals Bristol NHS Foundation Trust acquired
+Weston Area Health NHS Trust. UH Bristol was based within the Bristol, North
+Somerset and South Gloucestershire (BNSSG) ICB footprint; Weston General
+Hospital was part of Somerset ICB. After the merger, the combined trust
+(University Hospitals Bristol and Weston, UHBW, RA7) sat within BNSSG as its
+<strong>host ICB</strong>, but Somerset ICB retained commissioning responsibilities for
+Weston General Hospital as an <strong>associate ICB</strong>.</p>
+<p>The current schema models a single ICB per trust via
+<code>TrustIntegratedCareBoardMembership</code> (and a single ICB per organisation via
+<code>OrganisationIntegratedCareBoardMembership</code>). This is sufficient for the common
+case and keeps reporting simple: every trust and every organisation reports to
+exactly one ICB at any point in time.</p>
+<p>The host/associate distinction is <strong>not</strong> modelled. If it becomes necessary for
+commissioner reporting in future, it would be added as a separate concept (for
+example a <code>role</code> field on the membership, or a dedicated associate-ICB table)
+rather than by allowing two current ICB memberships per trust. For now, the
+convention is:</p>
+<ul>
+<li>The merged trust's <code>TrustIntegratedCareBoardMembership</code> points to the <strong>host</strong>
+  ICB (BNSSG in the example).</li>
+<li>Each child organisation's <code>OrganisationIntegratedCareBoardMembership</code> points
+  to the ICB that commissions <em>that organisation</em>. So Weston General Hospital
+  would point to Somerset, while the rest of UHBW's sites would point to BNSSG.</li>
+</ul>
+<p>This keeps the trust-level membership unambiguous (one host ICB) while allowing
+per-organisation commissioning accuracy, which is what audit reports need. The
+host/associate distinction at trust level is deferred until there is a concrete
+reporting requirement.</p>
+<h2 id="other-relationship-changes-during-a-merger">Other relationship changes during a merger<a class="headerlink" href="#other-relationship-changes-during-a-merger" title="Permanent link">&para;</a></h2>
+<p>When a trust merger occurs, the child organisations' other relationships may
+also change. The table below summarises which membership tables are involved:</p>
+<table>
+<thead>
+<tr>
+<th>Relationship</th>
+<th>When it changes during a merger</th>
+<th>Membership table</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trust / LHB</td>
+<td>Always (the point of the merger)</td>
+<td><code>OrganisationTrustMembership</code> / <code>OrganisationLocalHealthBoardMembership</code></td>
+</tr>
+<tr>
+<td>ICB</td>
+<td>If the successor trust is in a different ICB</td>
+<td><code>OrganisationIntegratedCareBoardMembership</code></td>
+</tr>
+<tr>
+<td>NHS England region</td>
+<td>If the successor trust is in a different region</td>
+<td><code>OrganisationNHSEnglandRegionMembership</code></td>
+</tr>
+<tr>
+<td>Trust → ICB</td>
+<td>If the successor trust is in a different ICB</td>
+<td><code>TrustIntegratedCareBoardMembership</code></td>
+</tr>
+<tr>
+<td>Trust → NHS England region</td>
+<td>If the successor trust is in a different region</td>
+<td><code>TrustNHSEnglandRegionMembership</code></td>
+</tr>
+<tr>
+<td>OPEN UK network</td>
+<td>If the successor trust is allocated to a different network</td>
+<td><code>OrganisationOPENUKNetworkMembership</code></td>
+</tr>
+<tr>
+<td>PDU</td>
+<td>Rarely, but possible if the diabetes service is reorganised</td>
+<td><code>OrganisationPaediatricDiabetesUnitMembership</code></td>
+</tr>
+<tr>
+<td>London borough / LAD / LSOA</td>
+<td>Never (these are geographic, not organisational)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>The geographic relationships (London borough, LAD, LSOA) do not change during a
+trust merger because they are determined by the organisation's physical
+location, which does not move.</p>
+<h2 id="rename-and-closure">Rename and closure<a class="headerlink" href="#rename-and-closure" title="Permanent link">&para;</a></h2>
+<p>Two non-merger cases that the succession tables also handle:</p>
+<h3 id="rename">Rename<a class="headerlink" href="#rename" title="Permanent link">&para;</a></h3>
+<p>A trust changes its name but retains its ODS code. This is <strong>not</strong> a succession —
+it is an attribute change, handled by <code>TrustVersion</code> (close the old version, open
+a new one with the new name). No <code>TrustSuccession</code> row is created.</p>
+<p>An organisation can also be renamed (new name, same ODS code). Handled by
+<code>OrganisationVersion</code>.</p>
+<h3 id="closure">Closure<a class="headerlink" href="#closure" title="Permanent link">&para;</a></h3>
+<p>A trust closes with no successor. The trust is marked <code>active=False</code>. No
+<code>TrustSuccession</code> row is created (there is no successor to link to). Its child
+organisations are either closed too or reassigned to other trusts (which would
+be recorded as a split if they go to multiple successors).</p>
+<blockquote>
+<p><strong>Note:</strong> the <code>TrustSuccession</code> schema requires a non-null <code>successor</code> FK, so
+a pure closure with no successor cannot be recorded as a succession row. This
+is intentional — a closure is simply the trust being marked inactive. If a
+closed trust's children are redistributed, each redistribution is recorded as a
+split succession with the relevant successor.</p>
+</blockquote>
+<h2 id="using-the-ods-management-command">Using the ODS management command<a class="headerlink" href="#using-the-ods-management-command" title="Permanent link">&para;</a></h2>
+<p>Mergers are applied through the <code>mergers</code> management command, which looks up
+organisations on the NHS Spine and creates or updates them locally. The command
+supports <code>--create</code> and <code>--delete</code> and a <code>--dry-run</code> flag that reports what
+would change without writing to the database.</p>
+<h3 id="detecting-changes-from-ods">Detecting changes from ODS<a class="headerlink" href="#detecting-changes-from-ods" title="Permanent link">&para;</a></h3>
+<p>The <code>cron</code> management command calls the ODS <code>/sync</code> endpoint for changes in the
+last 30 days (or up to 185 days for a one-off backfill). Run with <code>--dry-run</code> to
+see what ODS has published before applying it:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>cron<span class="w"> </span>--service<span class="w"> </span>organisations<span class="w"> </span>--dry-run
+</code></pre></div>
+<p>This writes a markdown report to stdout listing, per affected entity, the field,
+old value, new value, and effective date. The same report is generated
+automatically by the scheduled GitHub Action for ODS change detection (see
+<a href="../temporal-history/">temporal-history.md</a>). ODS does not surface succession
+relationships unambiguously, so the report is for review only — applying a
+merger is a manual step.</p>
+<h3 id="one-off-backfill-sync-up-to-185-days">One-off backfill sync (up to 185 days)<a class="headerlink" href="#one-off-backfill-sync-up-to-185-days" title="Permanent link">&para;</a></h3>
+<p>To catch up on recent mergers and changes that were published before the
+temporal layer was installed, run a one-off sync with the maximum time frame
+of 185 days. This surfaces every trust and organisation change in the last 6
+months — including mergers, renames, and address changes — as a dry-run
+report:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>cron<span class="w"> </span>--service<span class="w"> </span>organisations<span class="w"> </span>--dry-run<span class="w"> </span>--report-file<span class="w"> </span>ods_backfill_changes.md
+</code></pre></div>
+<p>Review the report to identify which trusts have merged, been renamed, or
+closed. Then record the successions and reassignments manually via the admin
+or the helper functions (see <a href="#user-steps-for-implementing-mergers">User steps for implementing mergers</a>).</p>
+<p>For mergers older than 185 days, the ODS <code>/sync</code> endpoint cannot help. Source
+the dates from the NPDA's own records, from the ODS Trac bulk data files
+(see <a href="https://digital.nhs.uk/services/organisation-data-service/data-downloads">NHS Digital ODS data downloads</a>),
+or from the issues pages of the NPDA and Epilepsy12 projects. The period
+from 2023 onwards is the priority for audit reporting.</p>
+<h3 id="ongoing-sync-schedule">Ongoing sync schedule<a class="headerlink" href="#ongoing-sync-schedule" title="Permanent link">&para;</a></h3>
+<p>After the one-off backfill, the ongoing cron only needs to sniff the last 30
+days and run monthly. The GitHub Action is scheduled weekly as a safety net,
+but the manual <code>cron</code> command can be run monthly:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>cron<span class="w"> </span>--service<span class="w"> </span>organisations
+</code></pre></div>
+<p>Run with <code>--dry-run</code> first to review before applying:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>cron<span class="w"> </span>--service<span class="w"> </span>organisations<span class="w"> </span>--dry-run
+</code></pre></div>
+<h3 id="creating-organisations-from-a-merger">Creating organisations from a merger<a class="headerlink" href="#creating-organisations-from-a-merger" title="Permanent link">&para;</a></h3>
+<p>When a merger produces a new organisation (either a new child under an existing
+trust, or a new child under a newly created successor trust), create it from the
+Spine:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>mergers<span class="w"> </span>--organisations<span class="w"> </span>RJZ30<span class="w"> </span>RJ201<span class="w"> </span>--create
+</code></pre></div>
+<p>This looks up each ODS code on the Spine, creates the <code>Organisation</code> row, and
+creates baseline temporal rows (<code>OrganisationVersion</code> plus the relevant
+<code>OrganisationTrustMembership</code> / <code>OrganisationIntegratedCareBoardMembership</code> /
+<code>OrganisationNHSEnglandRegionMembership</code> / <code>OrganisationOPENUKNetworkMembership</code>
+/ <code>OrganisationPaediatricDiabetesUnitMembership</code>) so the new organisation has
+history from creation day forward. Use <code>--dry-run</code> first to preview:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>mergers<span class="w"> </span>--organisations<span class="w"> </span>RJZ30<span class="w"> </span>RJ201<span class="w"> </span>--create<span class="w"> </span>--dry-run
+</code></pre></div>
+<h3 id="recording-the-succession-links">Recording the succession links<a class="headerlink" href="#recording-the-succession-links" title="Permanent link">&para;</a></h3>
+<p>The <code>mergers</code> command creates the organisation rows and their baseline
+memberships, but the succession links themselves (<code>TrustSuccession</code>,
+<code>OrganisationSuccession</code>, <code>PaediatricDiabetesUnitSuccession</code>) are recorded
+manually via the admin, because ODS succession semantics are occasionally
+ambiguous and a human should confirm the predecessor → successor mapping. See
+<a href="#user-steps-for-implementing-mergers">User steps for implementing mergers</a>
+below.</p>
+<h3 id="deleting-organisations">Deleting organisations<a class="headerlink" href="#deleting-organisations" title="Permanent link">&para;</a></h3>
+<p>When an organisation ceases to exist (its ODS code is terminated), it can be
+deleted. The command prompts for confirmation and lists the organisation's
+relationships before deleting:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>manage.py<span class="w"> </span>mergers<span class="w"> </span>--organisations<span class="w"> </span>RYQ30<span class="w"> </span>RYQ01<span class="w"> </span>--delete
+</code></pre></div>
+<blockquote>
+<p><strong>Caution:</strong> deleting an organisation that is referenced by a succession row
+is prevented by <code>on_delete=PROTECT</code>. Mark the organisation <code>active=False</code>
+instead of deleting it if it is a predecessor in a succession, so that the
+audit chain remains intact.</p>
+</blockquote>
+<h2 id="pdu-mergers">PDU mergers<a class="headerlink" href="#pdu-mergers" title="Permanent link">&para;</a></h2>
+<p>Paediatric Diabetes Units (PDUs) can merge in the same ways trusts do: one
+PDU can acquire another, two PDUs can merge into a new PZ code, or a PDU can
+be split. PDU mergers are recorded with <code>PaediatricDiabetesUnitSuccession</code>
+and the child organisations' PDU membership is updated via
+<code>OrganisationPaediatricDiabetesUnitMembership</code>.</p>
+<p>Unlike trust mergers, PDU mergers do <strong>not</strong> change the child organisation's
+ODS code — the hospital keeps its ODS code, only the PZ code it reports to
+changes. So no <code>OrganisationSuccession</code> row is needed for a PDU merger; only
+the PDU membership rows are closed and reopened.</p>
+<h3 id="worked-example-pz216-pz125-pz253-january-2026">Worked example: PZ216 + PZ125 → PZ253 (January 2026)<a class="headerlink" href="#worked-example-pz216-pz125-pz253-january-2026" title="Permanent link">&para;</a></h3>
+<p>In January 2026, PZ216 (Tunbridge Wells Hospital) and PZ125 (Maidstone
+Hospital) merged to create PZ253 (Maidstone and Tunbridge Wells NHS Trust).</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Predecessor PDUs (PZ216, PZ125)</td>
+<td>Both marked <code>active=False</code>. Two <code>PaediatricDiabetesUnitSuccession</code> rows are created: PZ216 → PZ253 and PZ125 → PZ253, both type=merger.</td>
+</tr>
+<tr>
+<td>Successor PDU (PZ253)</td>
+<td>A new <code>PaediatricDiabetesUnit</code> row is created with the new PZ code. A baseline <code>PaediatricDiabetesUnitVersion</code> row is created.</td>
+</tr>
+<tr>
+<td>Child organisations</td>
+<td>The organisations previously reporting to PZ216 and PZ125 (e.g. RWFTW, RWF03) are reassigned to PZ253. <code>OrganisationPaediatricDiabetesUnitMembership</code> rows are closed for the old PDUs and opened for PZ253. The <code>Organisation.paediatric_diabetes_unit</code> FK is updated.</td>
+</tr>
+<tr>
+<td>Child ODS codes</td>
+<td><strong>Retained.</strong> The hospitals keep their ODS codes; only the PDU membership changes. No <code>OrganisationSuccession</code> row is created.</td>
+</tr>
+<tr>
+<td>Paediatric Diabetes Network</td>
+<td>The successor PDU inherits a network via <code>PaediatricDiabetesUnitNetworkMembership</code>. If the predecessor PDUs were in different networks, a decision is needed on which network the successor joins; this is recorded manually.</td>
+</tr>
+<tr>
+<td>Trust / ICB / region</td>
+<td>Unchanged — a PDU merger does not move hospitals between trusts.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="worked-example-pz086-pz131-pz254-april-2026">Worked example: PZ086 + PZ131 → PZ254 (April 2026)<a class="headerlink" href="#worked-example-pz086-pz131-pz254-april-2026" title="Permanent link">&para;</a></h3>
+<p>In April 2026, PZ086 and PZ131 merged to create PZ254 (North West Anglia NHS
+Foundation Trust). The same pattern applies as above: both predecessors are
+marked <code>active=False</code>, two <code>PaediatricDiabetesUnitSuccession</code> rows link them
+to PZ254, and the child organisations' PDU memberships are reassigned to
+PZ254.</p>
+<h3 id="relationship-to-the-hardcoded-organisations-property">Relationship to the hardcoded <code>organisations</code> property<a class="headerlink" href="#relationship-to-the-hardcoded-organisations-property" title="Permanent link">&para;</a></h3>
+<p>The <code>PaediatricDiabetesUnit.organisations</code> property currently contains
+hardcoded special cases for past mergers (PZ003, PZ216, PZ125, PZ080,
+PZ141, and others). These map a PZ code to a fixed list of ODS codes
+because the membership was not modelled temporally. Once PDU mergers are
+recorded through the temporal layer, these hardcoded cases can be replaced
+by querying <code>OrganisationPaediatricDiabetesUnitMembership</code> as of the
+relevant date. The hardcoded cases should be removed as mergers are
+migrated into the temporal layer, to avoid two sources of truth.</p>
+<h3 id="backfilling-previous-pdu-mergers">Backfilling previous PDU mergers<a class="headerlink" href="#backfilling-previous-pdu-mergers" title="Permanent link">&para;</a></h3>
+<p>The temporal layer only records changes from installation day forward. To
+backfill the previous PDU mergers that are currently hardcoded in the
+<code>organisations</code> property, a one-off data migration or management command
+would need to:</p>
+<ol>
+<li><strong>Create the predecessor PDU rows</strong> if they don't already exist (PZ216,
+   PZ125, PZ080, PZ141, PZ003, etc.), marked <code>active=False</code>.</li>
+<li><strong>Create baseline <code>PaediatricDiabetesUnitVersion</code> rows</strong> for each
+   predecessor, with <code>valid_from</code> set to the date the PDU was originally
+   established and <code>valid_to</code> set to the merger date.</li>
+<li><strong>Create <code>PaediatricDiabetesUnitSuccession</code> rows</strong> linking each
+   predecessor to its successor, with the merger date and type=merger.</li>
+<li><strong>Create <code>OrganisationPaediatricDiabetesUnitMembership</code> rows</strong> for each
+   child organisation, with <code>valid_from</code> set to the date the org joined the
+   predecessor PDU and <code>valid_to</code> set to the merger date. Then create new
+   rows pointing to the successor PDU with <code>valid_from</code> = merger date and
+   <code>valid_to = NULL</code>.</li>
+<li><strong>Remove the hardcoded case</strong> from the <code>organisations</code> property once the
+   temporal rows are in place.</li>
+</ol>
+<p>The merger dates and original establishment dates for these PDUs are not
+available from the ODS — PDUs are not tracked by the ODS at all. They are
+maintained manually by RCPCH. The ODS is used only for trusts, ICBs, and
+organisations. The dates would need to be sourced from the NPDA's own
+records or from the hardcoded comments in the <code>organisations</code> property
+itself (which include dates for some mergers).</p>
+<p>This backfill is a one-off project, not an ongoing pattern. Once it is
+done, the 30-day cron and the manual admin workflow keep the temporal layer
+up to date for future mergers.</p>
+<h2 id="user-steps-for-implementing-mergers">User steps for implementing mergers<a class="headerlink" href="#user-steps-for-implementing-mergers" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>This section documents the current state of the admin interface. The admin
+supports succession records and simple trust reassignments. Full merger
+workflows (creating a new successor trust, bulk-reassigning children,
+marking predecessors inactive with version rows) require the helper functions
+via a shell or management command until more admin actions are built.</p>
+</blockquote>
+<h3 id="what-the-admin-can-do-today">What the admin can do today<a class="headerlink" href="#what-the-admin-can-do-today" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Create succession rows.</strong> The <code>TrustSuccession</code>, <code>OrganisationSuccession</code>,
+  and <code>PaediatricDiabetesUnitSuccession</code> admin pages have full create/edit
+  forms (predecessor dropdown, successor dropdown, date picker, type dropdown,
+  notes field). Use these to record the predecessor → successor link.</li>
+<li><strong>Reassign an organisation's trust.</strong> The "Reassign to a new trust" action
+  on the Organisation changelist opens a form (new trust + effective date) and
+  calls the <code>reassign_organisation_trust</code> helper, which closes the old
+  <code>OrganisationTrustMembership</code> row, opens a new one, and updates the FK.
+  This is the only relationship-reassignment action currently built; ICB /
+  region / OPEN UK / PDU reassignment actions can follow the same pattern.</li>
+<li><strong>View history.</strong> Each entity's change page shows read-only history inlines
+  (the <code>*Version</code> and <code>*Membership</code> timeline rows).</li>
+</ul>
+<h3 id="what-the-admin-cannot-do-yet">What the admin cannot do yet<a class="headerlink" href="#what-the-admin-cannot-do-yet" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Create version rows when attributes change.</strong> Editing a Trust's <code>active</code>
+  flag or name via the admin change page bypasses the temporal layer — it
+  overwrites the row without creating a <code>*Version</code> row. To mark a predecessor
+  trust inactive <em>with</em> a version row, use the helper in a shell:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">rcpch_nhs_organisations.hospitals.general_functions.membership</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_trust_attributes</span>
+<span class="n">update_trust_attributes</span><span class="p">(</span><span class="n">trust</span><span class="p">,</span> <span class="n">effective_date</span><span class="o">=</span><span class="s1">&#39;2023-04-01&#39;</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>
+<p><strong>Create a new successor trust with a baseline version.</strong> The admin Trust
+  add form creates the <code>Trust</code> row but does not create a <code>TrustVersion</code> row.
+  Use the <code>mergers --create</code> command (which does create baseline temporal
+  rows) or create the version row manually in a shell.</p>
+</li>
+<li>
+<p><strong>Bulk-reassign all children of a dissolved trust.</strong> The reassign-trust
+  action works on selected organisations, not on all children of a trust
+  automatically. For a full merger, select all the predecessor's children
+  in the changelist (using the trust filter) and apply the action.</p>
+</li>
+<li>
+<p><strong>Record an organisation succession (ODS code change).</strong> This requires
+  creating a new <code>Organisation</code> row, marking the old one inactive, creating
+  an <code>OrganisationSuccession</code> row, and transferring memberships — none of
+  which is a single admin action. Use the <code>mergers --create</code> command to
+  create the new organisation (with baseline temporal rows), then create
+  the <code>OrganisationSuccession</code> row via the admin, then reassign memberships
+  via shell helpers.</p>
+</li>
+</ul>
+<h3 id="pdu-merger-workflow">PDU merger workflow<a class="headerlink" href="#pdu-merger-workflow" title="Permanent link">&para;</a></h3>
+<p>To record a PDU merger (e.g. PZ216 + PZ125 → PZ253):</p>
+<ol>
+<li><strong>Create the successor PDU</strong> if it does not already exist, via the admin or
+   the <code>mergers</code> command. A baseline <code>PaediatricDiabetesUnitVersion</code> row is
+   created automatically.</li>
+<li><strong>Create the <code>PaediatricDiabetesUnitSuccession</code> rows</strong> via the admin: one
+   row per predecessor PDU, all pointing to the successor PDU, with the
+   merger date and type=merger.</li>
+<li><strong>Mark the predecessor PDUs <code>active=False</code></strong> via the admin. A new
+   <code>PaediatricDiabetesUnitVersion</code> row is opened for each, snapshotting
+   <code>active=False</code>.</li>
+<li><strong>Reassign the child organisations' PDU memberships</strong> to the successor PDU
+   via the admin reassignment action (or the <code>reassign_organisation_paediatric_diabetes_unit</code>
+   helper). This closes the old <code>OrganisationPaediatricDiabetesUnitMembership</code>
+   rows and opens new ones pointing to the successor PDU, with the merger date
+   as <code>valid_from</code>.</li>
+<li><strong>Set the successor PDU's network</strong> via the admin (or the
+   <code>reassign_paediatric_diabetes_unit_network</code> helper), recording it in
+   <code>PaediatricDiabetesUnitNetworkMembership</code>.</li>
+<li><strong>Remove any hardcoded special case</strong> for the predecessor PZ codes in the
+   <code>PaediatricDiabetesUnit.organisations</code> property, since the temporal layer
+   now holds the membership history.</li>
+</ol>
+<h2 id="worked-example-south-london-healthcare-nhs-trust-ryq-dissolution">Worked example: South London Healthcare NHS Trust (RYQ) dissolution<a class="headerlink" href="#worked-example-south-london-healthcare-nhs-trust-ryq-dissolution" title="Permanent link">&para;</a></h2>
+<p>This is the most complex case and is worth walking through in full to validate
+the design.</p>
+<p><strong>Starting state (before 2013):</strong></p>
+<ul>
+<li>RYQ (South London Healthcare NHS Trust) is active.</li>
+<li>RYQ30 (Princess Royal University Hospital) is a child of RYQ.</li>
+<li>RYQ01 (Queen Elizabeth Hospital, Woolwich) is a child of RYQ.</li>
+<li>Both have <code>OrganisationTrustMembership</code> rows: org → RYQ, valid_to=NULL.</li>
+</ul>
+<p><strong>The dissolution:</strong></p>
+<ul>
+<li>RYQ is dissolved. Its children are split:</li>
+<li>RYQ30 → moves to RJZ (King's College Hospital), becomes RJZ30.</li>
+<li>RYQ01 → moves to RJ2 (Lewisham and Greenwich), becomes RJ201.</li>
+</ul>
+<p><strong>What the temporal layer records:</strong></p>
+<ol>
+<li><code>TrustSuccession</code>: RYQ → RJZ, type=split, date=2013.</li>
+<li><code>TrustSuccession</code>: RYQ → RJ2, type=split, date=2013.</li>
+<li><code>Trust</code> (RYQ): <code>active</code> set to False. <code>TrustVersion</code> row closed, new one
+   opened with <code>active=False</code>.</li>
+<li><code>Organisation</code> (RYQ30): <code>active</code> set to False. <code>OrganisationVersion</code> row
+   closed.</li>
+<li><code>Organisation</code> (RJZ30): new row created. Baseline <code>OrganisationVersion</code>
+   created.</li>
+<li><code>OrganisationSuccession</code>: RYQ30 → RJZ30, type=split, date=2013.</li>
+<li><code>OrganisationTrustMembership</code>: RYQ30's row (→ RYQ) closed. RJZ30's new row
+   (→ RJZ) opened.</li>
+<li>Steps 4–7 repeated for RYQ01 → RJ201, with RJ2 as the successor trust.</li>
+</ol>
+<p><strong>What an audit query returns:</strong></p>
+<ul>
+<li>
+<p>"Which trust was Princess Royal University Hospital under in 2012?"
+  → Query <code>OrganisationSuccession</code> to find RJZ30's predecessor (RYQ30).
+  → Query <code>OrganisationTrustMembership</code> for RYQ30 as of 2012.
+  → Returns RYQ (South London Healthcare NHS Trust).</p>
+</li>
+<li>
+<p>"Which trust was Princess Royal University Hospital under in 2014?"
+  → Query <code>OrganisationTrustMembership</code> for RJZ30 as of 2014.
+  → Returns RJZ (King's College Hospital NHS Foundation Trust).</p>
+</li>
+</ul>
+<p>This is the chain-walking that the audit reports need, and it requires
+<code>OrganisationSuccession</code> to work.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../temporal-history/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Temporal history and merger tracking">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Temporal history and merger tracking
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../shapes/" class="md-footer__link md-footer__link--next" aria-label="Next: Geojson, ONS boundary data and mapping">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Geojson, ONS boundary data and mapping
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2021-24 The Royal College of Paediatrics and Child Health (RCPCH)
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/rcpchtweets" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M459.4 151.7c.3 4.5.3 9.1.3 13.6 0 138.7-105.6 298.6-298.6 298.6-59.5 0-114.7-17.2-161.1-47.1 8.4 1 16.6 1.3 25.3 1.3 49.1 0 94.2-16.6 130.3-44.8-46.1-1-84.8-31.2-98.1-72.8 6.5 1 13 1.6 19.8 1.6 9.4 0 18.8-1.3 27.6-3.6-48.1-9.7-84.1-52-84.1-103v-1.3c14 7.8 30.2 12.7 47.4 13.3-28.3-18.8-46.8-51-46.8-87.4 0-19.5 5.2-37.4 14.3-53C87.4 130.8 165 172.4 252.1 176.9c-1.6-7.8-2.6-15.9-2.6-24C249.5 95.1 296.3 48 354.4 48c30.2 0 57.5 12.7 76.7 33.1 23.7-4.5 46.5-13.3 66.6-25.3-7.8 24.4-24.4 44.8-46.1 57.8 21.1-2.3 41.6-8.1 60.4-16.2-14.3 20.8-32.2 39.3-52.6 54.3"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/rcpch" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.select", "content.code.annotate", "content.tabs.link", "navigation.expand", "navigation.footer", "navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

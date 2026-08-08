@@ -18,14 +18,14 @@
         <link rel="prev" href="../seeding/">
       
       
-        <link rel="next" href="../contributing/">
+        <link rel="next" href="../testing/">
       
       
         
       
       
       <link rel="icon" href="../../_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -33,7 +33,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -744,6 +744,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../temporal-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Temporal history and merger tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../merger-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How trust mergers are handled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../shapes/" class="md-nav__link">
         
   
@@ -892,6 +948,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The ODS (Organisation Dataservice) ORD (Organisation Reference Data) API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dry-run-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dry-run mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -909,6 +982,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing the temporal history layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1324,6 +1425,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The ODS (Organisation Dataservice) ORD (Organisation Reference Data) API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dry-run-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dry-run mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1377,7 +1495,15 @@
 <p>This service is the national standard and provided by <a href="https://digital.nhs.uk/developer/api-catalogue/organisation-data-service-ord">NHS Digital</a></p>
 <p>It is used to maintain the lists in the RCPCH NHS Organisations API up to date. In particular, the endpoint <code>/sync?LastChangeDate=</code> returns a large list of updates to organisational data.</p>
 <p>Functions in the <code>ods_update</code> file in <code>general_functions</code> can make periodic calls to this endpoint and update any records in the Trust and Organisation tables if any have been published.</p>
+<p>Since the temporal history layer was added, attribute changes are routed through the temporal helpers (<code>update_organisation_attributes</code> / <code>update_trust_attributes</code>) so that the previous state is recorded in the <code>*Version</code> tables before being overwritten. See <a href="../temporal-history/">temporal-history.md</a> for the design.</p>
 <p><strong>NOTE</strong>: This only updates Trusts and Organisations. Any changes in paediatric network membership (eg Paediatric Diabetes Units) have to be done manually. This is best done on the command line using a growing list of functions.</p>
+<h3 id="dry-run-mode">Dry-run mode<a class="headerlink" href="#dry-run-mode" title="Permanent link">&para;</a></h3>
+<p>The <code>cron</code> command accepts <code>--dry-run</code>, which reports what <em>would</em> change without writing to the database. This is used by the GitHub Action for ODS change detection (see <a href="../temporal-history/">temporal-history.md</a>) and is recommended before applying any sync:</p>
+<div class="highlight"><pre><span></span><code><span class="go">docker compose exec django python manage.py cron --service organisations --dry-run</span>
+</code></pre></div>
+<p>The <code>--report-file</code> flag writes the markdown report to a file instead of stdout, which is what the GitHub Action uses:</p>
+<div class="highlight"><pre><span></span><code><span class="go">docker compose exec django python manage.py cron --service organisations --dry-run --report-file ods_changes.md</span>
+</code></pre></div>
 <h2 id="merger">Merger<a class="headerlink" href="#merger" title="Permanent link">&para;</a></h2>
 <p>The command line can be invoked in the docker instance with:</p>
 <div class="highlight"><pre><span></span><code><span class="go">docker compose exec -it django bash</span>
@@ -1385,9 +1511,11 @@
 </code></pre></div>
 <p>This accepts the attributes:
 <code>--organisations</code>: this is mandatory and represents a list of ODS codes of organisations. Note this will not work for trusts. A minimum of 1 organisation must be provided.
-<code>--create</code> or <code>--delete</code>: one of these must be provided. 
-<em>Create</em>: This looks up the ODS code provided against the ORD API and persists the details in the Organisation table. It creates a relationship between the new organisation and a parent Trust/Local Health Board and if in England, an NHS Region and Integrated Care Board also. It also looks up against lists in <code>constants</code> for any matching membership of Paediatric Diabetes Units, OPEN UK Networks. If there is no relationship, it will prompt the user to confirm that they want to continue with organisation creation. It should be possible to add this relationship at a later date, but this is currently not supported. If there is no PDU in the database, an organisation will not be created.
+<code>--create</code> or <code>--delete</code>: one of these must be provided.
+<code>--dry-run</code>: optional. Reports what would change without writing to the database.
+<em>Create</em>: This looks up the ODS code provided against the ORD API and persists the details in the Organisation table. It creates a relationship between the new organisation and a parent Trust/Local Health Board and if in England, an NHS Region and Integrated Care Board also. It also looks up against lists in <code>constants</code> for any matching membership of Paediatric Diabetes Units, OPEN UK Networks. If there is no relationship, it will prompt the user to confirm that they want to continue with organisation creation. It should be possible to add this relationship at a later date, but this is currently not supported. If there is no PDU in the database, an organisation will not be created. Since the temporal history layer was added, creating an organisation also creates baseline temporal rows (<code>OrganisationVersion</code> plus the relevant membership rows) so the new organisation has history from creation day forward.
 <em>Delete</em>: Since the Organisation does not have referential integrity with its parent or related regions, the user is asked to confirm that they want to continue with deletion. A summary of the organisation's membership is logged to the console. Note that if the organisation is the only one associated with a paediatric diabetes unit record or openuk network record, that will leave that association broken. If the organisation is added back, that relationship is recreated.</p>
+<p>For recording mergers (acquisitions, full mergers, splits, PDU mergers), see <a href="../merger-handling/">merger-handling.md</a>.</p>
 
 
 
@@ -1445,13 +1573,13 @@
         
         
           
-          <a href="../contributing/" class="md-footer__link md-footer__link--next" aria-label="Next: Contributing">
+          <a href="../testing/" class="md-footer__link md-footer__link--next" aria-label="Next: Testing the temporal history layer">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Contributing
+                Testing the temporal history layer
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1522,7 +1650,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.select", "content.code.annotate", "content.tabs.link", "navigation.expand", "navigation.footer", "navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
