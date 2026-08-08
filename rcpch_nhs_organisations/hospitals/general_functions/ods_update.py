@@ -255,6 +255,84 @@ def _extract_trust_membership_info(ord_record):
     return memberships
 
 
+# RE5 and RE8 are the ODS relationship types for commissioning / managed-by
+# relationships from a trust (RO197) to an ICB (RO261). RE5 ("managed by /
+# reports to") is the primary commissioning link; RE8 ("operates / is
+# operated by") appeared from 2023 onwards as a second link type. Both
+# point at ICBs (RO261) in current data; historically they pointed at CCGs
+# (RO210) and STPs (RO132), which are ignored — only ICB affiliations are
+# recovered. See documentation/docs/developer/icb-history.md.
+ICB_REL_IDS = ("RE5", "RE8")
+ICB_TARGET_ROLE = "RO261"
+
+
+def _extract_icb_membership_info(ord_record):
+    """Extract historical ICB-membership intervals from an ORD organisation
+    record's ``Rels`` block.
+
+    For NHS Trusts (``PrimaryRoleId == RO197``), the ``RE5`` and ``RE8`` rels
+    pointing at ICBs (``PrimaryRoleId == RO261``) record the commissioning
+    relationship with operational ``[Start, End]`` intervals. This function
+    extracts those intervals for backfilling ``TrustIntegratedCareBoardMembership``
+    rows.
+
+    Only ``RO261`` (ICB) targets are returned. ``RO210`` (CCG) and ``RO132``
+    (STP) targets are ignored — audit reporting walks the chain
+    organisation → trust/LHB → ICB → NHS England region → country, so only
+    ICB-level affiliations are recovered.
+
+    Returns a list of dicts, one per RE5/RE8 rel pointing at an ICB, ordered
+    by start date:
+        {"icb_ods_code": "QKS", "valid_from": "2020-04-01", "valid_to": None}
+    ``valid_to`` is ``None`` if the rel is still active (the open interval).
+    Returns an empty list if the record has no ``Rels`` block or no ICB rels.
+    """
+    rels = ord_record.get("Rels", {}).get("Rel", [])
+    if isinstance(rels, dict):
+        rels = [rels]
+
+    memberships = []
+    for rel in rels:
+        if rel.get("id") not in ICB_REL_IDS:
+            continue
+        target = rel.get("Target", {})
+        target_role = target.get("PrimaryRoleId", {}).get("id")
+        if target_role != ICB_TARGET_ROLE:
+            continue
+        icb_ods_code = target.get("OrgId", {}).get("extension")
+        if not icb_ods_code:
+            continue
+
+        # Use the Operational interval — that is when the trust actually
+        # reported to the ICB. Fall back to Legal if Operational is absent.
+        valid_from = None
+        valid_to = None
+        for d in rel.get("Date", []):
+            if d.get("Type") == "Operational":
+                valid_from = d.get("Start")
+                valid_to = d.get("End")
+                break
+        if valid_from is None:
+            for d in rel.get("Date", []):
+                if d.get("Type") == "Legal":
+                    valid_from = d.get("Start")
+                    valid_to = d.get("End")
+                    break
+        if valid_from is None:
+            continue
+
+        memberships.append(
+            {
+                "icb_ods_code": icb_ods_code,
+                "valid_from": valid_from,
+                "valid_to": valid_to,
+            }
+        )
+
+    memberships.sort(key=lambda m: m["valid_from"])
+    return memberships
+
+
 def _parse_ods_date(date_str):
     """Parse an ODS date string (YYYY-MM-DD) into a datetime.date.
     Returns None if the string is None or cannot be parsed."""

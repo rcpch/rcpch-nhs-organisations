@@ -1031,3 +1031,51 @@ def backfill_organisation_trust_membership(
         "created" if created else "updated",
     )
     return obj
+
+
+def backfill_trust_icb_membership(trust, integrated_care_board, valid_from, valid_to):
+    """Insert a historical TrustIntegratedCareBoardMembership row for the
+    interval [valid_from, valid_to), recording that the trust was a member of
+    the given ICB during that period.
+
+    Use this to record a past ICB affiliation that was overwritten before the
+    temporal layer was installed. For example, to record that a trust was in
+    Frimley ICB (QNQ) from 2020-04-01 until it moved to Thames Valley ICB
+    (S0E4D) on 2026-04-01:
+
+        backfill_trust_icb_membership(
+            trust,
+            integrated_care_board=frimley_icb,
+            valid_from=datetime.date(2020, 4, 1),
+            valid_to=datetime.date(2026, 4, 1),
+        )
+
+    If a membership row already exists for the same trust, ICB, and
+    [valid_from, valid_to) interval, it is updated in place rather than
+    duplicated.
+
+    Args:
+        trust: the Trust.
+        integrated_care_board: the ICB the trust was affiliated to.
+        valid_from: the date the affiliation began.
+        valid_to: the date the affiliation ended (the date of the reassignment).
+    """
+    TrustIntegratedCareBoardMembership = apps.get_model(
+        "hospitals", "TrustIntegratedCareBoardMembership"
+    )
+    with transaction.atomic():
+        obj, created = TrustIntegratedCareBoardMembership.objects.update_or_create(
+            trust=trust,
+            integrated_care_board=integrated_care_board,
+            valid_from=valid_from,
+            valid_to=valid_to,
+        )
+    logger.info(
+        "Backfilled Trust %s → ICB %s membership %s → %s (%s)",
+        trust.ods_code,
+        integrated_care_board.ods_code,
+        valid_from,
+        valid_to or "now",
+        "created" if created else "updated",
+    )
+    return obj

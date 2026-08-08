@@ -268,11 +268,6 @@ Action for ODS change detection".
 
 ## Out of scope
 
-- **Child organisation/trust ICB membership reassignment.** The Layer 2
-  membership update (reassigning organisations and trusts from old ICBs
-  to new ICBs) is a follow-up command, not part of the initial
-  succession backfill. The initial backfill creates the succession rows
-  and version rows only.
 - **Boundary/shape data for new ICBs.** The long-term intention is to
   deprecate the geometry fields from this project entirely and leave all
   boundary data to the RCPCH Census Platform. The fields are made
@@ -283,8 +278,41 @@ Action for ODS change detection".
   workflow (once the admin actions for ICB reassignment are built) and
   the `reassign_organisation_integrated_care_board` /
   `reassign_trust_integrated_care_board` helpers.
-- **CCG → ICB transition (2022).** The 2022 transition from CCGs to
-  ICBs is not modelled in the temporal layer (it predates installation).
-  The `Rels` block on each organisation's record may contain historical
-  CCG (`RO210`) relationships, but recovering these is a separate
-  project.
+- **CCG / STP history.** The ODS `Rels` block on each trust's record
+  contains historical CCG (`RO210`) and STP (`RO132`) relationships dating
+  back to 1996, but these entities are not in our database and audit
+  reporting does not rely on them. Reporting walks the chain
+  organisation → trust/LHB → ICB → NHS England region → country, so
+  only ICB-level affiliations are recovered.
+
+## Follow-up: child membership reassignment
+
+When the 12 old ICBs dissolve on 2026-04-01, the trusts and organisations
+under them need to be reassigned to the correct successor ICB. The ODS
+holds the full trust → ICB affiliation history in the `Rels` block of
+each trust's record — `RE5` ("managed by / reports to") and `RE8`
+("operates / is operated by") rels pointing at ICBs (`RO261`), with
+operational `[Start, End]` intervals.
+
+A `backfill_icb_memberships` command (mirroring `backfill_trust_memberships`)
+would:
+
+1. Iterate every trust in the database.
+2. Fetch its ODS record via `/organisations/{ods_code}`.
+3. Read the `RE5`/`RE8` rels pointing at `RO261` (ICBs) — ignoring
+   `RO210` (CCGs) and `RO132` (STPs).
+4. For each rel, backfill a `TrustIntegratedCareBoardMembership` row with
+   the operational `[Start, End]` interval (idempotent on
+   `(trust, icb, valid_from)`).
+5. Derive `OrganisationIntegratedCareBoardMembership` rows from the
+   trust → ICB membership + the organisation → trust membership (both
+   recoverable from the ODS). An organisation inherits its trust's ICB,
+   so the org → ICB membership interval is the intersection of the two.
+
+Organisations do not have their own ICB rels in the ODS — only trusts do.
+An organisation's ICB affiliation is implicit through its parent trust.
+
+This command is the same pattern as `backfill_trust_memberships` (which
+reads `RE6` rels to recover trust membership history) and can reuse the
+same ODS-fetch and idempotency infrastructure. It is a follow-up to the
+ICB succession backfill, not part of the initial release.
