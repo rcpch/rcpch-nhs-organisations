@@ -48,7 +48,7 @@ class OrganisationVersion(TimeStampAbstractBaseClass):
 
     # Snapshot of mutable attributes (mirrors Organisation, minus ods_code
     # which is the immutable identifier and lives on Organisation).
-    name = models.CharField(max_length=100, null=True, blank=True, default=None)
+    name = models.CharField(max_length=255, null=True, blank=True, default=None)
     website = models.CharField(max_length=100, null=True, blank=True, default=None)
     address1 = models.CharField(max_length=100, null=True, blank=True, default=None)
     address2 = models.CharField(max_length=100, null=True, blank=True, default=None)
