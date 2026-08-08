@@ -1,0 +1,13 @@
+{% extends "admin/change_form.html" %}
+
+{% block field_sets %}
+<div class="signposting-banner" style="background: #fff3e0; border: 1px solid #ff9800; border-radius: 4px; padding: 1em; margin-bottom: 1em;">
+  <p style="margin: 0 0 0.5em 0;"><strong>Before creating a succession row by hand:</strong></p>
+  <ul style="margin: 0; padding-left: 1.5em;">
+    <li><strong>Recording a forward merger or acquisition?</strong> Use the <em>Acquire another…</em> or <em>Merge into a new…</em> wizard on the entity's change page instead. The wizard writes the succession row <em>and</em> the version rows <em>and</em> the child reassignments in one transaction, which this form does not do.</li>
+    <li><strong>Recording a historical merger (backfill)?</strong> For trusts, use the <em>Backfill merger…</em> wizard on the Trust change page, which fetches the predecessor from ODS and writes the version rows. For PDUs (which are not in the ODS), create the row here and backfill the version rows separately.</li>
+    <li><strong>Only create the row here directly</strong> for ambiguous cases the wizards cannot handle (e.g. a split where children move to different successors), or to correct a row the wizard created. ODS succession semantics are occasionally ambiguous and a human should confirm the predecessor → successor mapping.</li>
+  </ul>
+</div>
+{{ block.super }}
+{% endblock %}

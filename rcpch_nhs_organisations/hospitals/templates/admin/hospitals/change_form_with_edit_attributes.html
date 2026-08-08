@@ -22,7 +22,7 @@
 
 {% block submit_buttons_bottom %}
   {{ block.super }}
-  {% if has_edit_attributes_action or has_rename_action or has_deactivate_action or has_backfill_attributes_action or has_backfill_trust_membership_action or has_backfill_merger_action %}
+  {% if has_edit_attributes_action or has_rename_action or has_deactivate_action or has_backfill_attributes_action or has_backfill_trust_membership_action or has_backfill_merger_action or has_acquire_action or has_merge_action %}
   <div class="submit-row" style="margin-top: 1em;">
     {% if has_edit_attributes_action %}
     <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_edit_attributes' original.pk %}" class="default button">Edit attributes as of…</a>
@@ -41,6 +41,12 @@
     {% endif %}
     {% if has_backfill_merger_action %}
     <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_backfill_merger' original.pk %}" class="button" style="color: #ff9800; font-weight: bold;">Backfill merger…</a>
+    {% endif %}
+    {% if has_acquire_action %}
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_acquire' original.pk %}" class="default button">Acquire another…</a>
+    {% endif %}
+    {% if has_merge_action %}
+    <a href="{% url 'admin:hospitals_'|add:opts.model_name|add:'_merge' original.pk %}" class="default button">Merge into a new…</a>
     {% endif %}
   </div>
   {% endif %}

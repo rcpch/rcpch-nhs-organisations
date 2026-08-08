@@ -303,7 +303,15 @@ def reassign_organisation_openuk_network(
 def reassign_organisation_paediatric_diabetes_unit(
     organisation, new_paediatric_diabetes_unit, effective_date=None
 ):
-    """Reassign an Organisation to a new Paediatric Diabetes Unit."""
+    """Reassign an Organisation to a new Paediatric Diabetes Unit.
+
+    If the organisation was the lead_organisation of its old PDU, the old
+    PDU's lead_organisation FK is set to NULL — it no longer has a lead. The
+    caller (or the operator) is responsible for setting a new lead on the old
+    PDU if it remains active, which is unusual for a reassignment (most
+    reassignments happen during a merger where the old PDU is deactivated).
+    """
+    old_pdu = organisation.paediatric_diabetes_unit
     new_row = _reassign_relationship(
         child=organisation,
         membership_model=apps.get_model(
@@ -316,6 +324,12 @@ def reassign_organisation_paediatric_diabetes_unit(
     )
     organisation.paediatric_diabetes_unit = new_paediatric_diabetes_unit
     organisation.save(update_fields=["paediatric_diabetes_unit"])
+    # If the reassigned org was the lead of its old PDU, clear the FK on
+    # the old PDU so it doesn't dangle (point at an org that's no longer a
+    # member).
+    if old_pdu is not None and old_pdu.lead_organisation_id == organisation.pk:
+        old_pdu.lead_organisation = None
+        old_pdu.save(update_fields=["lead_organisation"])
     return new_row
 
 

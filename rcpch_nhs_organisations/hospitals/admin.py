@@ -39,6 +39,8 @@ from .models import (
 )
 from .general_functions.membership import (
     reassign_organisation_trust,
+    reassign_organisation_paediatric_diabetes_unit,
+    reassign_paediatric_diabetes_unit_network,
     rename_paediatric_diabetes_unit,
     rename_trust,
     deactivate_organisation,
@@ -156,7 +158,7 @@ class PaediatricDiabetesUnitVersionInline(admin.TabularInline):
     model = PaediatricDiabetesUnitVersion
     extra = 0
     can_delete = False
-    fields = ("valid_from", "valid_to", "active")
+    fields = ("valid_from", "valid_to", "unit_name", "name_source", "lead_organisation", "active")
     readonly_fields = fields
     ordering = ("-valid_from",)
     verbose_name = "Attribute history"
@@ -1172,6 +1174,604 @@ class BackfillMergerAdminMixin:
 
 
 # ---------------------------------------------------------------------------
+# Acquisition wizard (forward mergers)
+# ---------------------------------------------------------------------------
+# For a forward acquisition: this entity (A) absorbs another entity (B).
+# In one transaction:
+#   1. Succession row (predecessor=B, successor=A, type=acquisition, date)
+#   2. Close B's current version row at the succession date; open an
+#      inactive one. Flip B.active = False.
+#   3. Reassign every child org of B to A.
+#   4. (PDU only) Set A.lead_organisation to the chosen lead org.
+# Does NOT call deactivate_* on B — that would write a second (closure)
+# succession row. The acquisition succession row is the audit record.
+
+
+class TrustAcquisitionForm(forms.Form):
+    acquired = forms.ModelChoiceField(
+        queryset=Trust.objects.filter(active=True),
+        label="Acquired trust",
+        help_text="The trust being absorbed. It will be marked inactive.",
+    )
+    succession_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Effective date",
+        help_text="The date the acquisition takes effect.",
+    )
+    new_name = forms.CharField(
+        max_length=100,
+        required=False,
+        label="New name for this trust (optional)",
+        help_text=(
+            "If the acquiring trust is also being renamed as part of the "
+            "acquisition, enter the new name. A separate rename succession "
+            "row will be recorded. Leave blank if the name is unchanged."
+        ),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Notes",
+    )
+
+    def __init__(self, *args, **kwargs):
+        self._acquirer = kwargs.pop("acquirer", None)
+        super().__init__(*args, **kwargs)
+        if self._acquirer is not None:
+            self.fields["acquired"].queryset = self.fields[
+                "acquired"
+            ].queryset.exclude(pk=self._acquirer.pk)
+
+    def clean(self):
+        cleaned = super().clean()
+        acquired = cleaned.get("acquired")
+        if acquired is not None and self._acquirer is not None and acquired.pk == self._acquirer.pk:
+            raise forms.ValidationError("A trust cannot acquire itself.")
+        return cleaned
+
+
+class TrustAcquisitionAdminMixin:
+    """Adds an "Acquire another trust…" wizard to the Trust admin."""
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/acquire/",
+                self.admin_site.admin_view(self.acquire_view),
+                name=f"{self.model._meta.app_label}_{self.model._meta.model_name}_acquire",
+            ),
+        ]
+        return custom_urls + urls
+
+    def acquire_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+        from django.db import transaction
+        from .general_functions.membership import (
+            update_trust_attributes,
+            rename_trust,
+        )
+
+        obj = get_object_or_404(self.model, pk=object_id)
+        opts = self.model._meta
+
+        if request.method == "POST":
+            form = TrustAcquisitionForm(request.POST, acquirer=obj)
+            if form.is_valid():
+                acquired = form.cleaned_data["acquired"]
+                succ_date = form.cleaned_data["succession_date"]
+                new_name = form.cleaned_data.get("new_name") or None
+                notes = form.cleaned_data.get("notes", "")
+
+                children = list(
+                    Organisation.objects.filter(trust=acquired, active=True)
+                )
+
+                with transaction.atomic():
+                    TrustSuccession.objects.create(
+                        predecessor=acquired,
+                        successor=obj,
+                        succession_date=succ_date,
+                        succession_type="acquisition",
+                        notes=notes,
+                    )
+                    update_trust_attributes(
+                        acquired, effective_date=succ_date, active=False
+                    )
+                    for org in children:
+                        reassign_organisation_trust(
+                            org, obj, effective_date=succ_date
+                        )
+                    if new_name:
+                        rename_trust(
+                            obj, new_name, effective_date=succ_date, notes=notes
+                        )
+
+                self.message_user(
+                    request,
+                    f"Acquired {acquired} into {obj} (effective {succ_date}). "
+                    f"Reassigned {len(children)} child organisation(s).",
+                    level="SUCCESS",
+                )
+                return redirect(
+                    f"admin:{opts.app_label}_{opts.model_name}_change", object_id
+                )
+        else:
+            form = TrustAcquisitionForm(acquirer=obj)
+
+        return render(
+            request,
+            "admin/hospitals/acquire_entity.html",
+            {"form": form, "object": obj, "opts": opts},
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_acquire_action"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+class PDUAcquisitionForm(forms.Form):
+    acquired = forms.ModelChoiceField(
+        queryset=PaediatricDiabetesUnit.objects.filter(active=True),
+        label="Acquired PDU",
+        help_text="The PDU being absorbed. It will be marked inactive.",
+    )
+    succession_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Effective date",
+        help_text="The date the acquisition takes effect.",
+    )
+    lead_organisation = forms.ModelChoiceField(
+        queryset=Organisation.objects.none(),
+        label="Lead organisation",
+        help_text=(
+            "The organisation that will be the lead/primary organisation for "
+            "this PDU after the acquisition. Exposed via the "
+            "/paediatric_diabetes_units/{pz_code}/parent/ endpoint as "
+            "primary_organisation. Must be one of the child organisations of "
+            "either PDU."
+        ),
+    )
+    name_source = forms.ChoiceField(
+        choices=PaediatricDiabetesUnit.NAME_SOURCE_CHOICES,
+        label="Name source",
+        help_text=(
+            "How this PDU's display name is derived after the acquisition. "
+            "Defaults to the acquirer's current name source. 'Lead "
+            "organisation' uses the lead organisation's name; 'Parent trust' "
+            "uses the lead organisation's parent trust name (for multi-site "
+            "PDUs that identify by trust); 'Parent local health board' uses "
+            "the LHB name (for Welsh PDUs)."
+        ),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Notes",
+    )
+
+    def __init__(self, *args, **kwargs):
+        self._acquirer = kwargs.pop("acquirer", None)
+        super().__init__(*args, **kwargs)
+        if self._acquirer is not None:
+            self.fields["acquired"].queryset = self.fields[
+                "acquired"
+            ].queryset.exclude(pk=self._acquirer.pk)
+            # Lead org candidates: children of the acquirer. The view
+            # re-validates against both PDUs' children on submit, since the
+            # acquired PDU isn't known at form-construction time.
+            child_ids = list(
+                Organisation.objects.filter(
+                    paediatric_diabetes_unit=self._acquirer, active=True
+                ).values_list("pk", flat=True)
+            )
+            self.fields["lead_organisation"].queryset = Organisation.objects.filter(
+                pk__in=child_ids
+            )
+            # Default name_source to the acquirer's current value.
+            self.fields["name_source"].initial = self._acquirer.name_source
+
+    def clean(self):
+        cleaned = super().clean()
+        acquired = cleaned.get("acquired")
+        if acquired is not None and self._acquirer is not None and acquired.pk == self._acquirer.pk:
+            raise forms.ValidationError("A PDU cannot acquire itself.")
+        return cleaned
+
+
+class PDUAcquisitionAdminMixin:
+    """Adds an "Acquire another PDU…" wizard to the PaediatricDiabetesUnit admin."""
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/acquire/",
+                self.admin_site.admin_view(self.acquire_view),
+                name=f"{self.model._meta.app_label}_{self.model._meta.model_name}_acquire",
+            ),
+        ]
+        return custom_urls + urls
+
+    def acquire_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+        from django.db import transaction
+        from .general_functions.membership import (
+            update_paediatric_diabetes_unit_attributes,
+        )
+
+        obj = get_object_or_404(self.model, pk=object_id)
+        opts = self.model._meta
+
+        if request.method == "POST":
+            form = PDUAcquisitionForm(request.POST, acquirer=obj)
+            if form.is_valid():
+                acquired = form.cleaned_data["acquired"]
+                succ_date = form.cleaned_data["succession_date"]
+                lead_org = form.cleaned_data["lead_organisation"]
+                name_source = form.cleaned_data["name_source"]
+                notes = form.cleaned_data.get("notes", "")
+
+                # Validate the lead org is a child of either the acquirer or
+                # the acquired PDU — the form's queryset only knew about the
+                # acquirer's children at construction time.
+                acquirer_children = set(
+                    Organisation.objects.filter(
+                        paediatric_diabetes_unit=obj, active=True
+                    ).values_list("pk", flat=True)
+                )
+                acquired_children = list(
+                    Organisation.objects.filter(
+                        paediatric_diabetes_unit=acquired, active=True
+                    )
+                )
+                valid_lead_pks = acquirer_children | {
+                    o.pk for o in acquired_children
+                }
+                if lead_org.pk not in valid_lead_pks:
+                    form.add_error(
+                        "lead_organisation",
+                        "The lead organisation must be a child of either the "
+                        "acquiring or the acquired PDU.",
+                    )
+                else:
+                    all_children = (
+                        list(Organisation.objects.filter(pk__in=acquirer_children))
+                        + acquired_children
+                    )
+
+                    with transaction.atomic():
+                        PaediatricDiabetesUnitSuccession.objects.create(
+                            predecessor=acquired,
+                            successor=obj,
+                            succession_date=succ_date,
+                            succession_type="acquisition",
+                            notes=notes,
+                        )
+                        update_paediatric_diabetes_unit_attributes(
+                            acquired, effective_date=succ_date, active=False
+                        )
+                        # If the name_source has changed, update the acquirer.
+                        if name_source != obj.name_source:
+                            update_paediatric_diabetes_unit_attributes(
+                                obj, effective_date=succ_date, name_source=name_source
+                            )
+                        for org in all_children:
+                            reassign_organisation_paediatric_diabetes_unit(
+                                org, obj, effective_date=succ_date
+                            )
+                        # Set the lead organisation FK on the acquirer.
+                        obj.lead_organisation = lead_org
+                        obj.save(update_fields=["lead_organisation"])
+
+                    self.message_user(
+                        request,
+                        f"Acquired {acquired} into {obj} (effective "
+                        f"{succ_date}). Reassigned {len(all_children)} child "
+                        f"organisation(s). Lead organisation set to "
+                        f"{lead_org}.",
+                        level="SUCCESS",
+                    )
+                    # Warn if the predecessor PZ code still has a hardcoded
+                    # case in the organisations or primary_organisation
+                    # properties.
+                    hardcoded = ["PZ003", "PZ216", "PZ125", "PZ080", "PZ141"]
+                    if acquired.pz_code in hardcoded:
+                        self.message_user(
+                            request,
+                            f"NOTE: {acquired.pz_code} still has a hardcoded "
+                            "case in PaediatricDiabetesUnit.organisations / "
+                            "primary_organisation. Remove it in a follow-up "
+                            "code change now that the temporal layer holds the "
+                            "membership history.",
+                            level="WARNING",
+                        )
+                    return redirect(
+                        f"admin:{opts.app_label}_{opts.model_name}_change",
+                        object_id,
+                    )
+        else:
+            form = PDUAcquisitionForm(acquirer=obj)
+
+        return render(
+            request,
+            "admin/hospitals/acquire_entity.html",
+            {"form": form, "object": obj, "opts": opts},
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_acquire_action"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+# ---------------------------------------------------------------------------
+# PDU merger wizard (forward full merger)
+# ---------------------------------------------------------------------------
+# A + B dissolve into a new C. In one transaction:
+#   1. Create C (PDU row + baseline PaediatricDiabetesUnitVersion with the
+#      network and lead_organisation snapshotted).
+#   2. Open a PaediatricDiabetesUnitNetworkMembership row for C → network.
+#   3. PaediatricDiabetesUnitSuccession(A → C, type=merger) and (B → C).
+#   4. Close A and B's current version rows at the succession date; open
+#      inactive ones. Flip A and B active=False.
+#   5. Reassign all children of A and B to C.
+#   6. Set C.lead_organisation to the chosen lead org.
+# PDUs are not tracked by the ODS, so PZ code, name, and network are all
+# manual entry.
+
+
+class PDUMergerForm(forms.Form):
+    new_pz_code = forms.CharField(
+        max_length=5,
+        label="New PZ code",
+        help_text="The PZ code of the new successor PDU.",
+    )
+    new_name = forms.CharField(
+        max_length=255,
+        required=False,
+        label="New unit name (optional)",
+        help_text=(
+            "A name for the new PDU if it is not simply the lead "
+            "organisation's name. Leave blank to derive the name from the "
+            "lead organisation at read time (the default behaviour of "
+            "PaediatricDiabetesUnit.name)."
+        ),
+    )
+    other_predecessor = forms.ModelChoiceField(
+        queryset=PaediatricDiabetesUnit.objects.filter(active=True),
+        label="Other predecessor PDU",
+        help_text=(
+            "The other PDU being merged into the new entity. (This PDU — "
+            "the one whose change page you are on — is the first predecessor.)"
+        ),
+    )
+    paediatric_diabetes_network = forms.ModelChoiceField(
+        queryset=PaediatricDiabetesNetwork.objects.all(),
+        label="Paediatric Diabetes Network for the new PDU",
+        help_text=(
+            "The network the new PDU will be affiliated with. A "
+            "PaediatricDiabetesUnitNetworkMembership row will be opened at "
+            "the succession date. If the two predecessors were in different "
+            "networks, pick the network the successor joins."
+        ),
+    )
+    lead_organisation = forms.ModelChoiceField(
+        queryset=Organisation.objects.none(),
+        label="Lead organisation",
+        help_text=(
+            "The organisation that will be the lead/primary organisation for "
+            "the new PDU. Exposed via the "
+            "/paediatric_diabetes_units/{pz_code}/parent/ endpoint as "
+            "primary_organisation. Must be one of the child organisations of "
+            "either predecessor."
+        ),
+    )
+    name_source = forms.ChoiceField(
+        choices=PaediatricDiabetesUnit.NAME_SOURCE_CHOICES,
+        initial=PaediatricDiabetesUnit.NAME_SOURCE_LEAD_ORGANISATION,
+        label="Name source",
+        help_text=(
+            "How the new PDU's display name is derived when unit_name is "
+            "not set. 'Lead organisation' (default) uses the lead "
+            "organisation's name; 'Parent trust' uses the lead organisation's "
+            "parent trust name (for multi-site PDUs that identify by trust); "
+            "'Parent local health board' uses the LHB name (for Welsh PDUs)."
+        ),
+    )
+    succession_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Effective date",
+        help_text="The date the merger takes effect.",
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Notes",
+    )
+
+    def __init__(self, *args, **kwargs):
+        self._this_pdu = kwargs.pop("this_pdu", None)
+        super().__init__(*args, **kwargs)
+        if self._this_pdu is not None:
+            self.fields["other_predecessor"].queryset = self.fields[
+                "other_predecessor"
+            ].queryset.exclude(pk=self._this_pdu.pk)
+            # Lead org candidates: children of this PDU. The view re-validates
+            # against both predecessors' children on submit.
+            child_ids = list(
+                Organisation.objects.filter(
+                    paediatric_diabetes_unit=self._this_pdu, active=True
+                ).values_list("pk", flat=True)
+            )
+            self.fields["lead_organisation"].queryset = Organisation.objects.filter(
+                pk__in=child_ids
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        code = cleaned.get("new_pz_code")
+        other = cleaned.get("other_predecessor")
+        if code and PaediatricDiabetesUnit.objects.filter(pz_code=code).exists():
+            raise forms.ValidationError(
+                f"PDU {code} already exists. Use the acquisition wizard if "
+                f"the successor already exists."
+            )
+        if other is not None and self._this_pdu is not None and other.pk == self._this_pdu.pk:
+            raise forms.ValidationError("A PDU cannot merge with itself.")
+        return cleaned
+
+
+class PDUMergerAdminMixin:
+    """Adds a "Merge into a new PDU…" wizard to the PaediatricDiabetesUnit admin."""
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/merge/",
+                self.admin_site.admin_view(self.merge_view),
+                name=f"{self.model._meta.app_label}_{self.model._meta.model_name}_merge",
+            ),
+        ]
+        return custom_urls + urls
+
+    def merge_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+        from django.db import transaction
+        from .general_functions.membership import (
+            update_paediatric_diabetes_unit_attributes,
+        )
+
+        obj = get_object_or_404(self.model, pk=object_id)
+        opts = self.model._meta
+
+        if request.method == "POST":
+            form = PDUMergerForm(request.POST, this_pdu=obj)
+            if form.is_valid():
+                new_code = form.cleaned_data["new_pz_code"]
+                new_name = form.cleaned_data.get("new_name") or None
+                other = form.cleaned_data["other_predecessor"]
+                network = form.cleaned_data["paediatric_diabetes_network"]
+                lead_org = form.cleaned_data["lead_organisation"]
+                name_source = form.cleaned_data["name_source"]
+                succ_date = form.cleaned_data["succession_date"]
+                notes = form.cleaned_data.get("notes", "")
+
+                # Validate the lead org is a child of either predecessor.
+                this_children = list(
+                    Organisation.objects.filter(
+                        paediatric_diabetes_unit=obj, active=True
+                    )
+                )
+                other_children = list(
+                    Organisation.objects.filter(
+                        paediatric_diabetes_unit=other, active=True
+                    )
+                )
+                valid_lead_pks = {o.pk for o in this_children} | {
+                    o.pk for o in other_children
+                }
+                if lead_org.pk not in valid_lead_pks:
+                    form.add_error(
+                        "lead_organisation",
+                        "The lead organisation must be a child of either "
+                        "predecessor PDU.",
+                    )
+                else:
+                    all_children = this_children + other_children
+
+                    with transaction.atomic():
+                        # 1. Create the successor PDU.
+                        successor = PaediatricDiabetesUnit.objects.create(
+                            pz_code=new_code,
+                            unit_name=new_name,
+                            active=True,
+                            paediatric_diabetes_network=network,
+                            name_source=name_source,
+                            lead_organisation=lead_org,
+                        )
+                        PaediatricDiabetesUnitVersion.objects.create(
+                            paediatric_diabetes_unit=successor,
+                            valid_from=succ_date,
+                            valid_to=None,
+                            unit_name=new_name,
+                            active=True,
+                            paediatric_diabetes_network_id=network,
+                            name_source=name_source,
+                            lead_organisation=lead_org,
+                        )
+                        # 2. Open the network membership row.
+                        reassign_paediatric_diabetes_unit_network(
+                            successor, network, effective_date=succ_date
+                        )
+                        # 3. Two succession rows.
+                        for pred in (obj, other):
+                            PaediatricDiabetesUnitSuccession.objects.create(
+                                predecessor=pred,
+                                successor=successor,
+                                succession_date=succ_date,
+                                succession_type="merger",
+                                notes=notes,
+                            )
+                        # 4. Close + deactivate both predecessors.
+                        for pred in (obj, other):
+                            update_paediatric_diabetes_unit_attributes(
+                                pred, effective_date=succ_date, active=False
+                            )
+                        # 5. Reassign all children to the successor.
+                        for org in all_children:
+                            reassign_organisation_paediatric_diabetes_unit(
+                                org, successor, effective_date=succ_date
+                            )
+                        # 6. lead_organisation FK was set at creation (step 1).
+
+                    self.message_user(
+                        request,
+                        f"Merged {obj} and {other} into {successor} "
+                        f"(effective {succ_date}). Reassigned "
+                        f"{len(all_children)} child organisation(s). Lead "
+                        f"organisation set to {lead_org}.",
+                        level="SUCCESS",
+                    )
+                    # Warn if either predecessor PZ code still has a
+                    # hardcoded case in the organisations or
+                    # primary_organisation properties.
+                    hardcoded = ["PZ003", "PZ216", "PZ125", "PZ080", "PZ141"]
+                    touched = [obj.pz_code, other.pz_code]
+                    flagged = [pz for pz in touched if pz in hardcoded]
+                    if flagged:
+                        self.message_user(
+                            request,
+                            f"NOTE: {', '.join(flagged)} still have a "
+                            "hardcoded case in "
+                            "PaediatricDiabetesUnit.organisations / "
+                            "primary_organisation. Remove it in a follow-up "
+                            "code change now that the temporal layer holds the "
+                            "membership history.",
+                            level="WARNING",
+                        )
+                    return redirect(
+                        f"admin:{opts.app_label}_{opts.model_name}_change",
+                        successor.pk,
+                    )
+        else:
+            form = PDUMergerForm(this_pdu=obj)
+
+        return render(
+            request,
+            "admin/hospitals/merge_pdu.html",
+            {"form": form, "object": obj, "opts": opts},
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["has_merge_action"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+
+# ---------------------------------------------------------------------------
 # Reassign trust admin action
 # ---------------------------------------------------------------------------
 
@@ -1270,6 +1870,8 @@ class PaediatricDiabetesUnitAdmin(
     AttributeEditAdminMixin,
     RenameAdminMixin,
     DeactivateAdminMixin,
+    PDUAcquisitionAdminMixin,
+    PDUMergerAdminMixin,
     admin.ModelAdmin,
 ):
     version_model = PaediatricDiabetesUnitVersion
@@ -1279,9 +1881,9 @@ class PaediatricDiabetesUnitAdmin(
     deactivate_helper = staticmethod(deactivate_paediatric_diabetes_unit)
     name_field = "unit_name"
 
-    list_display = ("pz_code", "paediatric_diabetes_network", "active", "updated_at")
-    search_fields = ("pz_code", "paediatric_diabetes_network__name")
-    list_filter = ("active",)
+    list_display = ("pz_code", "paediatric_diabetes_network", "lead_organisation", "name_source", "active", "updated_at")
+    search_fields = ("pz_code", "paediatric_diabetes_network__name", "lead_organisation__ods_code", "lead_organisation__name")
+    list_filter = ("active", "name_source")
     ordering = ("pz_code", "-active", "-updated_at")
     list_per_page = 20
     inlines = [
@@ -1292,7 +1894,7 @@ class PaediatricDiabetesUnitAdmin(
     ]
 
 
-class TrustAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillMergerAdminMixin, admin.ModelAdmin):
+class TrustAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin, RenameAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillMergerAdminMixin, TrustAcquisitionAdminMixin, admin.ModelAdmin):
     version_model = TrustVersion
     from .general_functions.membership import update_trust_attributes
     update_helper = staticmethod(update_trust_attributes)
@@ -1374,6 +1976,8 @@ class TrustSuccessionAdmin(admin.ModelAdmin):
     )
     date_hierarchy = "succession_date"
     ordering = ("-succession_date",)
+    change_list_template = "admin/hospitals/succession_changelist.html"
+    change_form_template = "admin/hospitals/succession_change_form.html"
 
 
 class OrganisationSuccessionAdmin(admin.ModelAdmin):
@@ -1387,6 +1991,8 @@ class OrganisationSuccessionAdmin(admin.ModelAdmin):
     )
     date_hierarchy = "succession_date"
     ordering = ("-succession_date",)
+    change_list_template = "admin/hospitals/succession_changelist.html"
+    change_form_template = "admin/hospitals/succession_change_form.html"
 
 
 class PaediatricDiabetesUnitSuccessionAdmin(admin.ModelAdmin):
@@ -1398,6 +2004,8 @@ class PaediatricDiabetesUnitSuccessionAdmin(admin.ModelAdmin):
     )
     date_hierarchy = "succession_date"
     ordering = ("-succession_date",)
+    change_list_template = "admin/hospitals/succession_changelist.html"
+    change_form_template = "admin/hospitals/succession_change_form.html"
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+
+{% block search %}
+{{ block.super }}
+<div class="signposting-banner" style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; padding: 1em; margin-bottom: 1em;">
+  <p style="margin: 0 0 0.5em 0;"><strong>This table is the audit trail of mergers, acquisitions, splits, renames, and closures.</strong></p>
+  <p style="margin: 0 0 0.5em 0;">For <em>forward</em> events (a merger or acquisition happening now or in the future), prefer the wizards on the entity's change page:</p>
+  <ul style="margin: 0; padding-left: 1.5em;">
+    <li><strong>Trusts:</strong> use <em>Acquire another…</em> on the Trust change page. (A full-merger wizard driven by ODS detection is planned.)</li>
+    <li><strong>PDUs:</strong> use <em>Acquire another…</em> or <em>Merge into a new…</em> on the Paediatric Diabetes Unit change page. PDUs are not tracked by the ODS, so these are manual-entry wizards.</li>
+  </ul>
+  <p style="margin: 0.5em 0 0 0;">Create rows here directly only for <strong>historical backfill</strong> (events before the temporal layer was installed — see the <em>Backfill merger…</em> wizard on the Trust change page) or for <strong>ambiguous cases the wizards cannot handle</strong> (e.g. a split where children move to different successors). ODS succession semantics are occasionally ambiguous and a human should confirm the predecessor → successor mapping.</p>
+</div>
+{% endblock %}
