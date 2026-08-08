@@ -918,12 +918,10 @@ class Command(BaseCommand):
         Returns the created ``IntegratedCareBoard`` instance, or ``None``
         if the ODS record could not be fetched or the operator declines.
         """
-        from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
-            get_organisation as _get_org,
-        )
-
+        # Use the module-level get_organisation (already imported and
+        # patched in tests) rather than re-importing it.
         try:
-            ord_record = _get_org(
+            ord_record = get_organisation(
                 f"https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/{ods_code}"
             )
         except Exception as e:
