@@ -354,6 +354,12 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN10",
     },
     {
+        "ods_code": "RXF3C",  # PAEDIATRICS PONTEFRACT
+        "npda_code": "PZ252",
+        "network_name": "Yorkshire & Humber",
+        "network_code": "PN10",
+    },
+    {
         "ods_code": "RNS01",
         "npda_code": "PZ004",
         "network_name": "East Midlands",
