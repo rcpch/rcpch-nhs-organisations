@@ -224,6 +224,61 @@ def test_list_countries_fields_query_ignores_unknown_fields(api_client, countrie
     assert set(response.data[0].keys()) == {"boundary_identifier", "name"}
 
 
+@pytest.mark.django_db
+def test_jersey_boundary_identifier_is_JEY(api_client):
+    """
+    Jersey is a Crown Dependency, not part of the UK, so its boundary
+    identifier is JEY (the GADM GID_0 value and ISO 3166-1 alpha-3 code) —
+    NOT an E-prefixed GSS code. E92000003 is the North East region of
+    England and was erroneously assigned to Jersey by migration 0010.
+    """
+    Country.objects.all().delete()
+    Country.objects.create(
+        boundary_identifier="JEY",
+        name="Jersey",
+        welsh_name="",
+        bng_e=394883,
+        bng_n=370883,
+        long=-2.07811,
+        lat=53.235,
+        globalid="jersey-globalid",
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (349900, 400100),
+                    (349900, 399900),
+                    (350100, 399900),
+                    (350100, 400100),
+                    (349900, 400100),
+                )
+            )
+        ),
+    )
+
+    # The detail endpoint must retrieve Jersey by JEY, not by E92000003.
+    url = reverse("country-detail", args=["JEY"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["boundary_identifier"] == "JEY"
+    assert response.data["name"] == "Jersey"
+
+    # The old, erroneous code must no longer resolve.
+    old_url = reverse("country-detail", args=["E92000003"])
+    old_response = api_client.get(old_url)
+    assert old_response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_jersey_constant_uses_JEY():
+    """Guard against the Jersey boundary identifier constant regressing
+    to the erroneous E92000003 value."""
+    from rcpch_nhs_organisations.hospitals.constants.country_codes import (
+        COUNTRY_CODES,
+    )
+
+    jersey = next(c for c in COUNTRY_CODES if c["country_ons_name"] == "Jersey")
+    assert jersey["country_ons_code"] == "JEY"
+
+
 @pytest.fixture
 def openuk_networks():
     OPENUKNetwork.objects.all().delete()  # Clear the table

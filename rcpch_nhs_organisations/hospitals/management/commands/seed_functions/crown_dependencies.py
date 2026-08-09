@@ -80,7 +80,7 @@ def seed_crown_dependencies():
     swipe = OPENUKNetwork.objects.get(boundary_identifier="SWIPE")
 
     create_crown_dependency_hospital(
-        country=Country.objects.get(boundary_identifier="E92000003"),
+        country=Country.objects.get(boundary_identifier="JEY"),
         organisation=JERSEY_ORGANISATION,
         trust=JERSEY_NHS_TRUST,
         openuk_network=swipe
