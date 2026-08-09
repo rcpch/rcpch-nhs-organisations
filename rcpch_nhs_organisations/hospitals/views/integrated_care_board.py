@@ -24,6 +24,7 @@ from ..serializers import (
 
 
 @extend_schema(
+    tags=["Integrated Care Boards"],
     parameters=[
         OpenApiParameter(
             name="boundary_identifier",

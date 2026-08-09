@@ -28,6 +28,7 @@ from ..serializers import (
 
 
 @extend_schema(
+    tags=["Organisations"],
     request=OrganisationSerializer,
     responses={
         200: OpenApiResponse(

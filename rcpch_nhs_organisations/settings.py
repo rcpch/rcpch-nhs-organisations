@@ -175,5 +175,24 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_FAVICON_HREF": STATIC_URL
     + "rcpch-logo.jpg",  # default is swagger favicon
+    # Group endpoints into ordered, capitalised sections in Swagger UI.
+    # The order of this list controls the display order in Swagger UI; each
+    # viewset sets its tag via @extend_schema(tags=[...]).
+    "TAGS": [
+        {"name": "Organisations", "description": "NHS hospital sites (Organisations)."},
+        {"name": "Trusts", "description": "NHS Trusts (England)."},
+        {"name": "Local Health Boards", "description": "Local Health Boards (Wales)."},
+        {"name": "Integrated Care Boards", "description": "Integrated Care Boards (England)."},
+        {"name": "NHS England Regions", "description": "NHS England regions above ICBs."},
+        {
+            "name": "Child Health Geographies",
+            "description": "Paediatric Diabetes Units and OPENUK (epilepsy) Networks.",
+        },
+        {
+            "name": "Boundaries",
+            "description": "Reference geographies: countries, London boroughs, local authority districts.",
+        },
+        {"name": "Other", "description": "Schema, Swagger UI, and other endpoints."},
+    ],
     # OTHER SETTINGS
 }

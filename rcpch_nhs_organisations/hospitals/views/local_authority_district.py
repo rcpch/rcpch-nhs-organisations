@@ -27,6 +27,7 @@ from ..serializers import (
 
 
 @extend_schema(
+    tags=["Boundaries"],
     request=LocalAuthorityDistrictSerializer,
     responses={
         200: OpenApiResponse(

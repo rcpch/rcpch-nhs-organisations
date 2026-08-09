@@ -21,6 +21,7 @@ from ..serializers import (
 )
 
 
+@extend_schema(tags=["Local Health Boards"])
 class LocalHealthBoardViewSet(viewsets.ReadOnlyModelViewSet):
     """
     This endpoint returns a list of Local Health Boards (Wales), or an individual LHB by ods_code.

@@ -10,12 +10,12 @@ from ..models import OPENUKNetwork
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            "/openUK_network/1/",
+            "/openuk_networks/E38000001/",
             value={
-                "name": "",
-                "boundary_identifier": "",
-                "country": "",
-                "publication_date": "",
+                "name": "North Thames Paediatric Epilepsy Network",
+                "boundary_identifier": "E38000001",
+                "country": "England",
+                "publication_date": "2023-04-01",
             },
             response_only=True,
         )

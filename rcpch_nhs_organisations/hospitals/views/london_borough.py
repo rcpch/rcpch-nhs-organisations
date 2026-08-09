@@ -29,6 +29,7 @@ from ..serializers import (
 
 
 @extend_schema(
+    tags=["Boundaries"],
     request=LondonBoroughSerializer,
     responses={
         200: OpenApiResponse(

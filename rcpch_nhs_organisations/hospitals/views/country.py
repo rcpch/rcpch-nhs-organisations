@@ -30,6 +30,7 @@ COUNTRY_FIELDS = [
 
 
 @extend_schema(
+    tags=["Boundaries"],
     request=CountrySerializer,
     parameters=[
         OpenApiParameter(

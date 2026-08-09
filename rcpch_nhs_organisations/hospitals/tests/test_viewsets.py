@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -13,6 +15,7 @@ def api_client():
 
 LocalAuthorityDistrict = apps.get_model("hospitals", "LocalAuthorityDistrict")
 Country = apps.get_model("hospitals", "Country")
+OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
 
 
 @pytest.fixture
@@ -219,3 +222,72 @@ def test_list_countries_fields_query_ignores_unknown_fields(api_client, countrie
 
     assert response.status_code == status.HTTP_200_OK
     assert set(response.data[0].keys()) == {"boundary_identifier", "name"}
+
+
+@pytest.fixture
+def openuk_networks():
+    OPENUKNetwork.objects.all().delete()  # Clear the table
+    net1 = OPENUKNetwork.objects.create(
+        name="North Thames Paediatric Epilepsy Network",
+        boundary_identifier="E38000001",
+        country="England",
+        publication_date=datetime.date(2023, 4, 1),
+    )
+    net2 = OPENUKNetwork.objects.create(
+        name="South Thames Paediatric Epilepsy Network",
+        boundary_identifier="E38000002",
+        country="England",
+        publication_date=datetime.date(2023, 4, 1),
+    )
+    return [net1, net2]
+
+
+@pytest.mark.django_db
+def test_list_openuk_networks(api_client, openuk_networks):
+    url = reverse("openuk_network-list")
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 2
+
+
+@pytest.mark.django_db
+def test_retrieve_openuk_network_by_boundary_identifier(api_client, openuk_networks):
+    # lookup_field is boundary_identifier, not the PK.
+    url = reverse("openuk_network-detail", args=["E38000001"])
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["boundary_identifier"] == "E38000001"
+    assert response.data["name"] == "North Thames Paediatric Epilepsy Network"
+
+
+@pytest.mark.django_db
+def test_retrieve_openuk_network_unknown_boundary_identifier_404(
+    api_client, openuk_networks
+):
+    url = reverse("openuk_network-detail", args=["E99999999"])
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_filter_openuk_networks_by_country(api_client, openuk_networks):
+    url = reverse("openuk_network-list")
+    response = api_client.get(url, {"country": "England"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 2
+
+
+@pytest.mark.django_db
+def test_filter_openuk_networks_by_boundary_identifier(
+    api_client, openuk_networks
+):
+    url = reverse("openuk_network-list")
+    response = api_client.get(url, {"boundary_identifier": "E38000002"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1
+    assert response.data[0]["boundary_identifier"] == "E38000002"

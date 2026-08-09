@@ -155,6 +155,7 @@ class OrganisationSnapshotView(APIView):
     """
 
     @extend_schema(
+        tags=["Organisations"],
         parameters=[
             OpenApiParameter(
                 name="date",
