@@ -27,6 +27,7 @@ from ..serializers import (
 
 
 @extend_schema(
+    tags=["Child Health Geographies"],
     request=PaediatricDiabetesUnitSerializer,
     responses={
         200: OpenApiResponse(
@@ -136,6 +137,7 @@ class PaediatricDiabetesUnitViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema(
+    tags=["Child Health Geographies"],
     request=PaediatricDiabetesUnitWithNestedOrganisationAndParentSerializer,
     responses={
         200: OpenApiResponse(

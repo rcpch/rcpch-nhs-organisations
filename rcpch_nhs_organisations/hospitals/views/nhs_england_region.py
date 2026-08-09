@@ -28,6 +28,7 @@ from ..serializers import (
 
 
 @extend_schema(
+    tags=["NHS England Regions"],
     request=NHSEnglandRegionSerializer,
     responses={
         200: OpenApiResponse(

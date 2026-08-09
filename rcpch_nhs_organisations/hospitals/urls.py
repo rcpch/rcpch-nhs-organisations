@@ -8,6 +8,7 @@ from .views import (
     LocalHealthBoardViewSet,
     LondonBoroughViewSet,
     NHSEnglandRegionViewSet,
+    OPENUKNetworkViewSet,
     OrganisationSnapshotView,
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
@@ -81,6 +82,12 @@ router.register(
     r"countries",
     viewset=CountryViewSet,
     basename="country",
+)
+# OPENUK Network endpoints
+router.register(
+    r"openuk_networks",
+    viewset=OPENUKNetworkViewSet,
+    basename="openuk_network",
 )
 
 # RCPCH networks

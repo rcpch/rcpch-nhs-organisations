@@ -27,6 +27,7 @@ from ..serializers import (
 )
 
 
+@extend_schema(tags=["Trusts"])
 class TrustViewSet(viewsets.ReadOnlyModelViewSet):
     """
     This endpoint returns a list of NHS Trusts from England, or an individual Trust by ODS code, with all child organisations nested.
