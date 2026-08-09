@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework import routers
 from .views import (
+    CountryViewSet,
     OrganisationViewSet,
     IntegratedCareBoardViewSet,
     LocalAuthorityDistrictViewSet,
@@ -74,6 +75,12 @@ router.register(
     r"nhs_england_regions",
     viewset=NHSEnglandRegionViewSet,
     basename="nhs_england_region",
+)
+# Country endpoints
+router.register(
+    r"countries",
+    viewset=CountryViewSet,
+    basename="country",
 )
 
 # RCPCH networks

@@ -25,6 +25,12 @@ from ..models import Country
     ]
 )
 class CountrySerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Supports a runtime `fields` kwarg to project a subset of columns, used by
+    the `?fields=` query parameter on the viewset so clients can drop the
+    (large) `geom` geometry column without a separate endpoint.
+    """
+
     class Meta:
         model = Country
         fields = [
@@ -38,6 +44,17 @@ class CountrySerializer(serializers.HyperlinkedModelSerializer):
             "globalid",
             "geom",
         ]
+
+    def __init__(self, *args, **kwargs):
+        # Pop and apply a dynamic field list before delegating to the parent.
+        # Used by the viewset's `?fields=` query parameter so clients can drop
+        # the (large) `geom` geometry column without a separate endpoint.
+        fields = kwargs.pop("fields", None)
+        super().__init__(*args, **kwargs)
+        if fields is not None:
+            existing = set(self.fields)
+            for field in existing - set(fields):
+                self.fields.pop(field)
 
 
 @extend_schema_serializer(
