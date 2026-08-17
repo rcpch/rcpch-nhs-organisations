@@ -147,7 +147,7 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
 
         if trust and organisation.country.boundary_identifier in [
             "E92000001",
-            "E92000003",
+            "JEY",
             "M83000003",
         ]:  # England / Jersey / Isle of Man
             return TrustSerializer(trust).data

@@ -35,7 +35,7 @@ def seed_organisations():
     Country = apps.get_model("hospitals", "Country")
     england = Country.objects.get(boundary_identifier="E92000001")
     wales = Country.objects.get(boundary_identifier="W92000004")
-    jersey = Country.objects.get(boundary_identifier="E92000003")
+    jersey = Country.objects.get(boundary_identifier="JEY")
     isle_of_man = Country.objects.get(boundary_identifier="M83000003")
 
     if Organisation.objects.all().count() >= 330:
