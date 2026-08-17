@@ -2114,9 +2114,9 @@ a state of the entity that was valid over a <code>[valid_from, valid_to)</code> 
 current state is the row with <code>valid_to IS NULL</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OrganisationVersion</span><span class="p">(</span><span class="n">TimeStampAbstractBaseClass</span><span class="p">):</span>
     <span class="n">organisation</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
-        <span class="s2">&quot;hospitals.Organisation&quot;</span><span class="p">,</span>
+        <span class="s2">"hospitals.Organisation"</span><span class="p">,</span>
         <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CASCADE</span><span class="p">,</span>
-        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;versions&quot;</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">"versions"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">valid_from</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">()</span>
     <span class="n">valid_to</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># null = current</span>
@@ -2138,12 +2138,12 @@ current state is the row with <code>valid_to IS NULL</code>.</p>
 
     <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
         <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;organisation&quot;</span><span class="p">,</span> <span class="s2">&quot;valid_from&quot;</span><span class="p">]),</span>
-            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;valid_to&quot;</span><span class="p">]),</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"organisation"</span><span class="p">,</span> <span class="s2">"valid_from"</span><span class="p">]),</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"valid_to"</span><span class="p">]),</span>
         <span class="p">]</span>
-        <span class="n">ordering</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;-valid_from&quot;</span><span class="p">,)</span>
-        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">&quot;Organisation version&quot;</span>
-        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">&quot;Organisation versions&quot;</span>
+        <span class="n">ordering</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"-valid_from"</span><span class="p">,)</span>
+        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">"Organisation version"</span>
+        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">"Organisation versions"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">is_current</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_to</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -2157,31 +2157,31 @@ network FK id (the network relationship itself is versioned separately — see L
 <p>One append-only table per foreign key that can be re-pointed. Each row records that
 entity A was a member of entity B over a <code>[valid_from, valid_to)</code> interval.</p>
 <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OrganisationTrustMembership</span><span class="p">(</span><span class="n">TimeStampAbstractBaseClass</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Tracks which Trust an Organisation belonged to over time.</span>
 <span class="sd">    Append-only. The current row is the one with valid_to IS NULL.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">organisation</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
-        <span class="s2">&quot;hospitals.Organisation&quot;</span><span class="p">,</span>
+        <span class="s2">"hospitals.Organisation"</span><span class="p">,</span>
         <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CASCADE</span><span class="p">,</span>
-        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;trust_memberships&quot;</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">"trust_memberships"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">trust</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
-        <span class="s2">&quot;hospitals.Trust&quot;</span><span class="p">,</span>
-        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>  <span class="c1"># don&#39;t let a trust vanish and lose history</span>
-        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;organisation_memberships&quot;</span><span class="p">,</span>
+        <span class="s2">"hospitals.Trust"</span><span class="p">,</span>
+        <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>  <span class="c1"># don't let a trust vanish and lose history</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">"organisation_memberships"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">valid_from</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">()</span>
     <span class="n">valid_to</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateField</span><span class="p">(</span><span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
         <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;organisation&quot;</span><span class="p">,</span> <span class="s2">&quot;valid_to&quot;</span><span class="p">]),</span>
-            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;trust&quot;</span><span class="p">,</span> <span class="s2">&quot;valid_from&quot;</span><span class="p">]),</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"organisation"</span><span class="p">,</span> <span class="s2">"valid_to"</span><span class="p">]),</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"trust"</span><span class="p">,</span> <span class="s2">"valid_from"</span><span class="p">]),</span>
         <span class="p">]</span>
-        <span class="n">ordering</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;-valid_from&quot;</span><span class="p">,)</span>
-        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">&quot;Organisation–Trust membership&quot;</span>
-        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">&quot;Organisation–Trust memberships&quot;</span>
+        <span class="n">ordering</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"-valid_from"</span><span class="p">,)</span>
+        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">"Organisation–Trust membership"</span>
+        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">"Organisation–Trust memberships"</span>
 </code></pre></div>
 <p>The full set of membership tables:</p>
 <table>
@@ -2266,14 +2266,14 @@ the business relationship between two trust rows (or two PDU rows) when a merger
 acquisition, rename, closure, or split occurs.</p>
 <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TrustSuccession</span><span class="p">(</span><span class="n">TimeStampAbstractBaseClass</span><span class="p">):</span>
     <span class="n">predecessor</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
-        <span class="s2">&quot;hospitals.Trust&quot;</span><span class="p">,</span>
+        <span class="s2">"hospitals.Trust"</span><span class="p">,</span>
         <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>
-        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;succession_predecessor_links&quot;</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">"succession_predecessor_links"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">successor</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
-        <span class="s2">&quot;hospitals.Trust&quot;</span><span class="p">,</span>
+        <span class="s2">"hospitals.Trust"</span><span class="p">,</span>
         <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>
-        <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;succession_successor_links&quot;</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s2">"succession_successor_links"</span><span class="p">,</span>
         <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2282,19 +2282,19 @@ acquisition, rename, closure, or split occurs.</p>
     <span class="n">succession_type</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span>
         <span class="n">max_length</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
         <span class="n">choices</span><span class="o">=</span><span class="p">[</span>
-            <span class="p">(</span><span class="s2">&quot;merger&quot;</span><span class="p">,</span> <span class="s2">&quot;Merger&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;acquisition&quot;</span><span class="p">,</span> <span class="s2">&quot;Acquisition&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;rename&quot;</span><span class="p">,</span> <span class="s2">&quot;Rename&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;closure&quot;</span><span class="p">,</span> <span class="s2">&quot;Closure&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;Split&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"merger"</span><span class="p">,</span> <span class="s2">"Merger"</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"acquisition"</span><span class="p">,</span> <span class="s2">"Acquisition"</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"rename"</span><span class="p">,</span> <span class="s2">"Rename"</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"closure"</span><span class="p">,</span> <span class="s2">"Closure"</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"split"</span><span class="p">,</span> <span class="s2">"Split"</span><span class="p">),</span>
         <span class="p">],</span>
     <span class="p">)</span>
     <span class="n">notes</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">TextField</span><span class="p">(</span><span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
-        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;succession_date&quot;</span><span class="p">])]</span>
-        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">&quot;Trust succession&quot;</span>
-        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">&quot;Trust successions&quot;</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"succession_date"</span><span class="p">])]</span>
+        <span class="n">verbose_name</span> <span class="o">=</span> <span class="s2">"Trust succession"</span>
+        <span class="n">verbose_name_plural</span> <span class="o">=</span> <span class="s2">"Trust successions"</span>
 </code></pre></div>
 <p>Equivalent <code>PaediatricDiabetesUnitSuccession</code> for PDU merges, and
 <code>OrganisationSuccession</code> for organisation-level code changes. These can be
@@ -2327,7 +2327,7 @@ renames rather than silently flipping <code>active=False</code> with no record o
         <span class="n">valid_from</span><span class="o">=</span><span class="n">effective_date</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">organisation</span><span class="o">.</span><span class="n">trust</span> <span class="o">=</span> <span class="n">new_trust</span>
-    <span class="n">organisation</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;trust&quot;</span><span class="p">])</span>
+    <span class="n">organisation</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"trust"</span><span class="p">])</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_organisation_attributes</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">effective_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">):</span>
     <span class="n">effective_date</span> <span class="o">=</span> <span class="n">effective_date</span> <span class="ow">or</span> <span class="n">timezone</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
@@ -2338,8 +2338,8 @@ renames rather than silently flipping <code>active=False</code> with no record o
     <span class="n">OrganisationVersion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
         <span class="n">organisation</span><span class="o">=</span><span class="n">organisation</span><span class="p">,</span>
         <span class="n">valid_from</span><span class="o">=</span><span class="n">effective_date</span><span class="p">,</span>
-        <span class="n">name</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">organisation</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
-        <span class="n">address1</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;address1&quot;</span><span class="p">,</span> <span class="n">organisation</span><span class="o">.</span><span class="n">address1</span><span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="n">organisation</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+        <span class="n">address1</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"address1"</span><span class="p">,</span> <span class="n">organisation</span><span class="o">.</span><span class="n">address1</span><span class="p">),</span>
         <span class="c1"># ... etc for every snapshot field</span>
     <span class="p">)</span>
     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -2358,7 +2358,7 @@ the denormalised attribute on the main table:</p>
     <span class="n">TrustVersion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
         <span class="n">trust</span><span class="o">=</span><span class="n">trust</span><span class="p">,</span>
         <span class="n">valid_from</span><span class="o">=</span><span class="n">effective_date</span><span class="p">,</span>
-        <span class="n">name</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">trust</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="n">trust</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
         <span class="c1"># ... etc for every snapshot field on TrustVersion</span>
     <span class="p">)</span>
     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -2398,16 +2398,16 @@ assembles the entity version plus every relationship:</p>
         <span class="n">valid_to__gt</span><span class="o">=</span><span class="n">on_date</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;ods_code&quot;</span><span class="p">:</span> <span class="n">organisation</span><span class="o">.</span><span class="n">ods_code</span><span class="p">,</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">version</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-        <span class="s2">&quot;address1&quot;</span><span class="p">:</span> <span class="n">version</span><span class="o">.</span><span class="n">address1</span><span class="p">,</span>
+        <span class="s2">"ods_code"</span><span class="p">:</span> <span class="n">organisation</span><span class="o">.</span><span class="n">ods_code</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">version</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"address1"</span><span class="p">:</span> <span class="n">version</span><span class="o">.</span><span class="n">address1</span><span class="p">,</span>
         <span class="c1"># ... etc</span>
-        <span class="s2">&quot;trust&quot;</span><span class="p">:</span> <span class="n">trust_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
-        <span class="s2">&quot;local_health_board&quot;</span><span class="p">:</span> <span class="n">local_health_board_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
-        <span class="s2">&quot;integrated_care_board&quot;</span><span class="p">:</span> <span class="n">icb_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
-        <span class="s2">&quot;nhs_england_region&quot;</span><span class="p">:</span> <span class="n">nhs_england_region_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
-        <span class="s2">&quot;openuk_network&quot;</span><span class="p">:</span> <span class="n">openuk_network_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
-        <span class="s2">&quot;paediatric_diabetes_unit&quot;</span><span class="p">:</span> <span class="n">pdu_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">"trust"</span><span class="p">:</span> <span class="n">trust_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">"local_health_board"</span><span class="p">:</span> <span class="n">local_health_board_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">"integrated_care_board"</span><span class="p">:</span> <span class="n">icb_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">"nhs_england_region"</span><span class="p">:</span> <span class="n">nhs_england_region_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">"openuk_network"</span><span class="p">:</span> <span class="n">openuk_network_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
+        <span class="s2">"paediatric_diabetes_unit"</span><span class="p">:</span> <span class="n">pdu_as_of</span><span class="p">(</span><span class="n">organisation</span><span class="p">,</span> <span class="n">on_date</span><span class="p">),</span>
     <span class="p">}</span>
 </code></pre></div>
 <p>This is the function audit reports call. It returns a dict (or a small dataclass /
@@ -2510,7 +2510,7 @@ for the actual workflow.</p>
 
 <span class="nt">on</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">schedule</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cron</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0</span><span class="nv"> </span><span class="s">7</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">1&quot;</span><span class="w">  </span><span class="c1"># 07:00 UTC every Monday</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cron</span><span class="p">:</span><span class="w"> </span><span class="s">"0</span><span class="nv"> </span><span class="s">7</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">1"</span><span class="w">  </span><span class="c1"># 07:00 UTC every Monday</span>
 <span class="w">  </span><span class="nt">workflow_dispatch</span><span class="p">:</span><span class="w">       </span><span class="c1"># allow manual runs</span>
 
 <span class="nt">jobs</span><span class="p">:</span>
@@ -2521,7 +2521,7 @@ for the actual workflow.</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set up Python</span>
 <span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/setup-python@v5</span>
 <span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;3.11&quot;</span>
+<span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="s">"3.11"</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install dependencies</span>
 <span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip install -r requirements.txt</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run ODS sync in dry-run mode</span>
@@ -2533,7 +2533,7 @@ for the actual workflow.</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Open issue if changes detected</span>
 <span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">peter-evans/create-issue-from-file@v5</span>
 <span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ODS</span><span class="nv"> </span><span class="s">changes</span><span class="nv"> </span><span class="s">detected</span><span class="nv"> </span><span class="s">(week</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">$(date</span><span class="nv"> </span><span class="s">+&#39;%Y-%m-%d&#39;))&quot;</span>
+<span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"ODS</span><span class="nv"> </span><span class="s">changes</span><span class="nv"> </span><span class="s">detected</span><span class="nv"> </span><span class="s">(week</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">$(date</span><span class="nv"> </span><span class="s">+'%Y-%m-%d'))"</span>
 <span class="w">          </span><span class="nt">content-filepath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ods_changes.md</span>
 <span class="w">          </span><span class="nt">labels</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ods-changes, needs-review</span>
 </code></pre></div>

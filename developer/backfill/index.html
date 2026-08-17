@@ -2301,13 +2301,13 @@ python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successi
 python<span class="w"> </span>manage.py<span class="w"> </span>backfill_successions<span class="w"> </span>--entity<span class="w"> </span>icb<span class="w"> </span>--yes
 
 <span class="c1"># 5. Backfill trust -&gt; trust membership history (org -&gt; trust)</span>
-<span class="c1">#    Reads RE6 rels from each organisation&#39;s ODS record.</span>
+<span class="c1">#    Reads RE6 rels from each organisation's ODS record.</span>
 <span class="c1">#    Recovers which trust each hospital site was under, and when.</span>
 <span class="c1">#    Depends on step 2 (predecessor trust rows must exist).</span>
 python<span class="w"> </span>manage.py<span class="w"> </span>backfill_trust_memberships<span class="w"> </span>--yes
 
 <span class="c1"># 6. Backfill trust -&gt; ICB membership history</span>
-<span class="c1">#    Reads RE5/RE8 rels pointing at RO261 (ICBs) from each trust&#39;s ODS</span>
+<span class="c1">#    Reads RE5/RE8 rels pointing at RO261 (ICBs) from each trust's ODS</span>
 <span class="c1">#    record. Ignores CCGs (RO210) and STPs (RO132).</span>
 <span class="c1">#    Depends on step 4 (successor ICBs must exist).</span>
 python<span class="w"> </span>manage.py<span class="w"> </span>backfill_icb_memberships<span class="w"> </span>--yes
@@ -2455,7 +2455,7 @@ Succession events recorded in ODS:
   - Predecessor → RMK (legal date: 2002-04-01)
 
 Proposed changes:
-  name: &#39;Pennine Acute Hospitals NHS Trust&#39; → &#39;New Name&#39;
+  name: 'Pennine Acute Hospitals NHS Trust' → 'New Name'
 
 If this change is the consequence of the merger above, refuse and handle
 it via the admin or the backfill_* helpers.
@@ -2537,18 +2537,18 @@ record of the "Salford Royal" name. To backfill it:</p>
     <span class="n">backfill_organisation_trust_membership</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">nca</span> <span class="o">=</span> <span class="n">Trust</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ods_code</span><span class="o">=</span><span class="s2">&quot;RM3&quot;</span><span class="p">)</span>      <span class="c1"># Northern Care Alliance (current)</span>
-<span class="n">pennine</span> <span class="o">=</span> <span class="n">Trust</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ods_code</span><span class="o">=</span><span class="s2">&quot;RW6&quot;</span><span class="p">)</span>  <span class="c1"># Pennine Acute (predecessor)</span>
+<span class="n">nca</span> <span class="o">=</span> <span class="n">Trust</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ods_code</span><span class="o">=</span><span class="s2">"RM3"</span><span class="p">)</span>      <span class="c1"># Northern Care Alliance (current)</span>
+<span class="n">pennine</span> <span class="o">=</span> <span class="n">Trust</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ods_code</span><span class="o">=</span><span class="s2">"RW6"</span><span class="p">)</span>  <span class="c1"># Pennine Acute (predecessor)</span>
 
 <span class="c1"># 1. Backfill the pre-merger name on RM3. Before 2021-10-01, RM3 was called</span>
-<span class="c1">#    &quot;Salford Royal NHS Foundation Trust&quot;. The current version row (which</span>
-<span class="c1">#    records &quot;Northern Care Alliance&quot; from installation day forward) is</span>
+<span class="c1">#    "Salford Royal NHS Foundation Trust". The current version row (which</span>
+<span class="c1">#    records "Northern Care Alliance" from installation day forward) is</span>
 <span class="c1">#    untouched.</span>
 <span class="n">backfill_trust_attributes</span><span class="p">(</span>
     <span class="n">nca</span><span class="p">,</span>
-    <span class="n">valid_from</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2001</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>   <span class="c1"># Salford Royal&#39;s establishment</span>
+    <span class="n">valid_from</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2001</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>   <span class="c1"># Salford Royal's establishment</span>
     <span class="n">valid_to</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2021</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>    <span class="c1"># the rename date</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Salford Royal NHS Foundation Trust&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Salford Royal NHS Foundation Trust"</span><span class="p">,</span>
     <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -2558,15 +2558,15 @@ record of the "Salford Royal" name. To backfill it:</p>
     <span class="n">predecessor</span><span class="o">=</span><span class="n">pennine</span><span class="p">,</span>
     <span class="n">successor</span><span class="o">=</span><span class="n">nca</span><span class="p">,</span>
     <span class="n">succession_date</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2021</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-    <span class="n">succession_type</span><span class="o">=</span><span class="s2">&quot;acquisition&quot;</span><span class="p">,</span>
+    <span class="n">succession_type</span><span class="o">=</span><span class="s2">"acquisition"</span><span class="p">,</span>
     <span class="n">notes</span><span class="o">=</span><span class="p">(</span>
-        <span class="s2">&quot;Salford Royal NHS Foundation Trust acquired The Pennine Acute &quot;</span>
-        <span class="s2">&quot;Hospitals NHS Trust and changed its corporate name to the Northern &quot;</span>
-        <span class="s2">&quot;Care Alliance NHS Foundation Trust.&quot;</span>
+        <span class="s2">"Salford Royal NHS Foundation Trust acquired The Pennine Acute "</span>
+        <span class="s2">"Hospitals NHS Trust and changed its corporate name to the Northern "</span>
+        <span class="s2">"Care Alliance NHS Foundation Trust."</span>
     <span class="p">),</span>
 <span class="p">)</span>
 
-<span class="c1"># 3. Backfill the child organisations&#39; trust memberships. The organisations</span>
+<span class="c1"># 3. Backfill the child organisations' trust memberships. The organisations</span>
 <span class="c1">#    that were in Pennine Acute (RW6) before the merger moved to Northern</span>
 <span class="c1">#    Care Alliance (RM3) on 2021-10-01. Their current membership row points</span>
 <span class="c1">#    to RM3 (correct for today); this backfills the historical RW6 row.</span>
@@ -2574,7 +2574,7 @@ record of the "Salford Royal" name. To backfill it:</p>
     <span class="n">backfill_organisation_trust_membership</span><span class="p">(</span>
         <span class="n">org</span><span class="p">,</span>
         <span class="n">trust</span><span class="o">=</span><span class="n">pennine</span><span class="p">,</span>
-        <span class="n">valid_from</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2001</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>   <span class="c1"># or the org&#39;s original join date</span>
+        <span class="n">valid_from</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2001</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>   <span class="c1"># or the org's original join date</span>
         <span class="n">valid_to</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2021</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>    <span class="c1"># the merger date</span>
     <span class="p">)</span>
 
@@ -2587,11 +2587,11 @@ record of the "Salford Royal" name. To backfill it:</p>
     <span class="n">pennine</span><span class="p">,</span>
     <span class="n">valid_from</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2021</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
     <span class="n">valid_to</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                            <span class="c1"># current state: inactive</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Pennine Acute Hospitals NHS Trust&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Pennine Acute Hospitals NHS Trust"</span><span class="p">,</span>
     <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">pennine</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="n">pennine</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;active&quot;</span><span class="p">])</span>
+<span class="n">pennine</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">update_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"active"</span><span class="p">])</span>
 </code></pre></div>
 <p>After this, an as-of query for <code>RM3</code> on, say, 2015-01-01 returns
 "Salford Royal NHS Foundation Trust", and the succession table records the
@@ -3130,7 +3130,7 @@ running on RM3 (which absorbed RW6 and renamed to Northern Care Alliance):</p>
   NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST may have had a different name before 2021-10-01. Pass 2 will prompt for the pre-merger name (pre-populated from the version table if known); leave blank to skip.
   [dry-run] would create succession row
   [dry-run] would close PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
-  [dry-run] Pass 2 would backfill NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST&#39;s establishment/name row.
+  [dry-run] Pass 2 would backfill NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST's establishment/name row.
 </code></pre></div>
 <p>For a true merger (new entity, <code>Legal.Start == event date</code>), the command
 reports that no name prompt will be issued and an establishment row will be
@@ -3144,7 +3144,7 @@ backfilled. For example, running on R1L (Essex Partnership, created from RRD
   ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST is a new entity created by this merger (Legal.Start == 2017-04-01). No name prompt; an establishment row will be backfilled.
   [dry-run] would create succession row
   [dry-run] would close NORTH ESSEX PARTNERSHIP UNIVERSITY NHS FT (active=False from 2017-04-01).
-  [dry-run] Pass 2 would backfill ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST&#39;s establishment/name row.
+  [dry-run] Pass 2 would backfill ESSEX PARTNERSHIP UNIVERSITY NHS FOUNDATION TRUST's establishment/name row.
 </code></pre></div>
 <p>In non-dry-run mode, after answering <code>y</code> to the main prompt, Pass 2 runs.
 For an acquisition in <code>KNOWN_ACQUISITIONS</code> (name changed), the name-change
@@ -3159,7 +3159,7 @@ is in <code>KNOWN_ACQUISITIONS</code>, so Pass 2 auto-backfills the pre-merger n
   Closed PENNINE ACUTE HOSPITALS NHS TRUST (active=False from 2021-10-01).
 
 Pass 2: backfilling successor name/establishment for 1 event(s)...
-  Auto-backfilled NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST name &#39;Salford Royal NHS Foundation Trust&#39; (2001-04-01 → 2021-10-01) from KNOWN_ACQUISITIONS.
+  Auto-backfilled NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST name 'Salford Royal NHS Foundation Trust' (2001-04-01 → 2021-10-01) from KNOWN_ACQUISITIONS.
 </code></pre></div>
 <p>For an acquisition not in either constants list, Pass 2 falls back to the
 <code>y/n/skip</code> + date prompt. The prompt is pre-populated from the version table

@@ -1624,15 +1624,15 @@ The boundary is generalised to 500 metres and clipped to the coastline.</p>
 
 <span class="c1"># Auto-generated `LayerMapping` dictionary for LocalAuthorityDistrict model</span>
 <span class="n">localauthoritydistrict_mapping</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;lad24cd&#39;</span><span class="p">:</span> <span class="s1">&#39;LAD24CD&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;lad24nm&#39;</span><span class="p">:</span> <span class="s1">&#39;LAD24NM&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;lad24nmw&#39;</span><span class="p">:</span> <span class="s1">&#39;LAD24NMW&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;bng_e&#39;</span><span class="p">:</span> <span class="s1">&#39;BNG_E&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;bng_n&#39;</span><span class="p">:</span> <span class="s1">&#39;BNG_N&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;long&#39;</span><span class="p">:</span> <span class="s1">&#39;LONG&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;lat&#39;</span><span class="p">:</span> <span class="s1">&#39;LAT&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;globalid&#39;</span><span class="p">:</span> <span class="s1">&#39;GlobalID&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;geom&#39;</span><span class="p">:</span> <span class="s1">&#39;MULTIPOLYGON&#39;</span><span class="p">,</span>
+    <span class="s1">'lad24cd'</span><span class="p">:</span> <span class="s1">'LAD24CD'</span><span class="p">,</span>
+    <span class="s1">'lad24nm'</span><span class="p">:</span> <span class="s1">'LAD24NM'</span><span class="p">,</span>
+    <span class="s1">'lad24nmw'</span><span class="p">:</span> <span class="s1">'LAD24NMW'</span><span class="p">,</span>
+    <span class="s1">'bng_e'</span><span class="p">:</span> <span class="s1">'BNG_E'</span><span class="p">,</span>
+    <span class="s1">'bng_n'</span><span class="p">:</span> <span class="s1">'BNG_N'</span><span class="p">,</span>
+    <span class="s1">'long'</span><span class="p">:</span> <span class="s1">'LONG'</span><span class="p">,</span>
+    <span class="s1">'lat'</span><span class="p">:</span> <span class="s1">'LAT'</span><span class="p">,</span>
+    <span class="s1">'globalid'</span><span class="p">:</span> <span class="s1">'GlobalID'</span><span class="p">,</span>
+    <span class="s1">'geom'</span><span class="p">:</span> <span class="s1">'MULTIPOLYGON'</span><span class="p">,</span>
 <span class="p">}</span>
 </code></pre></div>
 </li>
@@ -1652,53 +1652,53 @@ The boundary is generalised to 500 metres and clipped to the coastline.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">django.contrib.gis.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">LayerMapping</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 <span class="sd">Local Authority Districts May 2024 Boundaries UK BUC</span>
 <span class="sd">https://geoportal.statistics.gov.uk/search?q=BDY_LAD%202024&amp;sort=Title%7Ctitle%7Casc</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="c1"># Auto-generated `LayerMapping` dictionary for LocalAuthorityDistrict model</span>
 <span class="n">localauthoritydistrict_mapping</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;lad24cd&quot;</span><span class="p">:</span> <span class="s2">&quot;LAD24CD&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lad24nm&quot;</span><span class="p">:</span> <span class="s2">&quot;LAD24NM&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lad24nmw&quot;</span><span class="p">:</span> <span class="s2">&quot;LAD24NMW&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;bng_e&quot;</span><span class="p">:</span> <span class="s2">&quot;BNG_E&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;bng_n&quot;</span><span class="p">:</span> <span class="s2">&quot;BNG_N&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;long&quot;</span><span class="p">:</span> <span class="s2">&quot;LONG&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="s2">&quot;LAT&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;globalid&quot;</span><span class="p">:</span> <span class="s2">&quot;GlobalID&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;geom&quot;</span><span class="p">:</span> <span class="s2">&quot;MULTIPOLYGON&quot;</span><span class="p">,</span>
+    <span class="s2">"lad24cd"</span><span class="p">:</span> <span class="s2">"LAD24CD"</span><span class="p">,</span>
+    <span class="s2">"lad24nm"</span><span class="p">:</span> <span class="s2">"LAD24NM"</span><span class="p">,</span>
+    <span class="s2">"lad24nmw"</span><span class="p">:</span> <span class="s2">"LAD24NMW"</span><span class="p">,</span>
+    <span class="s2">"bng_e"</span><span class="p">:</span> <span class="s2">"BNG_E"</span><span class="p">,</span>
+    <span class="s2">"bng_n"</span><span class="p">:</span> <span class="s2">"BNG_N"</span><span class="p">,</span>
+    <span class="s2">"long"</span><span class="p">:</span> <span class="s2">"LONG"</span><span class="p">,</span>
+    <span class="s2">"lat"</span><span class="p">:</span> <span class="s2">"LAT"</span><span class="p">,</span>
+    <span class="s2">"globalid"</span><span class="p">:</span> <span class="s2">"GlobalID"</span><span class="p">,</span>
+    <span class="s2">"geom"</span><span class="p">:</span> <span class="s2">"MULTIPOLYGON"</span><span class="p">,</span>
 <span class="p">}</span>
 
 
 <span class="c1"># Boundary files</span>
 
-<span class="n">app_config</span> <span class="o">=</span> <span class="n">django_apps</span><span class="o">.</span><span class="n">get_app_config</span><span class="p">(</span><span class="s2">&quot;hospitals&quot;</span><span class="p">)</span>
+<span class="n">app_config</span> <span class="o">=</span> <span class="n">django_apps</span><span class="o">.</span><span class="n">get_app_config</span><span class="p">(</span><span class="s2">"hospitals"</span><span class="p">)</span>
 <span class="n">app_path</span> <span class="o">=</span> <span class="n">app_config</span><span class="o">.</span><span class="n">path</span>
 
 <span class="n">Local_Authority_Districts_May_2024_Boundaries_UK_BUC</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
     <span class="n">app_path</span><span class="p">,</span>
-    <span class="s2">&quot;shape_files&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Local_Authority_Districts_May_2024_Boundaries_UK_BUC&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;LAD_MAY_2024_UK_BUC.shp&quot;</span><span class="p">,</span>
+    <span class="s2">"shape_files"</span><span class="p">,</span>
+    <span class="s2">"Local_Authority_Districts_May_2024_Boundaries_UK_BUC"</span><span class="p">,</span>
+    <span class="s2">"LAD_MAY_2024_UK_BUC.shp"</span><span class="p">,</span>
 <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">apps</span><span class="p">,</span> <span class="n">schema_editor</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="n">LocalAuthorityDistrict</span> <span class="o">=</span> <span class="n">apps</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">&quot;hospitals&quot;</span><span class="p">,</span> <span class="s2">&quot;LocalAuthorityDistrict&quot;</span><span class="p">)</span>
+    <span class="n">LocalAuthorityDistrict</span> <span class="o">=</span> <span class="n">apps</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">"hospitals"</span><span class="p">,</span> <span class="s2">"LocalAuthorityDistrict"</span><span class="p">)</span>
     <span class="n">lm</span> <span class="o">=</span> <span class="n">LayerMapping</span><span class="p">(</span>
         <span class="n">LocalAuthorityDistrict</span><span class="p">,</span>
         <span class="n">Local_Authority_Districts_May_2024_Boundaries_UK_BUC</span><span class="p">,</span>
         <span class="n">localauthoritydistrict_mapping</span><span class="p">,</span>
         <span class="n">transform</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span>
+        <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">lm</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Migration</span><span class="p">(</span><span class="n">migrations</span><span class="o">.</span><span class="n">Migration</span><span class="p">):</span>
     <span class="n">dependencies</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span><span class="s2">&quot;hospitals&quot;</span><span class="p">,</span> <span class="s2">&quot;0012_localauthoritydistrict&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">"hospitals"</span><span class="p">,</span> <span class="s2">"0012_localauthoritydistrict"</span><span class="p">),</span>
     <span class="p">]</span>
 
     <span class="n">operations</span> <span class="o">=</span> <span class="p">[</span><span class="n">migrations</span><span class="o">.</span><span class="n">RunPython</span><span class="p">(</span><span class="n">load</span><span class="p">)]</span>

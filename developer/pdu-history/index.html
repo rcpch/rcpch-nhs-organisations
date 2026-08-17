@@ -2187,7 +2187,7 @@ spreadsheet is turned into temporal rows.</p>
 <p>The spreadsheet records time in NPDA audit years (<code>YYYY-YY</code>), not calendar
 dates. The NPDA audit year runs <strong>1 April → 31 March</strong>, so <code>2024-25</code> starts
 on <strong>1 April 2024</strong>. The conversion rule used throughout the backfill is:</p>
-<div class="highlight"><pre><span></span><code>audit_year_to_date(&quot;2024-25&quot;) → date(2024, 4, 1)
+<div class="highlight"><pre><span></span><code>audit_year_to_date("2024-25") → date(2024, 4, 1)
 </code></pre></div>
 <p>This is the <code>valid_from</code> for the state described by that row. The
 <code>valid_to</code> is the <code>valid_from</code> of the next row for the same PZ code (i.e.
@@ -2639,47 +2639,47 @@ confirmed by inspecting the database.</p>
 <p>Two top-level structures:</p>
 <div class="highlight"><pre><span></span><code><span class="n">PDU_HISTORY</span> <span class="o">=</span> <span class="p">[</span>
     <span class="p">{</span>
-        <span class="s2">&quot;pz_code&quot;</span><span class="p">:</span> <span class="s2">&quot;PZ002&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;unit_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Norfolk and Norwich University Hospital&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;states&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">"pz_code"</span><span class="p">:</span> <span class="s2">"PZ002"</span><span class="p">,</span>
+        <span class="s2">"unit_name"</span><span class="p">:</span> <span class="s2">"Norfolk and Norwich University Hospital"</span><span class="p">,</span>
+        <span class="s2">"states"</span><span class="p">:</span> <span class="p">[</span>
             <span class="p">{</span>
-                <span class="s2">&quot;first_audit_year&quot;</span><span class="p">:</span> <span class="s2">&quot;2004-05&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;last_audit_year&quot;</span><span class="p">:</span> <span class="s2">&quot;2025-26&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;active&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                <span class="s2">&quot;ods_site&quot;</span><span class="p">:</span> <span class="s2">&quot;RM102&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;ods_trust&quot;</span><span class="p">:</span> <span class="s2">&quot;RM1&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;icb_lhb&quot;</span><span class="p">:</span> <span class="s2">&quot;England - NHS Norfolk and Waveney Integrated Care Board&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;regional_network&quot;</span><span class="p">:</span> <span class="s2">&quot;East of England&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;nhs_england_region&quot;</span><span class="p">:</span> <span class="s2">&quot;East of England&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;country&quot;</span><span class="p">:</span> <span class="s2">&quot;England&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;reason_for_change&quot;</span><span class="p">:</span> <span class="s2">&quot;Old ICB&quot;</span><span class="p">,</span>
+                <span class="s2">"first_audit_year"</span><span class="p">:</span> <span class="s2">"2004-05"</span><span class="p">,</span>
+                <span class="s2">"last_audit_year"</span><span class="p">:</span> <span class="s2">"2025-26"</span><span class="p">,</span>
+                <span class="s2">"active"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">"ods_site"</span><span class="p">:</span> <span class="s2">"RM102"</span><span class="p">,</span>
+                <span class="s2">"ods_trust"</span><span class="p">:</span> <span class="s2">"RM1"</span><span class="p">,</span>
+                <span class="s2">"icb_lhb"</span><span class="p">:</span> <span class="s2">"England - NHS Norfolk and Waveney Integrated Care Board"</span><span class="p">,</span>
+                <span class="s2">"regional_network"</span><span class="p">:</span> <span class="s2">"East of England"</span><span class="p">,</span>
+                <span class="s2">"nhs_england_region"</span><span class="p">:</span> <span class="s2">"East of England"</span><span class="p">,</span>
+                <span class="s2">"country"</span><span class="p">:</span> <span class="s2">"England"</span><span class="p">,</span>
+                <span class="s2">"reason_for_change"</span><span class="p">:</span> <span class="s2">"Old ICB"</span><span class="p">,</span>
             <span class="p">},</span>
             <span class="p">{</span>
-                <span class="s2">&quot;first_audit_year&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-27&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;last_audit_year&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-                <span class="s2">&quot;active&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;ods_site&quot;</span><span class="p">:</span> <span class="s2">&quot;RM102&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;ods_trust&quot;</span><span class="p">:</span> <span class="s2">&quot;RM1&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;icb_lhb&quot;</span><span class="p">:</span> <span class="s2">&quot;England - NHS Norfolk and Suffolk Integrated Care Board&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;regional_network&quot;</span><span class="p">:</span> <span class="s2">&quot;East of England&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;nhs_england_region&quot;</span><span class="p">:</span> <span class="s2">&quot;East of England&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;country&quot;</span><span class="p">:</span> <span class="s2">&quot;England&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;reason_for_change&quot;</span><span class="p">:</span> <span class="s2">&quot;New ICB&quot;</span><span class="p">,</span>
+                <span class="s2">"first_audit_year"</span><span class="p">:</span> <span class="s2">"2026-27"</span><span class="p">,</span>
+                <span class="s2">"last_audit_year"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">"active"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">"ods_site"</span><span class="p">:</span> <span class="s2">"RM102"</span><span class="p">,</span>
+                <span class="s2">"ods_trust"</span><span class="p">:</span> <span class="s2">"RM1"</span><span class="p">,</span>
+                <span class="s2">"icb_lhb"</span><span class="p">:</span> <span class="s2">"England - NHS Norfolk and Suffolk Integrated Care Board"</span><span class="p">,</span>
+                <span class="s2">"regional_network"</span><span class="p">:</span> <span class="s2">"East of England"</span><span class="p">,</span>
+                <span class="s2">"nhs_england_region"</span><span class="p">:</span> <span class="s2">"East of England"</span><span class="p">,</span>
+                <span class="s2">"country"</span><span class="p">:</span> <span class="s2">"England"</span><span class="p">,</span>
+                <span class="s2">"reason_for_change"</span><span class="p">:</span> <span class="s2">"New ICB"</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">],</span>
-        <span class="s2">&quot;replaced_by&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;notes&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"replaced_by"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"notes"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">},</span>
     <span class="c1"># ...</span>
 <span class="p">]</span>
 
 <span class="n">PDU_SUCCESSIONS</span> <span class="o">=</span> <span class="p">[</span>
     <span class="p">{</span>
-        <span class="s2">&quot;predecessor&quot;</span><span class="p">:</span> <span class="s2">&quot;PZ216&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;successor&quot;</span><span class="p">:</span> <span class="s2">&quot;PZ253&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;succession_date&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-        <span class="s2">&quot;succession_type&quot;</span><span class="p">:</span> <span class="s2">&quot;merger&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;notes&quot;</span><span class="p">:</span> <span class="s2">&quot;Tunbridge Wells Hospital (PZ216) -&gt; PZ253.&quot;</span><span class="p">,</span>
+        <span class="s2">"predecessor"</span><span class="p">:</span> <span class="s2">"PZ216"</span><span class="p">,</span>
+        <span class="s2">"successor"</span><span class="p">:</span> <span class="s2">"PZ253"</span><span class="p">,</span>
+        <span class="s2">"succession_date"</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="s2">"succession_type"</span><span class="p">:</span> <span class="s2">"merger"</span><span class="p">,</span>
+        <span class="s2">"notes"</span><span class="p">:</span> <span class="s2">"Tunbridge Wells Hospital (PZ216) -&gt; PZ253."</span><span class="p">,</span>
     <span class="p">},</span>
     <span class="c1"># ... one entry per predecessor → successor pair (splits produce two entries)</span>
 <span class="p">]</span>
@@ -2911,8 +2911,8 @@ RWFTW should return PZ216 before that date and PZ253 after:</p>
     <span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">m</span><span class="o">.</span><span class="n">paediatric_diabetes_unit</span><span class="o">.</span><span class="n">pz_code</span> <span class="k">if</span> <span class="n">m</span> <span class="k">else</span> <span class="kc">None</span>
 
-<span class="n">pdu_as_of</span><span class="p">(</span><span class="s2">&quot;RWFTW&quot;</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c1"># → PZ216</span>
-<span class="n">pdu_as_of</span><span class="p">(</span><span class="s2">&quot;RWFTW&quot;</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c1"># → PZ253</span>
+<span class="n">pdu_as_of</span><span class="p">(</span><span class="s2">"RWFTW"</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c1"># → PZ216</span>
+<span class="n">pdu_as_of</span><span class="p">(</span><span class="s2">"RWFTW"</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c1"># → PZ253</span>
 </code></pre></div>
 <p>To walk from the PDU to its parent trust/LHB, query the lead
 organisation's trust as of the same date:</p>
