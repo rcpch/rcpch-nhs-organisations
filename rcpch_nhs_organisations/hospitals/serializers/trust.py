@@ -111,9 +111,18 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
         except PaediatricDiabetesUnit.DoesNotExist:
             return None
 
-        # There are inactive PDUs where their organisation is now linked to a new PDU.
-        # Look up the trust which they were linked to before becoming inactive just in case the organisation is
-        # now part of a different trust and has not changed ODS code.
+        # Inactive predecessor PDUs whose child organisations have been
+        # reassigned to a successor trust. The historical parent is looked up
+        # directly by ODS code because the organisations may now be linked to a
+        # different trust and have not changed ODS code.
+        #
+        # NOTE: this is a stop-gap pending the temporal history layer. Once
+        # the predecessor PDUs and their OrganisationPaediatricDiabetesUnit-
+        # Membership rows exist in the history layer, the parent for an
+        # inactive PDU can be resolved as-of its last active date via the
+        # membership tables, and this hardcoded map can be removed. Until
+        # then, leave it in place — removing it would return the wrong parent
+        # (or null) for these inactive PDUs.
         inactive_pdu_to_trust_mapping = {
             # PZ003 was split into PZ251 (Pinderfields General Hospital) and PZ252 (Pontefract General Infirmary) on 05/04/2025
             "PZ003": "RXF",
@@ -130,22 +139,24 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
         if obj.pz_code in inactive_pdu_to_trust_mapping:
             trust_ods_code = inactive_pdu_to_trust_mapping[obj.pz_code]
             trust = Trust.objects.get(ods_code=trust_ods_code)
-
             return TrustSerializer(trust).data
 
-        # all related organisations for that PaediatricDiabetesUnit should have the same parent
-        # so we can just get the first one
-        organisation = Organisation.objects.filter(
-            paediatric_diabetes_unit=pdu
-        ).first()
-
-        if not organisation:  # No related organisations found
+        # Derive the parent from the PDU's lead/primary organisation, not an
+        # arbitrary .first() child. A PDU's child organisations can span
+        # multiple trusts after a split (e.g. PZ247 has sites under both R0A
+        # Manchester University and RM3 Northern Care Alliance); picking the
+        # first child in default ordering returned whichever happened to sort
+        # first, which was wrong. The lead_organisation FK is the source of
+        # truth for which site identifies the PDU, and is exposed as
+        # primary_organisation on this same endpoint.
+        primary = pdu.primary_organisation
+        if primary is None:
             return None
 
-        trust = getattr(organisation, "trust", None)
-        local_health_board = getattr(organisation, "local_health_board", None)
+        trust = getattr(primary, "trust", None)
+        local_health_board = getattr(primary, "local_health_board", None)
 
-        if trust and organisation.country.boundary_identifier in [
+        if trust and primary.country.boundary_identifier in [
             "E92000001",
             "JEY",
             "M83000003",
@@ -153,7 +164,7 @@ class PaediatricDiabetesUnitWithNestedParentSerializer(serializers.ModelSerializ
             return TrustSerializer(trust).data
         elif (
             local_health_board
-            and organisation.country.boundary_identifier == "W92000004"
+            and primary.country.boundary_identifier == "W92000004"
         ):  # Wales
             return LocalHealthBoardLimitedSerializer(local_health_board).data
 

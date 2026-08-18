@@ -16,6 +16,9 @@ def api_client():
 LocalAuthorityDistrict = apps.get_model("hospitals", "LocalAuthorityDistrict")
 Country = apps.get_model("hospitals", "Country")
 OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
+Trust = apps.get_model("hospitals", "Trust")
+Organisation = apps.get_model("hospitals", "Organisation")
+PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
 
 
 @pytest.fixture
@@ -346,3 +349,140 @@ def test_filter_openuk_networks_by_boundary_identifier(
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data) == 1
     assert response.data[0]["boundary_identifier"] == "E38000002"
+
+
+# ---------------------------------------------------------------------------
+# /paediatric_diabetes_units/{pz_code}/parent/ endpoint
+#
+# The `parent` field must be derived from the PDU's lead_organisation, not
+# from an arbitrary .first() child organisation. A PDU's child organisations
+# can span multiple trusts after a split (e.g. PZ247 has sites under both R0A
+# Manchester University and RM3 Northern Care Alliance); picking the first
+# child in default ordering returned whichever happened to sort first, which
+# was wrong. The lead_organisation FK is the source of truth.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def england_country():
+    Country.objects.all().delete()
+    return Country.objects.create(
+        boundary_identifier="E92000001",
+        name="England",
+        welsh_name="Lloegr",
+        bng_e=394883,
+        bng_n=370883,
+        long=-2.07811,
+        lat=53.235,
+        globalid="england-test-globalid",
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (349900, 400100),
+                    (349900, 399900),
+                    (350100, 399900),
+                    (350100, 400100),
+                    (349900, 400100),
+                )
+            )
+        ),
+    )
+
+
+@pytest.fixture
+def split_pdu_with_two_trusts(england_country):
+    """A PDU with two child organisations under different trusts, mirroring
+    the PZ247 scenario: North Manchester General (R0A66, trust R0A Manchester
+    University) and Trafford General (RM321, trust RM3 Northern Care Alliance).
+
+    The PDU's lead_organisation is set to the R0A66 site. The `parent` endpoint
+    must return R0A (Manchester University), not RM3 (Northern Care Alliance).
+    """
+    Trust.objects.all().delete()
+    Organisation.objects.all().delete()
+    PaediatricDiabetesUnit.objects.all().delete()
+
+    trust_r0a = Trust.objects.create(ods_code="R0A", name="MANCHESTER UNIVERSITY NHS FOUNDATION TRUST")
+    trust_rm3 = Trust.objects.create(ods_code="RM3", name="NORTHERN CARE ALLIANCE NHS FOUNDATION TRUST")
+
+    # Create Trafford General first so that a .first() query would return it —
+    # this is the regression condition. If the serializer uses .first() it will
+    # pick RM321 and return Northern Care Alliance; if it uses lead_organisation
+    # it will return R0A66's trust (Manchester University).
+    trafford = Organisation.objects.create(
+        ods_code="RM321",
+        name="TRAFFORD GENERAL HOSPITAL",
+        trust=trust_rm3,
+        country=england_country,
+    )
+    north_manchester = Organisation.objects.create(
+        ods_code="R0A66",
+        name="NORTH MANCHESTER GENERAL HOSPITAL",
+        trust=trust_r0a,
+        country=england_country,
+    )
+
+    pdu = PaediatricDiabetesUnit.objects.create(
+        pz_code="PZ247",
+        active=True,
+        lead_organisation=north_manchester,
+    )
+    # Attach both organisations to the PDU. The FK on Organisation is the
+    # current-state link; the temporal membership table is not needed for this
+    # test because the serializer reads the current-state FK.
+    trafford.paediatric_diabetes_unit = pdu
+    trafford.save(update_fields=["paediatric_diabetes_unit"])
+    north_manchester.paediatric_diabetes_unit = pdu
+    north_manchester.save(update_fields=["paediatric_diabetes_unit"])
+
+    return {
+        "pdu": pdu,
+        "lead_org": north_manchester,
+        "lead_trust": trust_r0a,
+        "other_org": trafford,
+        "other_trust": trust_rm3,
+    }
+
+
+@pytest.mark.django_db
+def test_pdu_parent_returns_lead_organisation_trust(api_client, split_pdu_with_two_trusts):
+    """The /parent/ endpoint must return the trust of the PDU's
+    lead_organisation, not the trust of an arbitrary .first() child.
+
+    Regression test for PZ247: the PDU has two child organisations under
+    different trusts (R0A Manchester University and RM3 Northern Care
+    Alliance). The lead_organisation is North Manchester General (R0A66),
+    so the parent must be Manchester University (R0A).
+    """
+    url = reverse("paediatric_diabetes_unit-parent", args=["PZ247"])
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_200_OK
+    parent = response.data["parent"]
+    assert parent["ods_code"] == "R0A"
+    assert parent["name"] == "MANCHESTER UNIVERSITY NHS FOUNDATION TRUST"
+    # Sanity check: the primary_organisation field must agree with the parent.
+    primary = response.data["primary_organisation"]
+    assert primary["ods_code"] == "R0A66"
+    assert primary["name"] == "NORTH MANCHESTER GENERAL HOSPITAL"
+
+
+@pytest.mark.django_db
+def test_pdu_parent_returns_null_when_lead_unset_and_multiple_children(
+    api_client, split_pdu_with_two_trusts
+):
+    """When lead_organisation is NULL and the PDU has multiple child
+    organisations under different trusts, the parent must be null rather than
+    an arbitrary .first() child's trust. The API surfaces the gap instead of
+    hiding it.
+    """
+    pdu = split_pdu_with_two_trusts["pdu"]
+    pdu.lead_organisation = None
+    pdu.save(update_fields=["lead_organisation"])
+
+    url = reverse("paediatric_diabetes_unit-parent", args=["PZ247"])
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["parent"] is None
+    assert response.data["primary_organisation"] is None
