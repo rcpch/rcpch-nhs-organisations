@@ -207,6 +207,11 @@ PZ_CODES = [
     {"ods_code": "RTE01", "npda_code": "PZ242", "active": 1},
     {"ods_code": "RTE03", "npda_code": "PZ242", "active": 1},
     {
+        "ods_code": "R0A66",
+        "npda_code": "PZ247",
+        "active": 1,
+    },
+    {
         "ods_code": "RGT1W",
         "npda_code": "PZ248",
         "active": 1,
@@ -1384,6 +1389,12 @@ PZ_CODES_NETWORKS = [
         "npda_code": "PZ245",
         "network_name": "Wales",
         "network_code": "PN07",
+    },
+    {
+        "ods_code": "R0A66",
+        "npda_code": "PZ247",
+        "network_name": "North West",
+        "network_code": "PN11",
     },
     {
         "ods_code": "8HV48",  # RCPCH
