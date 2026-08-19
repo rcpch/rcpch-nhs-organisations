@@ -145,9 +145,9 @@ def create_organisations(self, organisations, dry_run=False):
                     pass
                 else:
                     self.stdout.write(
-                        f"Skipped deleting {organisation} as there is no associated OPENUK Network."
+                        f"Skipped creating {organisation} as there is no associated OPENUK Network."
                     )
-                    return
+                    continue
 
             if not pdu:
                 confirm = input(
@@ -157,9 +157,9 @@ def create_organisations(self, organisations, dry_run=False):
                     pass
                 else:
                     self.stdout.write(
-                        f"Skipped deleting {organisation} as there is no associated Paediatric Diabetes Unit."
+                        f"Skipped creating {organisation} as there is no associated Paediatric Diabetes Unit."
                     )
-                    return
+                    continue
 
             # fetch the county, postcode and retrieve the longitude and latitude
             try:
