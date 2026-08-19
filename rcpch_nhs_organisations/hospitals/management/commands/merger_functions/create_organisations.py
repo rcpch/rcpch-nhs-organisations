@@ -15,6 +15,7 @@ from rcpch_nhs_organisations.hospitals.general_functions import (
 from rcpch_nhs_organisations.hospitals.constants import (
     PZ_CODES,
     OPEN_UK_NETWORKS_TRUSTS,
+    INTEGRATED_CARE_BOARDS_LOCAL_AUTHORITIES,
 )
 
 
@@ -74,18 +75,61 @@ def create_organisations(self, organisations, dry_run=False):
                         "extension"
                     ]
                 )
-                icb = (
-                    Organisation.objects.filter(trust=trust)
-                    .first()
-                    .integrated_care_board
-                )
-                nhs_england_region = (
-                    Organisation.objects.filter(trust=trust).first().nhs_england_region
-                )
-                london_borough = (
-                    Organisation.objects.filter(trust=trust).first().london_borough
-                )
-                country = Organisation.objects.filter(trust=trust).first().country
+                # Inherit ICB / region / country / london_borough from a sibling
+                # organisation already under the same trust. If there are no
+                # siblings yet (this is the first organisation under the trust,
+                # e.g. RL131 under RL1), fall back to the trust-level constants
+                # for ICB and region, and default the rest to None.
+                sibling = Organisation.objects.filter(trust=trust).first()
+                if sibling is not None:
+                    icb = sibling.integrated_care_board
+                    nhs_england_region = sibling.nhs_england_region
+                    london_borough = sibling.london_borough
+                    country = sibling.country
+                else:
+                    self.stdout.write(
+                        f"No existing organisations under trust {trust.ods_code} "
+                        "to inherit ICB/region from. Falling back to constants."
+                    )
+                    icb = None
+                    nhs_england_region = None
+                    london_borough = None
+                    # Look up ICB and NHS England region from the trust-level
+                    # constants mapping.
+                    IntegratedCareBoard = apps.get_model(
+                        "hospitals", "IntegratedCareBoard"
+                    )
+                    NHSEnglandRegion = apps.get_model(
+                        "hospitals", "NHSEnglandRegion"
+                    )
+                    for mapping in INTEGRATED_CARE_BOARDS_LOCAL_AUTHORITIES:
+                        if mapping["ODS Trust Code"] == trust.ods_code:
+                            try:
+                                icb = IntegratedCareBoard.objects.get(
+                                    ods_code=mapping["ODS ICB Code"]
+                                )
+                            except IntegratedCareBoard.DoesNotExist:
+                                self.stdout.write(
+                                    f"  ICB {mapping['ODS ICB Code']} not in database."
+                                )
+                            try:
+                                nhs_england_region = NHSEnglandRegion.objects.get(
+                                    region_code=mapping["NHS England Region Code"]
+                                )
+                            except NHSEnglandRegion.DoesNotExist:
+                                self.stdout.write(
+                                    f"  NHS England region "
+                                    f"{mapping['NHS England Region Code']} not in database."
+                                )
+                            break
+                    # Default country to England for English trusts.
+                    Country = apps.get_model("hospitals", "Country")
+                    try:
+                        country = Country.objects.get(
+                            boundary_identifier="E92000001"
+                        )
+                    except Country.DoesNotExist:
+                        country = None
                 local_health_board = None
 
                 openuk_network = None
@@ -145,9 +189,9 @@ def create_organisations(self, organisations, dry_run=False):
                     pass
                 else:
                     self.stdout.write(
-                        f"Skipped deleting {organisation} as there is no associated OPENUK Network."
+                        f"Skipped creating {organisation} as there is no associated OPENUK Network."
                     )
-                    return
+                    continue
 
             if not pdu:
                 confirm = input(
@@ -157,9 +201,9 @@ def create_organisations(self, organisations, dry_run=False):
                     pass
                 else:
                     self.stdout.write(
-                        f"Skipped deleting {organisation} as there is no associated Paediatric Diabetes Unit."
+                        f"Skipped creating {organisation} as there is no associated Paediatric Diabetes Unit."
                     )
-                    return
+                    continue
 
             # fetch the county, postcode and retrieve the longitude and latitude
             try:

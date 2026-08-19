@@ -103,6 +103,46 @@ This accepts the attributes:
 *Create*: This looks up the ODS code provided against the ORD API and persists the details in the Organisation table. It creates a relationship between the new organisation and a parent Trust/Local Health Board and if in England, an NHS Region and Integrated Care Board also. It also looks up against lists in `constants` for any matching membership of Paediatric Diabetes Units, OPEN UK Networks. If there is no relationship, it will prompt the user to confirm that they want to continue with organisation creation. It should be possible to add this relationship at a later date, but this is currently not supported. If there is no PDU in the database, an organisation will not be created. Since the temporal history layer was added, creating an organisation also creates baseline temporal rows (`OrganisationVersion` plus the relevant membership rows) so the new organisation has history from creation day forward.
 *Delete*: Since the Organisation does not have referential integrity with its parent or related regions, the user is asked to confirm that they want to continue with deletion. A summary of the organisation's membership is logged to the console. Note that if the organisation is the only one associated with a paediatric diabetes unit record or openuk network record, that will leave that association broken. If the organisation is added back, that relationship is recreated.
 
+### Adding a missing organisation
+
+The `mergers --create` command is also the way to add an organisation that
+the consuming software (e.g. E12) references but that is not in the RCPCH
+seed list. This is **not** a merger — the site isn't new, it's just missing
+from the database.
+
+The `cron` sync command cannot discover these organisations. It calls the
+ODS `/sync` endpoint, which returns only organisations that *changed* in the
+last 185 days, and even then it only processes organisations that are
+already in the database (it matches by `ods_code` and skips anything not
+found). So an organisation that was never seeded will never be picked up by
+the sync, no matter how many times you run it.
+
+To add a missing organisation, fetch it directly from the ODS
+`/organisations/{ods_code}` endpoint using `mergers --create`:
+
+```bash
+python manage.py mergers --organisations RDR08 RDRC7 R0A07 --create
+```
+
+This looks up each ODS code on the Spine, creates the `Organisation` row
+with its parent trust, ICB, NHS England region, country and OPENUK network
+(inherited from a sibling organisation under the same trust), and writes
+baseline temporal rows (`OrganisationVersion` plus the relevant membership
+rows) so the new organisation has history from creation day forward.
+
+If the organisation has no Paediatric Diabetes Unit or OPENUK network in
+the `constants` lists, the command prompts to confirm whether to continue
+without it. Answer `y` to create the organisation anyway — the relationship
+can be added later via the admin or by adding the code to `PZ_CODES` /
+`OPEN_UK_NETWORKS_TRUSTS` and re-running. Answering `n` skips just that
+organisation and continues to the next one in the list.
+
+The baseline membership rows created by `mergers --create` are dated today,
+not the ODS operational start date. To recover the full historical trust
+membership (e.g. from 1992 to today), run `backfill_trust_memberships --all`
+afterwards — it will write the historical `OrganisationTrustMembership`
+row from the ODS `RE6` rel's operational start date.
+
 For recording mergers (acquisitions, full mergers, splits, PDU mergers, ICB
 successions), see [merger-handling.md](merger-handling.md) and
 [icb-history.md](icb-history.md).
