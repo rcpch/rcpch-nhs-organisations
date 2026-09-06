@@ -1,0 +1,33 @@
+# Optional local production-like smoke test.
+# Azure App Service runs the published Dockerfile.production image directly;
+# this Compose file is not used by the Azure deployment.
+
+x-global-environment: &global
+  env_file:
+    - envs/.env # env file - NOT committed to Git
+
+services:
+  django:
+    <<: *global
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgis
+    command: >
+      sh -c "python -u manage.py migrate &&
+             exec gunicorn --bind 0.0.0.0:8000 --timeout 600
+             rcpch_nhs_organisations.wsgi"
+    restart: always
+
+  postgis:
+    <<: *global
+    image: postgis/postgis:15-3.3
+    volumes:
+      - postgis-production-data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgis-production-data:

@@ -33,3 +33,9 @@ WORKDIR /app/
 # Copy application code into image
 # (Excludes any files/dirs matched by patterns in .dockerignore)
 COPY . /app/
+
+# Expose the Django port
+EXPOSE 8003
+
+# Set the default start command
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8003"]

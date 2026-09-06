@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - rcpch-nhs-organisations. Deploy docs to GitHub Pages
+name: Build and deploy Python app to Azure Web App - Container
 
 on:
   pull_request:
@@ -11,47 +11,90 @@ on:
     types:
       - closed
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  build-and-deploy:
-    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
-          lfs: true # ensures large files are downloaded using Git LFS
+          lfs: true
 
-      - name: Set up Python version
-        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f286b52c9db6e4f62e30e10b079f071f0a3e22e7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996eb0a0c
         with:
-          python-version: "3.11"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      
-      - name: Burn in build info
-        run: s/get-build-info > build_info.json
-
-      - name: "Deploy to Azure Web App"
-        uses: azure/webapps-deploy@5cfb776471c748b351e1ebf5770e208a54ace016 # v2
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@6e28d321e2ed7da7c57b91f522975e5f4b0b66f7
         with:
-          app-name: "RCPCH-NHS-organisations"
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_A76B7421A08D44778EBB49AB30B51B3D }}
-          package: "."
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=live
+            type=raw,value=sha-${{ github.event.pull_request.merge_commit_sha }}
 
-  deploy-mkdocs:
+      - name: Build and push Docker image
+        uses: docker/build-push-action@23dc5e5b86cf44b3439439e0a62a77c72851f9ee
+        if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
+        with:
+          context: .
+          file: ./Dockerfile.production
+          build-args: |
+            GIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-to-azure:
+    needs: build-and-push
     if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
     runs-on: ubuntu-latest
-    needs: build-and-deploy
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Azure Login
+        uses: azure/login@8e95d52a92255b53a9297b30f9e84a1970d40c33 # v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@5cfb776471c748b351e1ebf5770e208a54ace016 # v2
+        with:
+          app-name: 'RCPCH-NHS-organisations'
+          images: 'ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.event.pull_request.merge_commit_sha }}'
+
+  deploy-mkdocs:
+    needs: build-and-push
+    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Python version
-        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1
+        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install MkDocs and dependencies
         run: |
@@ -64,7 +107,7 @@ jobs:
         run: mkdocs build --config-file documentation/mkdocs.yml --verbose || exit 1
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: documentation/site
@@ -74,12 +117,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Python version
-        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1
+        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install MkDocs and dependencies
         run: |
@@ -95,7 +138,7 @@ jobs:
         run: ls -la documentation/site || echo "MkDocs build failed or output directory is missing!"
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: documentation/site
