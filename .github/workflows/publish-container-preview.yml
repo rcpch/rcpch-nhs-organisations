@@ -1,0 +1,45 @@
+name: Publish Azure Container Apps preview image
+
+on:
+  push:
+    branches:
+      - python-bump-deploy-ghcr
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          lfs: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f286b52c9db6e4f62e30e10b079f071f0a3e22e7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996eb0a0c
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push preview image
+        uses: docker/build-push-action@23dc5e5b86cf44b3439439e0a62a77c72851f9ee
+        with:
+          context: .
+          file: ./Dockerfile.production
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

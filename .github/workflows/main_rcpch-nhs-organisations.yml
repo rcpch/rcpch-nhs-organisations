@@ -1,8 +1,7 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+# Builds the production image on a merged live PR, publishes it to GHCR,
+# then updates the existing Azure Container App to the immutable image tag.
 
-name: Build and deploy Python app to Azure Web App - Container
+name: Build and deploy Python app to Azure Container Apps
 
 on:
   pull_request:
@@ -61,7 +60,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-to-azure:
+  deploy-to-container-app:
     needs: build-and-push
     if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
     runs-on: ubuntu-latest
@@ -77,11 +76,15 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@5cfb776471c748b351e1ebf5770e208a54ace016 # v2
-        with:
-          app-name: 'RCPCH-NHS-organisations'
-          images: 'ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.event.pull_request.merge_commit_sha }}'
+      - name: Install Azure Container Apps CLI extension
+        run: az extension add --name containerapp --upgrade
+
+      - name: Deploy immutable image to Azure Container App
+        run: >
+          az containerapp update
+          --name rcpch-nhs-organisations
+          --resource-group RCPCH-Dev-AuditTools
+          --image ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.event.pull_request.merge_commit_sha }}
 
   deploy-mkdocs:
     needs: build-and-push

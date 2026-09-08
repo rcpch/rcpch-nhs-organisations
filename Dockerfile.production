@@ -28,10 +28,10 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Copy only runtime application files. In particular, do not copy envs/.env
 # or the documentation/development directories into the public image.
+# Django app templates are included within rcpch_nhs_organisations/.
 COPY manage.py /app/manage.py
 COPY rcpch_nhs_organisations /app/rcpch_nhs_organisations
 COPY static /app/static
-COPY templates /app/templates
 
 # Store the deployed revision without copying the repository's .git directory.
 ARG GIT_SHA=unknown
