@@ -28,10 +28,10 @@ jobs:
           lfs: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f286b52c9db6e4f62e30e10b079f071f0a3e22e7
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Log in to GHCR
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996eb0a0c
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -39,7 +39,7 @@ jobs:
 
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@6e28d321e2ed7da7c57b91f522975e5f4b0b66f7
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -47,7 +47,7 @@ jobs:
             type=raw,value=sha-${{ github.event.pull_request.merge_commit_sha }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@23dc5e5b86cf44b3439439e0a62a77c72851f9ee
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
         with:
           context: .
