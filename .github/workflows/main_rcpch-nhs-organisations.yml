@@ -79,7 +79,7 @@ jobs:
         run: >
           az containerapp update
           --name rcpch-nhs-organisations
-          --resource-group RCPCH-Dev-AuditTools
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
           --image ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.sha }}
 
   deploy-mkdocs:
