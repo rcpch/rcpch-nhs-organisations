@@ -4,11 +4,9 @@
 name: Build and deploy Python app to Azure Container Apps
 
 on:
-  pull_request:
+  push:
     branches:
-      - live
-    types:
-      - closed
+      - python-bump-deploy-ghcr
 
 env:
   REGISTRY: ghcr.io
@@ -44,16 +42,15 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=live
-            type=raw,value=sha-${{ github.event.pull_request.merge_commit_sha }}
+            type=raw,value=sha-${{ github.sha }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
-        if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
         with:
           context: .
           file: ./Dockerfile.production
           build-args: |
-            GIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
+            GIT_SHA=${{ github.sha }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -62,7 +59,6 @@ jobs:
 
   deploy-to-container-app:
     needs: build-and-push
-    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -84,11 +80,10 @@ jobs:
           az containerapp update
           --name rcpch-nhs-organisations
           --resource-group RCPCH-Dev-AuditTools
-          --image ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.event.pull_request.merge_commit_sha }}
+          --image ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.sha }}
 
   deploy-mkdocs:
     needs: build-and-push
-    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[docs]')
     runs-on: ubuntu-latest
 
     steps:
@@ -108,37 +103,6 @@ jobs:
           SITE_DIR: documentation/site
           DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
         run: mkdocs build --config-file documentation/mkdocs.yml --verbose || exit 1
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: documentation/site
-
-  deploy-mkdocs-only:
-    if: github.event.pull_request.merged == true && contains(github.event.pull_request.title, '[docs]')
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-
-      - name: Set up Python version
-        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de
-        with:
-          python-version: "3.12"
-
-      - name: Install MkDocs and dependencies
-        run: |
-          pip install mkdocs mkdocs-material mkdocs-git-committers-plugin-2 mkdocs-git-revision-date-localized-plugin mkdocs-macros-plugin mkdocs-with-pdf
-
-      - name: Build MkDocs site
-        env:
-          SITE_DIR: documentation/site
-          DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
-        run: mkdocs build --config-file documentation/mkdocs.yml --verbose || exit 1
-
-      - name: Verify MkDocs build output
-        run: ls -la documentation/site || echo "MkDocs build failed or output directory is missing!"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
