@@ -26,7 +26,7 @@
 | Resource group | `RCPCH-Dev-AuditTools` |
 | Container App | `rcpch-nhs-organisations` |
 | Preview branch | `python-bump-deploy-ghcr` |
-| Registry | Public `ghcr.io/rcpch/rcpch-nhs-organisations` |
+| Registry | Private Azure Container Registry |
 | Database | Existing live PostGIS database for the initial preview, per user decision |
 
 ---

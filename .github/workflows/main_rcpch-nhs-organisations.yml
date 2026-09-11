@@ -8,10 +8,6 @@ on:
     branches:
       - python-bump-deploy-ghcr
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -28,21 +24,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
-      - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+      - name: Azure Login
+        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io/${{ github.repository }}
           tags: |
             type=raw,value=live
-            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=${{ github.sha }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
@@ -54,8 +50,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   deploy-to-container-app:
     needs: build-and-push
@@ -80,7 +74,7 @@ jobs:
           az containerapp update
           --name rcpch-nhs-organisations
           --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
-          --image ghcr.io/rcpch/rcpch-nhs-organisations:sha-${{ github.sha }}
+          --image ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io/${{ github.repository }}:${{ github.sha }}
 
   deploy-mkdocs:
     needs: build-and-push
