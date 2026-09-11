@@ -3,7 +3,7 @@
 az acr login --name ${AZURE_REGISTRY_NAME}
 
 azure_tag="${AZURE_REGISTRY_NAME}.azurecr.io/${AZURE_LIVE_APP_NAME}-django:${GITHUB_SHA}"
-docker build --file Dockerfile.production --tag ${azure_tag}
+docker build --file Dockerfile.production --tag ${azure_tag} .
 docker push ${azure_tag}
 
 az containerapp update \
