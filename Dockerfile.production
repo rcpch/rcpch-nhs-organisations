@@ -1,0 +1,43 @@
+# Production image for Azure Container Apps.
+# The container settings provide secrets and database connection details at runtime.
+# No environment file is copied into the image.
+FROM python:3.12-trixie
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Runtime libraries required by GeoDjango/PostGIS and image handling.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        binutils \
+        libproj-dev \
+        gdal-bin \
+        libgdal-dev \
+        python3-gdal \
+        libz-dev \
+        libjpeg-dev \
+        libfreetype6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements/production-requirements.txt /app/requirements/production-requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /app/requirements/production-requirements.txt
+
+# Copy only runtime application files. In particular, do not copy envs/.env
+# or the documentation/development directories into the public image.
+# Django app templates are included within rcpch_nhs_organisations/.
+COPY manage.py /app/manage.py
+COPY rcpch_nhs_organisations /app/rcpch_nhs_organisations
+COPY static /app/static
+COPY build_info.json /app/build_info.json
+
+# Django's configured rotating file handler expects this directory to exist.
+RUN mkdir -p /app/logs \
+    && python manage.py collectstatic --noinput
+
+EXPOSE 8000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--timeout", "600", "rcpch_nhs_organisations.wsgi"]

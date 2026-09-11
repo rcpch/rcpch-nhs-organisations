@@ -1,0 +1,25 @@
+# Runtime dependencies for the Azure production image.
+# Documentation, test, linting, and development-only dependencies remain in
+# common-requirements.txt and development-requirements.txt.
+
+# HTTP and date handling
+requests==2.33.0
+python-dateutil==2.9.0.post0
+
+# Django and API
+Django==5.2.16
+djangorestframework==3.17.2
+djangorestframework-gis==1.3.0
+drf-spectacular==0.29.0
+django-filter==25.2
+markdown==3.8.1
+
+# PostGIS and static files
+psycopg2-binary==2.9.10
+whitenoise==6.9.0
+
+# Production application server
+gunicorn==23.0.0
+
+# Application logging
+colorlog==6.9.0

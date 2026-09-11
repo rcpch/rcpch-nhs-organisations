@@ -1,5 +1,5 @@
-# Base Docker image Official Python 3.11
-FROM python:3.11
+# Base Docker image Official Python 3.12
+FROM python:3.12
 
 # Set 'build-time' environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -21,7 +21,7 @@ COPY requirements/common-requirements.txt /app/requirements/common-requirements.
 WORKDIR /app/requirements/
 
 # Run installation of requirements
-RUN pip install --upgrade pip 
+RUN pip install --upgrade pip
 RUN pip install -r /app/requirements/development-requirements.txt
 
 # Set safe working directory for git
@@ -33,3 +33,9 @@ WORKDIR /app/
 # Copy application code into image
 # (Excludes any files/dirs matched by patterns in .dockerignore)
 COPY . /app/
+
+# Expose the Django port
+EXPOSE 8003
+
+# Set the default start command
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8003"]
