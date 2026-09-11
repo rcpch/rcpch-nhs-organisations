@@ -32,10 +32,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY manage.py /app/manage.py
 COPY rcpch_nhs_organisations /app/rcpch_nhs_organisations
 COPY static /app/static
-
-# Store the deployed revision without copying the repository's .git directory.
-ARG GIT_SHA=unknown
-RUN printf '{"active_git_branch":"live","latest_git_commit":"%s"}\n' "$GIT_SHA" > /app/build_info.json
+COPY build_info.json /app/build_info.json
 
 # Django's configured rotating file handler expects this directory to exist.
 RUN mkdir -p /app/logs \

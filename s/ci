@@ -2,6 +2,9 @@
 
 az acr login --name ${AZURE_REGISTRY_NAME}
 
+# Burn in build info (git hash, branch etc) into the image
+s/get-build-info > build_info.json
+
 azure_tag="${AZURE_REGISTRY_NAME}.azurecr.io/${AZURE_LIVE_APP_NAME}-django:${GITHUB_SHA}"
 docker build --file Dockerfile.production --tag ${azure_tag} .
 docker push ${azure_tag}
