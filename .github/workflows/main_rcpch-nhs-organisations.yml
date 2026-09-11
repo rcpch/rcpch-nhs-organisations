@@ -6,7 +6,7 @@ name: Build and deploy Python app to Azure Container Apps
 on:
   push:
     branches:
-      - python-bump-deploy-ghcr
+      - live
 
 permissions:
   contents: read
