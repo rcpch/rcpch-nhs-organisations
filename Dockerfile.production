@@ -1,6 +1,6 @@
-# Production image for Azure App Service.
-# The Azure App Service application settings provide secrets and database
-# connection details at runtime; no environment file is copied into the image.
+# Production image for Azure Container Apps.
+# The container settings provide secrets and database connection details at runtime.
+# No environment file is copied into the image.
 FROM python:3.12-trixie
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

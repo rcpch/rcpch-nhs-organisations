@@ -13,6 +13,10 @@ permissions:
   id-token: write
   pages: write
 
+# Only one deploy run at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
