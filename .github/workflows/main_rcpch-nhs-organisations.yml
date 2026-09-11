@@ -8,22 +8,21 @@ on:
     branches:
       - python-bump-deploy-ghcr
 
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+permissions:
+  contents: read
+  id-token: write
+  pages: write
 
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: "Checkout GitHub Action"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           lfs: true
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-
       - name: Azure Login
         uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3
         with:
@@ -31,75 +30,21 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
-        with:
-          images: ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=live
-            type=raw,value=${{ github.sha }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
-        with:
-          context: .
-          file: ./Dockerfile.production
-          build-args: |
-            GIT_SHA=${{ github.sha }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  deploy-to-container-app:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Azure Login
-        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Install Azure Container Apps CLI extension
-        run: az extension add --name containerapp --upgrade
-
-      - name: Deploy immutable image to Azure Container App
-        run: >
-          az containerapp update
-          --name rcpch-nhs-organisations
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
-          --image ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io/${{ github.repository }}:${{ github.sha }}
-
-  deploy-mkdocs:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-
-      - name: Set up Python version
-        uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de
-        with:
-          python-version: "3.12"
-
-      - name: Install MkDocs and dependencies
-        run: |
-          pip install mkdocs mkdocs-material mkdocs-git-committers-plugin-2 mkdocs-git-revision-date-localized-plugin mkdocs-macros-plugin mkdocs-with-pdf
-
-      - name: Build MkDocs site
+      - name: "Run CI script"
         env:
-          SITE_DIR: documentation/site
-          DOCS_URL: https://rcpch.github.io/rcpch-nhs-organisations/
-        run: mkdocs build --config-file documentation/mkdocs.yml --verbose || exit 1
+          AZURE_REGISTRY_NAME: ${{ secrets.AZURE_REGISTRY_NAME }}
+          AZURE_LIVE_APP_NAME: ${{ secrets.AZURE_LIVE_APP_NAME }}
+          AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+        run: s/ci
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+
+      - name: Upload docs artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: "staticdocs"
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: documentation/site
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5

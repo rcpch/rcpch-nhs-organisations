@@ -1,0 +1,24 @@
+#!/bin/bash -e
+
+az acr login --name ${AZURE_REGISTRY_NAME}
+
+azure_tag="${AZURE_REGISTRY_NAME}.azurecr.io/${AZURE_LIVE_APP_NAME}-django:${GITHUB_SHA}"
+docker build --file Dockerfile.production --tag ${azure_tag}
+docker push ${azure_tag}
+
+az containerapp update \
+    --name ${AZURE_LIVE_APP_NAME} \
+    --resource-group ${AZURE_RESOURCE_GROUP} \
+    --image ${azure_tag} \
+    --query 'properties.provisioningState'
+
+# Build the MkDocs static site so the GitHub Pages artifact upload step
+# (which expects a `staticdocs` directory at the repo root) has something to upload.
+
+docker compose run \
+    --env SITE_DIR=documentation/site \
+    --env DOCS_URL=https://rcpch.github.io/rcpch-nhs-organisations/ \
+    --rm mkdocs \
+        mkdocs build --config-file documentation/mkdocs.yml
+
+# Deploy to the docs is handled in the GitHub workflow itself
