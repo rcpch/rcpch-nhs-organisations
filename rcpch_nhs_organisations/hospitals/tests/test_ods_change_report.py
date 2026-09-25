@@ -181,6 +181,54 @@ def test_no_changes_prints_empty_report(trust_a, trust_b, baselines):
 
 
 # ---------------------------------------------------------------------------
+# Blob upload
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_report_uploaded_to_blob(trust_a, trust_b, baselines, monkeypatch):
+    """When ODS_REPORT_STORAGE_ACCOUNT_NAME is set, the combined report is
+    uploaded to the configured blob — even when empty, so a successful run
+    always overwrites any previous report."""
+    pytest.importorskip("azure.storage.blob")
+    from azure import identity as azure_identity
+    from azure.storage import blob as azure_blob
+
+    uploaded = {}
+
+    class FakeBlobClient:
+        def __init__(self, account_url, container_name, blob_name, credential):
+            uploaded["account_url"] = account_url
+            uploaded["container_name"] = container_name
+            uploaded["blob_name"] = blob_name
+
+        def upload_blob(self, data, overwrite=False):
+            uploaded["data"] = data
+            uploaded["overwrite"] = overwrite
+
+    monkeypatch.setattr(azure_blob, "BlobClient", FakeBlobClient)
+    monkeypatch.setattr(azure_identity, "DefaultAzureCredential", lambda: "credential")
+    monkeypatch.setenv("ODS_REPORT_STORAGE_ACCOUNT_NAME", "rcpchodsreports")
+
+    records = {
+        "RAA": _matching_record(trust_a),
+        "RBB": _matching_record(trust_b),
+    }
+    org_links = [
+        {"OrgLink": "https://ods.example/Organisation/RAA"},
+        {"OrgLink": "https://ods.example/Organisation/RBB"},
+    ]
+    out = StringIO()
+    with _patch_ods(records, org_links):
+        call_command("ods_change_report", stdout=out, stderr=StringIO())
+
+    assert uploaded["account_url"] == "https://rcpchodsreports.blob.core.windows.net"
+    assert uploaded["container_name"] == "ods-change-reports"
+    assert uploaded["blob_name"] == "ods-change-report.md"
+    assert uploaded["overwrite"] is True
+
+
+# ---------------------------------------------------------------------------
 # Check failures
 # ---------------------------------------------------------------------------
 

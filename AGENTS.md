@@ -136,7 +136,7 @@ All commands are in `rcpch_nhs_organisations/hospitals/management/commands/`.
 | `backfill_icb_memberships [--dry-run] [--yes]` | Backfill `TrustIntegratedCareBoardMembership` rows from the ODS `Rels` block (RE5/RE8 → RO261). |
 | `backfill_pdu_lead_organisations [--dry-run] [--yes]` | Set `lead_organisation` FK and `name_source` on PDUs. |
 | `backfill_pdu_successions [--dry-run] [--yes]` | Backfill PDU history from `Master_PDU_Lookup.xlsx` (via generated constants). |
-| `ods_change_report` | Run all three ODS change-detection dry-run checks and print a combined report between sentinel markers (used by the Container Apps job). |
+| `ods_change_report` | Run all three ODS change-detection dry-run checks, print a combined report between sentinel markers, and upload it to blob storage (used by the Container Apps job). |
 
 ## Scripts
 

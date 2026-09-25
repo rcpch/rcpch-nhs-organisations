@@ -21,8 +21,8 @@ graph TD
     A[GitHub Actions schedule<br/>07:00 UTC on the 1st] --> B[Azure OIDC login]
     B --> C[az containerapp job start]
     C --> D[Container Apps Job<br/>ods_change_report]
-    D --> E[Combined report printed<br/>between sentinel markers]
-    E --> F[Workflow extracts report<br/>from job console logs]
+    D --> E[Uploads combined report<br/>to blob storage]
+    E --> F[Workflow downloads report<br/>from blob storage]
     F --> G{Report non-empty?}
     G -- yes --> H[GitHub issue: ODS changes detected]
     G -- no --> I[No issue]
@@ -44,10 +44,11 @@ The job runs `python manage.py ods_change_report`, which runs, in order:
 
 Each check writes its clean markdown report to a temp file via `--report-file`
 (no banners, summaries, ASCII art or ANSI colour codes), then the command
-combines the non-empty reports under `##` section headings and prints the
-result between the `<<<ODS_REPORT_START>>>` / `<<<ODS_REPORT_END>>>` sentinel
-markers on stdout. The workflow extracts the text between the markers from
-the job's console logs and opens an issue if it is non-empty.
+combines the non-empty reports under `##` section headings, prints the result
+between the `<<<ODS_REPORT_START>>>` / `<<<ODS_REPORT_END>>>` sentinel
+markers on stdout (so it can also be read in the job's console logs), and
+uploads it to Azure Blob Storage. The workflow downloads the blob and opens
+an issue if the report is non-empty.
 
 If any check raises, the error is recorded, the remaining checks still run, a
 `Check failures` section is appended, and the command exits non-zero so the
@@ -85,20 +86,26 @@ az containerapp job create \
     --cpu 1.0 --memory 2Gi \
     --secrets <same name>=<same value> ... \
     --env-vars <VAR>=secretref:<same secret-name> ... \
+        ODS_REPORT_STORAGE_ACCOUNT_NAME=<storage-account-name> \
+        ODS_REPORT_CONTAINER_NAME=ods-change-reports \
     --command "python" "manage.py" "ods_change_report"
 ```
 
 The env vars the job needs (from `settings.py` and `ods_update.py`):
 `RCPCH_NHS_ORGANISATIONS_SECRET_KEY`, `POSTGRES_DB`, `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `NHS_ODS_API_URL`.
-HTTP-only settings (`DJANGO_ALLOWED_HOSTS`, CSRF origins) are irrelevant to a
-job.
+`POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `NHS_ODS_API_URL`,
+plus the report upload vars `ODS_REPORT_STORAGE_ACCOUNT_NAME` (required),
+`ODS_REPORT_CONTAINER_NAME` (default `ods-change-reports`) and
+`ODS_REPORT_BLOB_NAME` (default `ods-change-report.md`). HTTP-only settings
+(`DJANGO_ALLOWED_HOSTS`, CSRF origins) are irrelevant to a job.
 
 Prerequisites:
 
-- **Console logging (Log Analytics) must be enabled on the Container Apps
-  environment** — `az containerapp job logs show` reads the job's console
-  logs from it. Without it the workflow cannot retrieve the report.
+- **A storage account for the report** — the job uploads the combined report
+  to a blob container (`ods-change-reports`) and the workflow downloads it.
+  The job's managed identity needs the **Storage Blob Data Contributor**
+  role on the account, and the GitHub OIDC identity (the one behind
+  `AZURE_CLIENT_ID`) needs **Storage Blob Data Reader**.
 - **The job needs ACR pull credentials** — the live image is private. Give a
   managed identity the `AcrPull` role on the registry and pass it via
   `--registry-identity`, or use registry admin credentials via
@@ -134,7 +141,7 @@ Or use the **Run workflow** button on the
 
 | Symptom | Likely cause |
 |---|---|
-| Workflow fails at "Fetch job logs and extract report" | Console logging (Log Analytics) not enabled on the Container Apps environment. |
+| Workflow fails at "Download report from blob storage" | Missing `Storage Blob Data Reader` role for the GitHub OIDC identity, or the `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is not set. |
+| Job log shows "skipping report upload" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job. |
 | Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `<live-app-name>-ods-check`. |
-| Issue opened every month with no changes | Log-line prefixes are leaking into the extracted report — check the job's console log format. |
 | "ODS change detection failed" issue | One of the three checks raised — the `Check failures` section of the job's stdout names the check and the error. |

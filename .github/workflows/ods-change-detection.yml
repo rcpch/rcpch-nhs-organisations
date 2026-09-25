@@ -15,8 +15,8 @@ name: ODS change detection
 #   1. Log in to Azure with the federated OIDF credential (no stored secret).
 #   2. Start the Container Apps Job.
 #   3. Wait for the execution to finish.
-#   4. Fetch the job's console logs and extract the combined report between
-#      the <<<ODS_REPORT_START>>> / <<<ODS_REPORT_END>>> markers.
+#   4. Download the combined report from Azure Blob Storage (the job
+#      uploads it there with its managed identity).
 #   5. Open a GitHub issue if the report is non-empty.
 #
 # The job runs `python manage.py ods_change_report`, which runs the three
@@ -25,8 +25,9 @@ name: ODS change detection
 #
 # Prerequisites and one-off job setup are documented in
 # documentation/docs/developer/ods-change-detection.md. In particular, the
-# Container Apps environment must have console logging (Log Analytics)
-# enabled — `az containerapp job logs show` reads from it.
+# GitHub OIDC identity needs the Storage Blob Data Reader role on the report
+# storage account, and ODS_REPORT_STORAGE_ACCOUNT_NAME must be set as a repo
+# variable.
 
 on:
   schedule:
@@ -43,6 +44,9 @@ permissions:
 env:
   AZURE_JOB_NAME: ${{ secrets.AZURE_LIVE_APP_NAME }}-ods-check
   AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  ODS_REPORT_STORAGE_ACCOUNT_NAME: ${{ vars.ODS_REPORT_STORAGE_ACCOUNT_NAME }}
+  ODS_REPORT_CONTAINER_NAME: ods-change-reports
+  ODS_REPORT_BLOB_NAME: ods-change-report.md
 
 jobs:
   detect-changes:
@@ -107,22 +111,18 @@ jobs:
             exit 1
           fi
 
-      - name: Fetch job logs and extract report
+      - name: Download report from blob storage
         if: success()
         id: report
         run: |
           set -eu
-          az containerapp job logs show \
-            --name "$AZURE_JOB_NAME" \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --job-execution-name "${{ steps.start.outputs.execution-name }}" \
-            > job_logs.txt
-          # Keep only the lines between the sentinel markers, then strip the
-          # markers themselves (they may share a line with report content if
-          # the log pipeline collapses lines).
-          sed -n '/<<<ODS_REPORT_START>>>/,/<<<ODS_REPORT_END>>>/p' job_logs.txt \
-            | sed -e 's/.*<<<ODS_REPORT_START>>>//' -e 's/<<<ODS_REPORT_END>>>.*//' \
-            > ods_report.md
+          az storage blob download \
+            --account-name "$ODS_REPORT_STORAGE_ACCOUNT_NAME" \
+            --container-name "$ODS_REPORT_CONTAINER_NAME" \
+            --name "$ODS_REPORT_BLOB_NAME" \
+            --file ods_report.md \
+            --auth-mode login \
+            --overwrite
           if [ -s ods_report.md ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
