@@ -23,3 +23,7 @@ gunicorn==23.0.0
 
 # Application logging
 colorlog==6.9.0
+
+# ODS change detection report upload (Azure Container Apps job)
+azure-identity==1.25.3
+azure-storage-blob==12.30.3

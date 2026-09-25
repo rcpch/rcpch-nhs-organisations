@@ -1,8 +1,10 @@
 # python imports
 import datetime
+import io
+import re
 
 # django
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand, CommandError, OutputWrapper
 from django.apps import apps
 from django.db import transaction
 
@@ -139,6 +141,33 @@ def _pre_merger_name(version_model, parent_field, successor, ev_date):
     return getattr(row, "name", None)
 
 
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+# Status noise rather than report content: the startup banner, the summary
+# block and the trailing "done." marker. Everything else in the dry-run
+# output (finding blocks, warnings) is report content.
+_NOISE_LINE_RE = re.compile(
+    r"^(Backfilling successions for .*|Summary:|Found \(missing\): \d+|done\.)$"
+)
+
+
+def _clean_dry_run_report(text):
+    """Strip ANSI colour codes and status noise from captured dry-run output.
+
+    Leaves only the per-finding blocks and warnings, so the report file is
+    empty when there is nothing to report — the ODS change detection job and
+    the GitHub workflow treat an empty report as "no changes".
+    """
+    lines = []
+    for line in text.splitlines():
+        line = _ANSI_ESCAPE_RE.sub("", line)
+        if _NOISE_LINE_RE.match(line.strip()):
+            continue
+        lines.append(line)
+    report = "\n".join(lines).strip()
+    return report + "\n" if report else ""
+
+
 class Command(BaseCommand):
     help = (
         "Backfill succession rows (mergers, acquisitions, splits, closures) "
@@ -167,6 +196,16 @@ class Command(BaseCommand):
             help="Report missing succession rows without creating them.",
         )
         parser.add_argument(
+            "--report-file",
+            type=str,
+            default=None,
+            help=(
+                "When used with --dry-run, write the markdown report to this "
+                "file path instead of stdout. Used by the ODS change detection "
+                "job for the GitHub Action."
+            ),
+        )
+        parser.add_argument(
             "--limit",
             type=int,
             default=None,
@@ -193,6 +232,16 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         limit = options["limit"]
         auto_yes = options["yes"]
+        report_file = options.get("report_file")
+
+        # When --report-file is set, redirect all command output into a buffer
+        # so the clean report can be written to the file at the end, without
+        # the status noise (banner, summary, "done.") or ANSI colour codes.
+        captured_stdout = None
+        original_stdout = self.stdout
+        if dry_run and report_file:
+            captured_stdout = io.StringIO()
+            self.stdout = OutputWrapper(captured_stdout)
 
         config = ENTITY_CONFIG[entity_type]
         model = config["model"]
@@ -902,6 +951,12 @@ class Command(BaseCommand):
             self.stdout.write(O + f"    Name unchanged / skipped: {name_unchanged_count}" + W)
         self.stdout.write("done.")
         rcpch_ascii_art()
+
+        if captured_stdout is not None:
+            self.stdout = original_stdout
+            with open(report_file, "w", encoding="utf-8") as f:
+                f.write(_clean_dry_run_report(captured_stdout.getvalue()))
+            self.stdout.write(G + f"Dry run report written to {report_file}" + W)
 
     def _create_missing_icb(self, ods_code, succession_date, auto_yes):
         """Create a missing successor ICB from its ODS record.

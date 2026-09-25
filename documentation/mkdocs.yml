@@ -141,6 +141,7 @@ nav:
     - 'developer/temporal-history.md'
     - 'developer/merger-handling.md'
     - 'developer/backfill.md'
+    - 'developer/ods-change-detection.md'
     - 'developer/pdu-history.md'
     - 'developer/icb-history.md'
     - 'developer/shapes.md'

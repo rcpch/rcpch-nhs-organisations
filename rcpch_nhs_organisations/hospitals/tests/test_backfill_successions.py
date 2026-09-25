@@ -94,6 +94,65 @@ def _patch_get_organisation(records_by_ods_code):
 
 
 # ---------------------------------------------------------------------------
+# --report-file flag (used by the ODS change detection job / GitHub workflow)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_report_file_written_when_changes_found(trust_a, trust_b, tmp_path):
+    """With --dry-run --report-file, the clean markdown report is written to
+    the file: findings only, no ANSI codes and no status noise."""
+    records = {
+        "RAA": _ods_record(
+            "RAA", "Trust A",
+            succs=[_succ("Successor", "RBB", "2021-10-01")],
+        ),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        report_path = tmp_path / "trust_successions.md"
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--dry-run",
+            "--report-file", str(report_path),
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    content = report_path.read_text()
+    assert "RAA" in content
+    assert "would create succession row" in content
+    # No ANSI colour codes and no status noise in the report file.
+    assert "\x1b" not in content
+    assert "Backfilling successions" not in content
+    assert "Summary:" not in content
+    assert "done." not in content
+
+
+@pytest.mark.django_db
+def test_report_file_empty_when_no_changes(trust_a, trust_b, tmp_path):
+    """When no changes are found, the report file is empty, so the ODS change
+    detection job and the GitHub workflow correctly treat it as "no
+    changes"."""
+    records = {
+        "RAA": _ods_record("RAA", "Trust A"),
+        "RBB": _ods_record("RBB", "Trust B"),
+    }
+    with _patch_get_organisation(records):
+        report_path = tmp_path / "trust_successions.md"
+        call_command(
+            "backfill_successions",
+            "--entity", "trust",
+            "--dry-run",
+            "--report-file", str(report_path),
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+    assert report_path.exists()
+    assert report_path.read_text() == ""
+
+
+# ---------------------------------------------------------------------------
 # Dry-run mode
 # ---------------------------------------------------------------------------
 

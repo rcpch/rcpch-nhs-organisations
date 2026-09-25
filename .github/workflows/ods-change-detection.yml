@@ -1,26 +1,33 @@
 name: ODS change detection
 
-# Runs the ODS sync in --dry-run mode on a monthly schedule and opens a GitHub
-# issue detailing what would change if the sync were applied. This gives the
-# team a human-in-the-loop review step before any automatic write touches the
-# temporal layer, and surfaces mergers / updates that ODS has published
-# without anyone having to watch the API manually.
+# Runs the ODS change-detection checks on a monthly schedule and opens a
+# GitHub issue detailing what would change if the sync were applied. This
+# gives the team a human-in-the-loop review step before any automatic write
+# touches the temporal layer, and surfaces mergers / updates that ODS has
+# published without anyone having to watch the API manually.
 #
-# The workflow runs three checks:
-#   1. ODS sync (trusts + organisations) — the /sync endpoint for recent changes.
-#   2. Trust succession backfill — the /organisations/{ods_code} Succs block
-#      for every trust, reporting missing TrustSuccession rows.
-#   3. ICB succession backfill — the /organisations/{ods_code} Succs block
-#      for every ICB, reporting missing IntegratedCareBoardSuccession rows
-#      and missing successor ICBs (e.g. the 2026 ICB reorganisation).
+# The checks must run against the production database, which is only
+# reachable from inside the Azure Container Apps environment, so the actual
+# work happens in an Azure Container Apps Job (named
+# <live-app-name>-ods-check) that uses the same image and runtime secrets as
+# the live app. This workflow is only the scheduler and the issue creator:
 #
-# All three reports are combined into a single GitHub issue so the team has
-# one place to review all ODS-driven changes.
+#   1. Log in to Azure with the federated OIDF credential (no stored secret).
+#   2. Start the Container Apps Job.
+#   3. Wait for the execution to finish.
+#   4. Download the combined report from Azure Blob Storage (the job
+#      uploads it there with its managed identity).
+#   5. Open a GitHub issue if the report is non-empty.
 #
-# For a one-off backfill of up to 185 days of changes, run the cron command
-# manually with --dry-run --report-file (see merger-handling.md).
+# The job runs `python manage.py ods_change_report`, which runs the three
+# dry-run checks (ODS sync, trust successions, ICB successions) and prints
+# the combined report between the markers.
 #
-# See documentation/docs/developer/temporal-history.md for the design.
+# Prerequisites and one-off job setup are documented in
+# documentation/docs/developer/ods-change-detection.md. In particular, the
+# GitHub OIDC identity needs the Storage Blob Data Reader role on the report
+# storage account, and ODS_REPORT_STORAGE_ACCOUNT_NAME must be set as a repo
+# variable.
 
 on:
   schedule:
@@ -29,90 +36,129 @@ on:
   # Allow manual runs from the Actions tab
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+env:
+  AZURE_JOB_NAME: ${{ secrets.AZURE_LIVE_APP_NAME }}-ods-check
+  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  ODS_REPORT_STORAGE_ACCOUNT_NAME: ${{ vars.ODS_REPORT_STORAGE_ACCOUNT_NAME }}
+  ODS_REPORT_CONTAINER_NAME: ods-change-reports
+  ODS_REPORT_BLOB_NAME: ods-change-report.md
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Get date
+        id: date
+        run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
 
-      - name: Build Docker image
-        run: docker build -t ods-detector .
+      - name: Azure Login
+        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Run ODS sync in dry-run mode
+      - name: Start ODS change detection job
+        id: start
         run: |
-          docker run --rm \
-            -v $(pwd):/app \
-            -e NHS_ODS_API_URL=${{ secrets.NHS_ODS_API_URL }} \
-            -e POSTGRES_DB=${{ secrets.ODS_REPORT_POSTGRES_DB }} \
-            -e POSTGRES_USER=${{ secrets.ODS_REPORT_POSTGRES_USER }} \
-            -e POSTGRES_PASSWORD=${{ secrets.ODS_REPORT_POSTGRES_PASSWORD }} \
-            -e POSTGRES_HOST=${{ secrets.ODS_REPORT_POSTGRES_HOST }} \
-            -e POSTGRES_PORT=${{ secrets.ODS_REPORT_POSTGRES_PORT }} \
-            ods-detector python manage.py cron --service organisations --dry-run --report-file ods_changes.md
-
-      - name: Run trust succession backfill in dry-run mode
-        run: |
-          docker run --rm \
-            -v $(pwd):/app \
-            -e NHS_ODS_API_URL=${{ secrets.NHS_ODS_API_URL }} \
-            -e POSTGRES_DB=${{ secrets.ODS_REPORT_POSTGRES_DB }} \
-            -e POSTGRES_USER=${{ secrets.ODS_REPORT_POSTGRES_USER }} \
-            -e POSTGRES_PASSWORD=${{ secrets.ODS_REPORT_POSTGRES_PASSWORD }} \
-            -e POSTGRES_HOST=${{ secrets.ODS_REPORT_POSTGRES_HOST }} \
-            -e POSTGRES_PORT=${{ secrets.ODS_REPORT_POSTGRES_PORT }} \
-            ods-detector python manage.py backfill_successions --entity trust --dry-run > trust_successions.md || true
-
-      - name: Run ICB succession backfill in dry-run mode
-        run: |
-          docker run --rm \
-            -v $(pwd):/app \
-            -e NHS_ODS_API_URL=${{ secrets.NHS_ODS_API_URL }} \
-            -e POSTGRES_DB=${{ secrets.ODS_REPORT_POSTGRES_DB }} \
-            -e POSTGRES_USER=${{ secrets.ODS_REPORT_POSTGRES_USER }} \
-            -e POSTGRES_PASSWORD=${{ secrets.ODS_REPORT_POSTGRES_PASSWORD }} \
-            -e POSTGRES_HOST=${{ secrets.ODS_REPORT_POSTGRES_HOST }} \
-            -e POSTGRES_PORT=${{ secrets.ODS_REPORT_POSTGRES_PORT }} \
-            ods-detector python manage.py backfill_successions --entity icb --dry-run > icb_successions.md || true
-
-      - name: Combine reports
-        id: check
-        run: |
-          # Combine the three reports into a single file. Each section is
-          # only included if the report file is non-empty.
-          echo "" > combined_report.md
-          if [ -s ods_changes.md ]; then
-            echo "## ODS sync changes (trusts + organisations)" >> combined_report.md
-            echo "" >> combined_report.md
-            cat ods_changes.md >> combined_report.md
-            echo "" >> combined_report.md
+          set -eu
+          EXECUTION_NAME=$(az containerapp job start \
+            --name "$AZURE_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query name -o tsv || true)
+          if [ -z "$EXECUTION_NAME" ]; then
+            # Fall back to the newest registered execution (list order is
+            # not guaranteed, so sort by start time).
+            sleep 15
+            EXECUTION_NAME=$(az containerapp job execution list \
+              --name "$AZURE_JOB_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "sort_by(@, &startTime)[-1].name" -o tsv)
           fi
-          if [ -s trust_successions.md ]; then
-            echo "## Trust succession backfill" >> combined_report.md
-            echo "" >> combined_report.md
-            cat trust_successions.md >> combined_report.md
-            echo "" >> combined_report.md
+          if [ -z "$EXECUTION_NAME" ]; then
+            echo "::error::Could not determine the job execution name. Does the job '$AZURE_JOB_NAME' exist in resource group '$AZURE_RESOURCE_GROUP'?"
+            exit 1
           fi
-          if [ -s icb_successions.md ]; then
-            echo "## ICB succession backfill" >> combined_report.md
-            echo "" >> combined_report.md
-            cat icb_successions.md >> combined_report.md
-            echo "" >> combined_report.md
+          echo "execution-name=$EXECUTION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for job execution to finish
+        id: execution
+        run: |
+          set -eu
+          EXECUTION_NAME="${{ steps.start.outputs.execution-name }}"
+          # The job replica timeout is 30 minutes; poll a little past that.
+          STATUS="Unknown"
+          for _ in $(seq 1 70); do
+            STATUS=$(az containerapp job execution show \
+              --name "$AZURE_JOB_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --job-execution-name "$EXECUTION_NAME" \
+              --query status -o tsv)
+            echo "Execution $EXECUTION_NAME status: $STATUS"
+            case "$STATUS" in
+              Succeeded|Failed) break ;;
+            esac
+            sleep 30
+          done
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" != "Succeeded" ]; then
+            echo "::error::ODS change detection job finished with status $STATUS"
+            exit 1
           fi
-          # Check if the combined report has any content beyond the initial
-          # empty line.
-          if [ -s combined_report.md ] && [ $(wc -l < combined_report.md) -gt 1 ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+
+      - name: Download report from blob storage
+        if: success()
+        id: report
+        run: |
+          set -eu
+          az storage blob download \
+            --account-name "$ODS_REPORT_STORAGE_ACCOUNT_NAME" \
+            --container-name "$ODS_REPORT_CONTAINER_NAME" \
+            --name "$ODS_REPORT_BLOB_NAME" \
+            --file ods_report.md \
+            --auth-mode login \
+            --overwrite
+          if [ -s ods_report.md ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Open issue if changes detected
-        if: steps.check.outputs.has_changes == 'true'
+        if: steps.report.outputs.has_changes == 'true'
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "ODS changes detected ($(date +'%Y-%m-%d'))"
-          content-filepath: combined_report.md
+          title: "ODS changes detected (${{ steps.date.outputs.date }})"
+          content-filepath: ods_report.md
           labels: |
             ods-changes
             needs-review
+
+      - name: Prepare failure issue body
+        if: failure()
+        run: |
+          cat > failure.md <<EOF
+          The monthly ODS change-detection run failed.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          The Container Apps job execution either failed or the workflow could
+          not reach it. Check the job logs in the Azure portal (Container Apps
+          environment → Jobs → $AZURE_JOB_NAME → Executions) and re-run the
+          workflow from the Actions tab once resolved.
+          EOF
+
+      - name: Open issue if the check failed
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "ODS change detection failed (${{ steps.date.outputs.date }})"
+          content-filepath: failure.md
+          labels: |
+            ods-changes
+            check-failure
