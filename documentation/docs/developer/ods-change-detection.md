@@ -75,7 +75,7 @@ az containerapp show \
 #    needs pull credentials — prefer a managed identity with the AcrPull
 #    role over registry admin credentials.
 az containerapp job create \
-    --name <live-app-name>-ods-check \
+    --name ods-change-detection \
     --resource-group <resource-group> \
     --environment <container-apps-environment> \
     --image <registry>.azurecr.io/<live-app-name>-django:<current-live-sha> \
@@ -99,6 +99,11 @@ plus the report upload vars `ODS_REPORT_STORAGE_ACCOUNT_NAME` (required),
 `ODS_REPORT_BLOB_NAME` (default `ods-change-report.md`). HTTP-only settings
 (`DJANGO_ALLOWED_HOSTS`, CSRF origins) are irrelevant to a job.
 
+> **Note:** Container Apps secrets and env vars are scoped per app/job —
+> they are **not** shared across a Container Apps environment. The job needs
+> its own copy of every value; the commands above read them from the live
+> app so nothing is retyped.
+
 Prerequisites:
 
 - **A storage account for the report** — the job uploads the combined report
@@ -110,6 +115,11 @@ Prerequisites:
   managed identity the `AcrPull` role on the registry and pass it via
   `--registry-identity`, or use registry admin credentials via
   `--registry-username` / `--registry-password`.
+- **The GitHub OIDC identity needs job permissions** — the workflow starts
+  and monitors the job and `s/ci` updates its image, so the identity behind
+  `AZURE_CLIENT_ID` needs the **Container Apps Jobs Contributor** role,
+  scoped to the job (or its resource group). Without it the workflow fails
+  with `AuthorizationFailed` on `Microsoft.App/jobs/start/action`.
 - The job is triggered `Manual` and started by the GitHub workflow — the
   schedule lives in `ods-change-detection.yml`, not in Azure.
 
@@ -125,12 +135,12 @@ than failing.
 ```bash
 # Start the job on demand (e.g. after a suspected ODS incident)
 az containerapp job start \
-    --name <live-app-name>-ods-check \
+    --name ods-change-detection \
     --resource-group <resource-group>
 
 # Follow the execution status
 az containerapp job execution list \
-    --name <live-app-name>-ods-check \
+    --name ods-change-detection \
     --resource-group <resource-group> -o table
 ```
 
@@ -143,5 +153,5 @@ Or use the **Run workflow** button on the
 |---|---|
 | Workflow fails at "Download report from blob storage" | Missing `Storage Blob Data Reader` role for the GitHub OIDC identity, or the `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is not set. |
 | Job log shows "skipping report upload" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job. |
-| Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `<live-app-name>-ods-check`. |
+| Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `ods-change-detection`. |
 | "ODS change detection failed" issue | One of the three checks raised — the `Check failures` section of the job's stdout names the check and the error. |
