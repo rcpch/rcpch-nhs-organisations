@@ -26,6 +26,7 @@ is served by MkDocs. The most important docs:
 | `temporal-history.md` | The temporal layer schema (Layer 1 version tables, Layer 2 membership tables, Layer 3 succession tables), write/read paths, admin interface, and the GitHub Action. |
 | `merger-handling.md` | Trust and PDU merger types (acquisition, full merger, split, closure), the forward-looking admin workflow, and the `mergers` command. |
 | `backfill.md` | ODS-driven trust backfill (`backfill_successions`, `backfill_trust_memberships`), the `backfill_*` helpers, and `KNOWN_ACQUISITIONS`. |
+| `ods-change-detection.md` | The monthly ODS change-detection job (Azure Container Apps Job + GitHub workflow), `ods_change_report`, and the one-off job setup. |
 | `pdu-history.md` | PDU history backfill from `Master_PDU_Lookup.xlsx` (`backfill_pdu_successions`). |
 | `icb-history.md` | ICB succession backfill from the ODS API (`backfill_successions --entity icb`). |
 | `ods-api.md` | The NHS ODS REST API reference — endpoints, `Rels`/`Succs` block semantics, the 185-day limit. |
@@ -135,6 +136,7 @@ All commands are in `rcpch_nhs_organisations/hospitals/management/commands/`.
 | `backfill_icb_memberships [--dry-run] [--yes]` | Backfill `TrustIntegratedCareBoardMembership` rows from the ODS `Rels` block (RE5/RE8 → RO261). |
 | `backfill_pdu_lead_organisations [--dry-run] [--yes]` | Set `lead_organisation` FK and `name_source` on PDUs. |
 | `backfill_pdu_successions [--dry-run] [--yes]` | Backfill PDU history from `Master_PDU_Lookup.xlsx` (via generated constants). |
+| `ods_change_report` | Run all three ODS change-detection dry-run checks and print a combined report between sentinel markers (used by the Container Apps job). |
 
 ## Scripts
 
@@ -190,6 +192,7 @@ All tests live in `rcpch_nhs_organisations/hospitals/tests/`. There are
 | `test_backfill_icb_successions.py` | `backfill_successions --entity icb`. |
 | `test_backfill_icb_memberships.py` | `backfill_icb_memberships`. |
 | `test_backfill_pdu_successions.py` | `backfill_pdu_successions`. |
+| `test_ods_change_report.py` | `ods_change_report` (combined change-detection report) and the `--report-file` flag on `backfill_successions`. |
 | `test_viewsets.py` | API viewset smoke tests. |
 
 ### ODS API mocking
@@ -238,7 +241,7 @@ truth for seeding and backfill:
 
 | Workflow | Schedule | What it does |
 |---|---|---|
-| `ods-change-detection.yml` | Monthly (1st of month) | Runs three dry-run checks (ODS sync, trust successions, ICB successions) and opens a GitHub issue if changes are detected. |
+| `ods-change-detection.yml` | Monthly (1st of month) | Starts the Azure Container Apps ODS check job (which runs the three dry-run checks against the production DB) and opens a GitHub issue if changes are detected. |
 | `main_rcpch-nhs-organisations.yml` | On push/PR | CI — builds and tests. |
 | `pr.yml` | On PR | PR checks. |
 
