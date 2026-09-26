@@ -177,6 +177,14 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "UK NHS Organisations responsible for children's health, as a service.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Inject the APIM subscription key as an OpenAPI security scheme so
+    # Swagger UI shows an Authorize button and sends the key on Try it out.
+    # The hook is a no-op when the request did not come through APIM (no
+    # X-Forwarded-Prefix header), so local dev / raw Azure URL show no locks.
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "rcpch_nhs_organisations.openapi_hooks.add_apim_subscription_key_security",
+    ],
     "SWAGGER_UI_FAVICON_HREF": STATIC_URL
     + "rcpch-logo.jpg",  # default is swagger favicon
     # Group endpoints into ordered, capitalised sections in Swagger UI.

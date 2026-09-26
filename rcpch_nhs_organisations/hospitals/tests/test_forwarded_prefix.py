@@ -207,3 +207,49 @@ def test_prefix_change_between_requests(api_client):
     r3 = api_client.get("/")
     assert "/foo/v1" not in r3.json()["trusts"]
     assert "/bar/v2" not in r3.json()["trusts"]
+
+
+# -----------------------------------------------------------------------------
+# OpenAPI security scheme (APIM subscription key)
+# -----------------------------------------------------------------------------
+
+
+def test_schema_has_no_security_scheme_without_header(api_client):
+    """Without the APIM header, the spec has no subscription-key security scheme."""
+    response = api_client.get("/schema/")
+    assert response.status_code == 200
+    schema = response.json()
+    security_schemes = schema.get("components", {}).get("securitySchemes", {})
+    assert "OcpApimSubscriptionKey" not in security_schemes
+    assert "security" not in schema or schema["security"] == []
+
+
+def test_schema_has_apim_security_scheme_with_header(api_client):
+    """Through APIM, the spec declares the subscription-key security scheme."""
+    response = api_client.get(
+        "/schema/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1",
+    )
+    assert response.status_code == 200
+    schema = response.json()
+    schemes = schema.get("components", {}).get("securitySchemes", {})
+    assert "OcpApimSubscriptionKey" in schemes
+    scheme = schemes["OcpApimSubscriptionKey"]
+    assert scheme["type"] == "apiKey"
+    assert scheme["in"] == "header"
+    assert scheme["name"] == "Ocp-Apim-Subscription-Key"
+    # Global security requirement is set.
+    assert schema.get("security") == [{"OcpApimSubscriptionKey": []}]
+
+
+def test_security_scheme_does_not_leak_between_requests(api_client):
+    """A proxied schema request must not leave the security scheme on the next."""
+    api_client.get(
+        "/schema/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1",
+    )
+    response = api_client.get("/schema/")
+    schema = response.json()
+    assert "OcpApimSubscriptionKey" not in schema.get("components", {}).get(
+        "securitySchemes", {}
+    )
