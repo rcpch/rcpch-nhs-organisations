@@ -13,6 +13,7 @@ from .views import (
     PaediatricDiabetesUnitViewSet,
     PaediatricDiabetesUnitForOrganisationWithParentViewSet,
     TrustViewSet,
+    DocsRedirectView,
 )
 
 from drf_spectacular.views import SpectacularJSONAPIView, SpectacularSwaggerView
@@ -97,6 +98,9 @@ router.register(
     basename="paediatric_diabetes_unit",
 )
 drf_routes = [
+    # Docs API base URL redirect (only active behind APIM).
+    # Mounted before the router's "" include so it takes precedence.
+    path("docs/", DocsRedirectView.as_view(), name="docs_redirect"),
     # rest framework paths
     path("", include(router.urls)),
     # JSON Schema

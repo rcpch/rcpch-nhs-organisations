@@ -253,3 +253,81 @@ def test_security_scheme_does_not_leak_between_requests(api_client):
     assert "OcpApimSubscriptionKey" not in schema.get("components", {}).get(
         "securitySchemes", {}
     )
+
+
+# -----------------------------------------------------------------------------
+# OpenAPI servers field (points Swagger UI "Try it out" at the data API)
+# -----------------------------------------------------------------------------
+
+
+def test_schema_has_no_servers_without_header(api_client):
+    """Without the APIM header, the spec has no servers field (drf-spectacular default)."""
+    response = api_client.get("/schema/")
+    assert response.status_code == 200
+    schema = response.json()
+    # drf-spectacular emits no servers by default.
+    assert not schema.get("servers")
+
+
+def test_schema_servers_points_at_data_api_with_header(api_client, settings):
+    """Through APIM, servers[0].url is the data API prefix on the forwarded host."""
+    settings.ALLOWED_HOSTS = ["*"]
+    response = api_client.get(
+        "/schema/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1/docs",
+        HTTP_X_FORWARDED_HOST="api.rcpch.ac.uk",
+        HTTP_X_FORWARDED_PROTO="https",
+    )
+    assert response.status_code == 200
+    schema = response.json()
+    servers = schema.get("servers", [])
+    assert servers, "expected a servers entry"
+    # The server URL must point at the data API prefix, NOT the docs prefix.
+    assert servers[0]["url"] == "https://api.rcpch.ac.uk/nhs-organisations/v1"
+    assert "/docs" not in servers[0]["url"]
+
+
+def test_servers_does_not_leak_between_requests(api_client, settings):
+    """A proxied schema request must not leave servers set on the next."""
+    settings.ALLOWED_HOSTS = ["*"]
+    api_client.get(
+        "/schema/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1/docs",
+        HTTP_X_FORWARDED_HOST="api.rcpch.ac.uk",
+        HTTP_X_FORWARDED_PROTO="https",
+    )
+    response = api_client.get("/schema/")
+    schema = response.json()
+    assert not schema.get("servers")
+
+
+# -----------------------------------------------------------------------------
+# Docs API base URL redirect
+# -----------------------------------------------------------------------------
+
+
+def test_docs_redirect_404_without_header(api_client):
+    """Without the APIM header, /docs/ 404s so it doesn't shadow the DRF root."""
+    response = api_client.get("/docs/")
+    assert response.status_code == 404
+
+
+def test_docs_redirects_to_github_pages_with_header(api_client):
+    """Through APIM, /docs/ 301-redirects to the GitHub Pages docs site."""
+    response = api_client.get(
+        "/docs/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1/docs",
+    )
+    assert response.status_code == 301
+    assert response["Location"] == "https://rcpch.github.io/rcpch-nhs-organisations/"
+
+
+def test_docs_redirect_uses_setting(api_client, settings):
+    """The redirect target is configurable via APIM_DOCS_REDIRECT_URL."""
+    settings.APIM_DOCS_REDIRECT_URL = "https://example.com/docs/"
+    response = api_client.get(
+        "/docs/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1/docs",
+    )
+    assert response.status_code == 301
+    assert response["Location"] == "https://example.com/docs/"
