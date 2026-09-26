@@ -15,7 +15,6 @@ import datetime
 
 import pytest
 from django.apps import apps
-from django.contrib.gis.geos import MultiPolygon, Polygon
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -30,8 +29,39 @@ OrganisationVersion = apps.get_model("hospitals", "OrganisationVersion")
 OrganisationTrustMembership = apps.get_model(
     "hospitals", "OrganisationTrustMembership"
 )
+OrganisationTrustMembership = apps.get_model(
+    "hospitals", "OrganisationTrustMembership"
+)
 OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
 Trust = apps.get_model("hospitals", "Trust")
+TrustVersion = apps.get_model("hospitals", "TrustVersion")
+LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
+LocalHealthBoardVersion = apps.get_model("hospitals", "LocalHealthBoardVersion")
+IntegratedCareBoard = apps.get_model("hospitals", "IntegratedCareBoard")
+IntegratedCareBoardVersion = apps.get_model("hospitals", "IntegratedCareBoardVersion")
+OrganisationLocalHealthBoardMembership = apps.get_model(
+    "hospitals", "OrganisationLocalHealthBoardMembership"
+)
+OrganisationIntegratedCareBoardMembership = apps.get_model(
+    "hospitals", "OrganisationIntegratedCareBoardMembership"
+)
+
+
+def _square_geom(easting, northing, side=200):
+    """Build a small square MultiPolygon for boundary field fixtures."""
+    from django.contrib.gis.geos import MultiPolygon, Polygon
+
+    return MultiPolygon(
+        Polygon(
+            (
+                (easting - side / 2, northing + side / 2),
+                (easting - side / 2, northing - side / 2),
+                (easting + side / 2, northing - side / 2),
+                (easting + side / 2, northing + side / 2),
+                (easting - side / 2, northing + side / 2),
+            )
+        )
+    )
 
 
 @pytest.fixture
@@ -253,3 +283,295 @@ def test_snapshot_walks_succession_chain_to_predecessor(
     assert data["predecessor_ods_code"] == "RYQ30"
     assert data["address1"] == "Old Address"
     assert data["trust"]["ods_code"] == "RAA"
+
+
+@pytest.fixture
+def trust_with_rename(trust_a):
+    """Trust A (RAA) was named 'Old Trust Name' until 2021-10-01, then renamed
+    to 'Trust A'. TrustVersion rows cover both periods — the kind of history
+    that backfill_successions / backfill_*_attributes produce for renamed
+    trusts (e.g. RM3 Salford Royal → Northern Care Alliance on 2021-10-01)."""
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=datetime.date(2021, 10, 1),
+        name="Old Trust Name",
+        active=True,
+    )
+    TrustVersion.objects.create(
+        trust=trust_a,
+        valid_from=datetime.date(2021, 10, 1),
+        valid_to=None,
+        name="Trust A",
+        active=True,
+    )
+    return trust_a
+
+
+@pytest.fixture
+def org_under_renamed_trust(trust_with_rename):
+    """An organisation continuously under RAA from 2001, so its snapshot can
+    be queried on both sides of the trust's 2021-10-01 rename."""
+    org = Organisation.objects.create(
+        ods_code="RAA01",
+        name="Some Hospital",
+        active=True,
+        trust=trust_with_rename,
+    )
+    OrganisationVersion.objects.create(
+        organisation=org,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=None,
+        name="Some Hospital",
+        active=True,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=org,
+        trust=trust_with_rename,
+        valid_from=datetime.date(2001, 4, 1),
+        valid_to=None,
+    )
+    return org
+
+
+@pytest.mark.django_db
+def test_snapshot_returns_historical_trust_name_before_rename(
+    api_client, org_under_renamed_trust
+):
+    """The parent trust's name comes from TrustVersion as-of the snapshot date,
+    so a date before the rename returns the historical name, not the current
+    Trust.name."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RAA01"})
+    response = api_client.get(url, {"date": "2021-06-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["trust"]["ods_code"] == "RAA"
+    assert data["trust"]["name"] == "Old Trust Name"
+
+
+@pytest.mark.django_db
+def test_snapshot_returns_current_trust_name_after_rename(
+    api_client, org_under_renamed_trust
+):
+    """After the rename date, the TrustVersion row carries the new name."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RAA01"})
+    response = api_client.get(url, {"date": "2022-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["trust"]["ods_code"] == "RAA"
+    assert data["trust"]["name"] == "Trust A"
+
+
+@pytest.mark.django_db
+def test_snapshot_trust_name_falls_back_to_current_when_no_version(
+    api_client, organisation_with_history
+):
+    """When no TrustVersion row covers the date (e.g. a trust with only the
+    baseline row, or no version history at all), the snapshot falls back to the
+    current Trust.name rather than returning None — preserving prior behaviour."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RAA01"})
+    response = api_client.get(url, {"date": "2022-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    # At 2022-01-01 the org is still under trust_a, which has no TrustVersion
+    # rows in this fixture, so the name falls back to the current Trust.name.
+    assert data["trust"]["ods_code"] == "RAA"
+    assert data["trust"]["name"] == "Trust A"
+
+
+# ---------------------------------------------------------------------------
+# Local Health Board name history
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def lhb_with_rename():
+    """A LocalHealthBoard (WAL) named 'Old LHB Name' until 2019-04-01, then
+    renamed to 'New LHB Name'. Mirrors the trust-rename fixture. Welsh LHBs
+    are parents of Welsh organisations; LHB version history is populated by
+    backfill_*_attributes / admin backfill actions."""
+    lhb = LocalHealthBoard.objects.create(
+        ods_code="WAL",
+        boundary_identifier="W11000023",
+        name="New LHB Name",
+        welsh_name="Enw Cymraeg",
+        bng_e=300000,
+        bng_n=300000,
+        long=-3.0,
+        lat=52.0,
+        globalid="guid",
+        geom=_square_geom(300000, 300000),
+        publication_date=datetime.date(2003, 4, 1),
+    )
+    LocalHealthBoardVersion.objects.create(
+        local_health_board=lhb,
+        valid_from=datetime.date(2003, 4, 1),
+        valid_to=datetime.date(2019, 4, 1),
+        name="Old LHB Name",
+        welsh_name="Hen Enw",
+        publication_date=datetime.date(2003, 4, 1),
+    )
+    LocalHealthBoardVersion.objects.create(
+        local_health_board=lhb,
+        valid_from=datetime.date(2019, 4, 1),
+        valid_to=None,
+        name="New LHB Name",
+        welsh_name="Enw Cymraeg",
+        publication_date=datetime.date(2003, 4, 1),
+    )
+    return lhb
+
+
+@pytest.fixture
+def org_under_renamed_lhb(lhb_with_rename):
+    """A Welsh organisation continuously under WAL (the renamed LHB)."""
+    org = Organisation.objects.create(
+        ods_code="WAL01",
+        name="Some Welsh Hospital",
+        active=True,
+        local_health_board=lhb_with_rename,
+    )
+    OrganisationVersion.objects.create(
+        organisation=org,
+        valid_from=datetime.date(2003, 4, 1),
+        valid_to=None,
+        name="Some Welsh Hospital",
+        active=True,
+    )
+    OrganisationLocalHealthBoardMembership.objects.create(
+        organisation=org,
+        local_health_board=lhb_with_rename,
+        valid_from=datetime.date(2003, 4, 1),
+        valid_to=None,
+    )
+    return org
+
+
+@pytest.mark.django_db
+def test_snapshot_returns_historical_lhb_name_before_rename(
+    api_client, org_under_renamed_lhb
+):
+    """The parent LHB's name comes from LocalHealthBoardVersion as-of the
+    snapshot date, so a date before the rename returns the historical name."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "WAL01"})
+    response = api_client.get(url, {"date": "2018-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["local_health_board"]["ods_code"] == "WAL"
+    assert data["local_health_board"]["name"] == "Old LHB Name"
+
+
+@pytest.mark.django_db
+def test_snapshot_returns_current_lhb_name_after_rename(
+    api_client, org_under_renamed_lhb
+):
+    """After the rename date, the LocalHealthBoardVersion row carries the new
+    name."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "WAL01"})
+    response = api_client.get(url, {"date": "2020-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["local_health_board"]["ods_code"] == "WAL"
+    assert data["local_health_board"]["name"] == "New LHB Name"
+
+
+# ---------------------------------------------------------------------------
+# ICB name history
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def icb_with_rename():
+    """An IntegratedCareBoard (QRL) named 'Old ICB Name' until 2026-04-01, then
+    renamed to 'New ICB Name'. ICB version history is populated by
+    backfill_successions --entity icb / backfill_*_attributes."""
+    icb = IntegratedCareBoard.objects.create(
+        ods_code="QRL",
+        name="New ICB Name",
+        publication_date=datetime.date(2017, 4, 1),
+    )
+    IntegratedCareBoardVersion.objects.create(
+        integrated_care_board=icb,
+        valid_from=datetime.date(2017, 4, 1),
+        valid_to=datetime.date(2026, 4, 1),
+        name="Old ICB Name",
+        publication_date=datetime.date(2017, 4, 1),
+    )
+    IntegratedCareBoardVersion.objects.create(
+        integrated_care_board=icb,
+        valid_from=datetime.date(2026, 4, 1),
+        valid_to=None,
+        name="New ICB Name",
+        publication_date=datetime.date(2017, 4, 1),
+    )
+    return icb
+
+
+@pytest.fixture
+def org_under_renamed_icb(icb_with_rename):
+    """An organisation continuously under QRL (the renamed ICB)."""
+    org = Organisation.objects.create(
+        ods_code="QRL01",
+        name="Some Hospital",
+        active=True,
+        integrated_care_board=icb_with_rename,
+    )
+    OrganisationVersion.objects.create(
+        organisation=org,
+        valid_from=datetime.date(2017, 4, 1),
+        valid_to=None,
+        name="Some Hospital",
+        active=True,
+    )
+    OrganisationIntegratedCareBoardMembership.objects.create(
+        organisation=org,
+        integrated_care_board=icb_with_rename,
+        valid_from=datetime.date(2017, 4, 1),
+        valid_to=None,
+    )
+    return org
+
+
+@pytest.mark.django_db
+def test_snapshot_returns_historical_icb_name_before_rename(
+    api_client, org_under_renamed_icb
+):
+    """The parent ICB's name comes from IntegratedCareBoardVersion as-of the
+    snapshot date, so a date before the rename returns the historical name."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "QRL01"})
+    response = api_client.get(url, {"date": "2024-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["integrated_care_board"]["ods_code"] == "QRL"
+    assert data["integrated_care_board"]["name"] == "Old ICB Name"
+
+
+@pytest.mark.django_db
+def test_snapshot_returns_current_icb_name_after_rename(
+    api_client, org_under_renamed_icb
+):
+    """After the rename date, the IntegratedCareBoardVersion row carries the
+    new name."""
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "QRL01"})
+    response = api_client.get(url, {"date": "2027-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["integrated_care_board"]["ods_code"] == "QRL"
+    assert data["integrated_care_board"]["name"] == "New ICB Name"
+
+
+@pytest.mark.django_db
+def test_snapshot_lhb_and_icb_name_fall_back_to_current_when_no_version(
+    api_client, organisation_with_history
+):
+    """When no *Version row covers the date for the parent LHB or ICB, the
+    snapshot falls back to the current entity.name — preserving prior behaviour
+    for entities with only the baseline row (or no version history at all)."""
+    # organisation_with_history's org has no LHB or ICB set, so this confirms
+    # the None-guard path: a missing parent returns None rather than crashing.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RAA01"})
+    response = api_client.get(url, {"date": "2022-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["local_health_board"] is None
+    assert data["integrated_care_board"] is None

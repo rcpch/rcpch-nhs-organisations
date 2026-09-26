@@ -94,6 +94,24 @@ def organisation_snapshot(organisation, on_date):
     openuk_network = _parent(resolved.openuk_network_memberships, "openuk_network")
     paediatric_diabetes_unit = _parent(resolved.paediatric_diabetes_unit_memberships, "paediatric_diabetes_unit")
 
+    # Parent entity names are read from their *Version rows as-of the snapshot
+    # date, not the denormalised entity row, so a pre-rename date returns the
+    # historical name (e.g. "Salford Royal" before 2021-10-01, not the current
+    # "Northern Care Alliance"). Each falls back to the current entity.name
+    # when no version row covers the date (e.g. before the baseline migration,
+    # or an entity with no version history at all).
+    trust_version = _as_of(trust.versions, on_date).first() if trust else None
+    lhb_version = (
+        _as_of(local_health_board.versions, on_date).first()
+        if local_health_board
+        else None
+    )
+    icb_version = (
+        _as_of(integrated_care_board.versions, on_date).first()
+        if integrated_care_board
+        else None
+    )
+
     return {
         "ods_code": resolved.ods_code,
         "snapshot_date": on_date.isoformat(),
@@ -111,15 +129,23 @@ def organisation_snapshot(organisation, on_date):
         "published_at": version.published_at.isoformat() if version.published_at else None,
         "trust": {
             "ods_code": trust.ods_code,
-            "name": trust.name,
+            "name": trust_version.name if trust_version is not None else trust.name,
         } if trust else None,
         "local_health_board": {
             "ods_code": local_health_board.ods_code,
-            "name": local_health_board.name,
+            "name": (
+                lhb_version.name
+                if lhb_version is not None
+                else local_health_board.name
+            ),
         } if local_health_board else None,
         "integrated_care_board": {
             "ods_code": integrated_care_board.ods_code,
-            "name": integrated_care_board.name,
+            "name": (
+                icb_version.name
+                if icb_version is not None
+                else integrated_care_board.name
+            ),
         } if integrated_care_board else None,
         "nhs_england_region": {
             "region_code": nhs_england_region.region_code,
