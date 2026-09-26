@@ -42,8 +42,8 @@ permissions:
   issues: write
 
 env:
-  AZURE_JOB_NAME: ${{ secrets.AZURE_LIVE_APP_NAME }}-ods-check
-  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  AZURE_JOB_NAME: ods-change-detection
+  AZURE_JOB_RESOURCE_GROUP: RCPCH-Dev-AuditTools
   ODS_REPORT_STORAGE_ACCOUNT_NAME: ${{ vars.ODS_REPORT_STORAGE_ACCOUNT_NAME }}
   ODS_REPORT_CONTAINER_NAME: ods-change-reports
   ODS_REPORT_BLOB_NAME: ods-change-report.md
@@ -69,7 +69,7 @@ jobs:
           set -eu
           EXECUTION_NAME=$(az containerapp job start \
             --name "$AZURE_JOB_NAME" \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
             --query name -o tsv || true)
           if [ -z "$EXECUTION_NAME" ]; then
             # Fall back to the newest registered execution (list order is
@@ -77,7 +77,7 @@ jobs:
             sleep 15
             EXECUTION_NAME=$(az containerapp job execution list \
               --name "$AZURE_JOB_NAME" \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
               --query "sort_by(@, &startTime)[-1].name" -o tsv)
           fi
           if [ -z "$EXECUTION_NAME" ]; then
@@ -96,7 +96,7 @@ jobs:
           for _ in $(seq 1 70); do
             STATUS=$(az containerapp job execution show \
               --name "$AZURE_JOB_NAME" \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
               --job-execution-name "$EXECUTION_NAME" \
               --query status -o tsv)
             echo "Execution $EXECUTION_NAME status: $STATUS"

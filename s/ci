@@ -21,12 +21,12 @@ az containerapp update \
 # documentation/docs/developer/ods-change-detection.md); if it does not exist
 # yet, skip rather than fail the deploy.
 if az containerapp job show \
-    --name ${AZURE_LIVE_APP_NAME}-ods-check \
-    --resource-group ${AZURE_RESOURCE_GROUP} > /dev/null 2>&1
+    --name ods-change-detection \
+    --resource-group RCPCH-Dev-AuditTools > /dev/null 2>&1
 then
     az containerapp job update \
-        --name ${AZURE_LIVE_APP_NAME}-ods-check \
-        --resource-group ${AZURE_RESOURCE_GROUP} \
+        --name ods-change-detection \
+        --resource-group RCPCH-Dev-AuditTools \
         --image ${azure_tag} \
         --query 'properties.provisioningState'
 else
