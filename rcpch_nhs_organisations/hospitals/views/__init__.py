@@ -9,3 +9,4 @@ from .organisation import *
 from .paediatric_diabetes_unit import *
 from .snapshot import OrganisationSnapshotView
 from .trust import *
+from .docs_redirect import DocsRedirectView

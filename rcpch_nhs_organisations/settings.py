@@ -47,6 +47,16 @@ CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Azure API Management (APIM) configuration.
+# The API is served behind APIM with two APIs: a data API (subscription
+# required) at APIM_DATA_API_PREFIX and a docs API (subscription off) at a
+# /docs sub-suffix. See documentation/docs/developer/behind-apim.md.
+APIM_DATA_API_PREFIX = os.getenv("APIM_DATA_API_PREFIX", "/nhs-organisations/v1")
+# Where the docs API base URL redirects to (the project documentation site).
+APIM_DOCS_REDIRECT_URL = os.getenv(
+    "APIM_DOCS_REDIRECT_URL", "https://rcpch.github.io/rcpch-nhs-organisations/"
+)
+
 
 # Application definition
 
@@ -184,6 +194,7 @@ SPECTACULAR_SETTINGS = {
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
         "rcpch_nhs_organisations.openapi_hooks.add_apim_subscription_key_security",
+        "rcpch_nhs_organisations.openapi_hooks.set_servers_to_data_api",
     ],
     "SWAGGER_UI_FAVICON_HREF": STATIC_URL
     + "rcpch-logo.jpg",  # default is swagger favicon
