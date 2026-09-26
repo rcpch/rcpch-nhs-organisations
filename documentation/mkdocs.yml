@@ -147,6 +147,7 @@ nav:
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
     - 'developer/seeding.md'
+    - 'developer/behind-apim.md'
     - 'developer/database_maintenance.md'
     - 'developer/testing.md'
     - 'developer/contributing.md'

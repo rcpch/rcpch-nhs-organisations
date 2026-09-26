@@ -67,6 +67,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Outermost so that SCRIPT_NAME/PATH_INFO are fixed up before
+    # CommonMiddleware's APPEND_SLASH redirect and every URL is generated.
+    # No-op when X-Forwarded-Prefix is absent (local dev, raw Azure URL).
+    "rcpch_nhs_organisations.middleware.ForwardedPrefixMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
