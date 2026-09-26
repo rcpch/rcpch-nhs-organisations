@@ -179,6 +179,7 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
+    "DEFAULT_CONTENT_NEGOTIATION_CLASS": "rcpch_nhs_organisations.negotiation.APIMAwareContentNegotiation",
 }
 
 # drf-spectacular schema settings

@@ -71,6 +71,14 @@ class ForwardedPrefixMiddleware:
         request.META["SCRIPT_NAME"] = prefix
         request.path = prefix + path_info
 
+        # Disable the DRF browsable API when behind APIM. Its CSS/JS are
+        # served from the unprefixed /static/ path, which 404s through APIM
+        # (no /static operation on the docs API), so the page renders
+        # unstyled. Swagger UI (CDN-hosted assets) is the interactive surface
+        # through APIM; the browsable API remains available on the raw Azure
+        # URL and in local dev where the header is absent.
+        request._apim_proxied = True
+
         # set_script_prefix is thread-local; restore it afterwards so the
         # prefix does not leak beyond this request.
         previous = get_script_prefix()

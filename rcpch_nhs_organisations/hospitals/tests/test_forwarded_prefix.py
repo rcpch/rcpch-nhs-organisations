@@ -331,3 +331,37 @@ def test_docs_redirect_uses_setting(api_client, settings):
     )
     assert response.status_code == 301
     assert response["Location"] == "https://example.com/docs/"
+
+
+# -----------------------------------------------------------------------------
+# Browsable API renderer disabled behind APIM
+# -----------------------------------------------------------------------------
+
+
+def test_browsable_api_available_without_header(api_client):
+    """Without the APIM header, the browsable API HTML is served."""
+    # The DRF API root supports both renderers and needs no DB.
+    response = api_client.get("/", HTTP_ACCEPT="text/html")
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/html")
+
+
+def test_browsable_api_disabled_with_header(api_client):
+    """Through APIM, the browsable API is disabled and JSON is served."""
+    # No explicit Accept header — DRF defaults to the first renderer (JSON).
+    response = api_client.get(
+        "/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1",
+    )
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("application/json")
+
+
+def test_browsable_api_html_request_406_with_header(api_client):
+    """Through APIM, an explicit text/html request is not acceptable (406)."""
+    response = api_client.get(
+        "/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1",
+        HTTP_ACCEPT="text/html",
+    )
+    assert response.status_code == 406

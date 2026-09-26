@@ -73,9 +73,14 @@ so Django matches first time without a 301 redirect:
 
 | Operation | Per-operation inbound policy |
 |---|---|
-| `/` | `<rewrite-uri template="/" />` |
+| `/` | `<rewrite-uri template="/docs/" />` |
 | `/schema` | `<rewrite-uri template="/schema/" />` |
 | `/swagger-ui` | `<rewrite-uri template="/swagger-ui/" />` |
+
+The `/` operation rewrites to `/docs/` (not `/`) so Django matches the
+`docs/` route (the `DocsRedirectView`) rather than the DRF router root at
+`""`. Without this, `/docs` would serve the DRF browsable API root instead
+of redirecting to GitHub Pages.
 
 API-level inbound policy (note the **docs** prefix value):
 
@@ -159,6 +164,20 @@ on GitHub Pages (configurable via `APIM_DOCS_REDIRECT_URL`, default
 
 Without the header (raw Azure URL, local dev), the view returns 404 so it
 does not shadow the normal DRF root at `/`.
+
+### 7. Django — browsable API disabled behind APIM
+
+`rcpch_nhs_organisations/negotiation.py` defines
+`APIMAwareContentNegotiation`, wired in as `DEFAULT_CONTENT_NEGOTIATION_CLASS`.
+When the request came through APIM (`request._apim_proxied` set by the
+middleware), the `BrowsableAPIRenderer` is dropped from the candidate list
+so DRF serves JSON only.
+
+The browsable API loads CSS/JS from the unprefixed `/static/` path, which
+404s through APIM (no `/static` operation on the docs API), so the page would
+render unstyled. Swagger UI (which loads its assets from a CDN) is the
+interactive surface through APIM. The browsable API remains available on the
+raw Azure URL and in local dev where the header is absent.
 
 ## Will this break development?
 
