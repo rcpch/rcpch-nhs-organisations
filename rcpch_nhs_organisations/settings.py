@@ -38,9 +38,20 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 if os.getenv("WEBSITE_SITE_NAME"):
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+    # Strip whitespace from each host — env vars often pick up trailing
+    # spaces (e.g. "api.rcpch.ac.uk "), which break Django's exact-match
+    # host validation.
+    ALLOWED_HOSTS = [
+        host.strip()
+        for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+        if host.strip()
+    ]
 
-CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 # Enables Django to use the X-Forwarded-Host header in preference to the Host header.
 # Fixes CSRF errors when using Caddy to forward requests to Django.
