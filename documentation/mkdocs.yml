@@ -20,7 +20,7 @@ site_dir: site
 
 # theme settings, fonts, colours
 theme:
-  favicon: _assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg
+  favicon: _assets/_images/incubator_square.png
   name: material
   #custom_dir: rcpch-theme
   features:
@@ -48,7 +48,7 @@ theme:
     code: Roboto Mono
 
   # favicon: _assets/_images/dynamic-child-favicon.png
-  logo: _assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg
+  logo: _assets/_images/incubator_square.png
 
 # mkdocs plugins
 plugins:

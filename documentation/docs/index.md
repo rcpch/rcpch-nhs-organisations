@@ -20,12 +20,6 @@ They are though open to anyone and do not require authentication.
 
 The project is dockerised, and has containers for [Postgresql](https://www.postgresql.org/)/postgis and django. This documentation is also in a separate container and built with [MkDocs](https://www.mkdocs.org/)
 
-<p align="center">
-    <p align="center">
-    <img src='../docs/_assets/_images/rcpch-logo-mobile.4d5b446caf9a.svg' alt='RCPCH Logo'>
-    </p>
-</p>
-
 ## Why is it needed?
 
 The [NHS Digital](https://digital.nhs.uk/services/spine) publishes all NHS Organisational data exhaustively - this project is not intended to replace it. There is a need though for RCPCH to be able to provide lists of organisations that care for children or are responsible for children's health, to inform research, audit and clinical practice. The project will build and maintain lists of these organisations and their relationships with each other, where possible maintaining the structure already provided by NHS Digital. It is a work in progress.
