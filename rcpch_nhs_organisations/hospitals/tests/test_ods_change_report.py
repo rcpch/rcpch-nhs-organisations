@@ -129,13 +129,46 @@ def _extract_report(output):
     return output[start:end]
 
 
+@pytest.fixture
+def mock_blob_upload(monkeypatch):
+    """Mock the Azure Blob upload so tests that focus on report content don't
+    need a real storage account or the azure SDK installed.
+
+    Sets ODS_REPORT_STORAGE_ACCOUNT_NAME and replaces BlobClient /
+    DefaultAzureCredential with no-op fakes. Tests that exercise the real
+    upload path (test_report_uploaded_to_blob) do not use this fixture.
+    """
+    try:
+        from azure import identity as azure_identity
+        from azure.storage import blob as azure_blob
+    except ImportError:
+        # If the azure packages aren't installed, stub out the modules the
+        # command imports lazily so _upload_report can still run.
+        import sys
+        import types
+        azure_identity = types.ModuleType("azure.identity")
+        azure_identity.DefaultAzureCredential = lambda: "credential"
+        azure_blob = types.ModuleType("azure.storage.blob")
+        azure_blob.BlobClient = lambda **kw: type(
+            "FakeBlobClient", (), {"upload_blob": lambda self, data, overwrite=False: None}
+        )()
+        sys.modules["azure.identity"] = azure_identity
+        sys.modules["azure.storage.blob"] = azure_blob
+    else:
+        monkeypatch.setattr(azure_blob, "BlobClient", lambda **kw: type(
+            "FakeBlobClient", (), {"upload_blob": lambda self, data, overwrite=False: None}
+        )())
+        monkeypatch.setattr(azure_identity, "DefaultAzureCredential", lambda: "credential")
+    monkeypatch.setenv("ODS_REPORT_STORAGE_ACCOUNT_NAME", "test-account")
+
+
 # ---------------------------------------------------------------------------
 # Combined report
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_combined_report_printed_between_markers(trust_a, trust_b, baselines):
+def test_combined_report_printed_between_markers(trust_a, trust_b, baselines, mock_blob_upload):
     """Findings from both the ODS sync and the trust succession backfill are
     combined under section headings between the sentinel markers."""
     records = {
@@ -163,7 +196,7 @@ def test_combined_report_printed_between_markers(trust_a, trust_b, baselines):
 
 
 @pytest.mark.django_db
-def test_no_changes_prints_empty_report(trust_a, trust_b, baselines):
+def test_no_changes_prints_empty_report(trust_a, trust_b, baselines, mock_blob_upload):
     """When no check finds anything, the text between the markers is empty,
     so the workflow does not open an issue."""
     records = {
@@ -228,6 +261,30 @@ def test_report_uploaded_to_blob(trust_a, trust_b, baselines, monkeypatch):
     assert uploaded["overwrite"] is True
 
 
+@pytest.mark.django_db
+def test_missing_storage_account_env_raises(trust_a, trust_b, baselines, monkeypatch):
+    """If ODS_REPORT_STORAGE_ACCOUNT_NAME is not set, the command raises
+    CommandError instead of silently skipping the upload — a successful job
+    that skips the upload leaves the workflow with no report, which is
+    indistinguishable from 'no changes' and has caused silent failures."""
+    monkeypatch.delenv("ODS_REPORT_STORAGE_ACCOUNT_NAME", raising=False)
+    records = {
+        "RAA": _matching_record(trust_a),
+        "RBB": _matching_record(trust_b),
+    }
+    org_links = [
+        {"OrgLink": "https://ods.example/Organisation/RAA"},
+        {"OrgLink": "https://ods.example/Organisation/RBB"},
+    ]
+    out = StringIO()
+    with _patch_ods(records, org_links):
+        with pytest.raises(CommandError, match="ODS_REPORT_STORAGE_ACCOUNT_NAME"):
+            call_command("ods_change_report", stdout=out, stderr=StringIO())
+    # The report is still printed between the markers before the upload fails.
+    assert REPORT_START_MARKER in out.getvalue()
+    assert REPORT_END_MARKER in out.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Check failures
 # ---------------------------------------------------------------------------
@@ -235,7 +292,7 @@ def test_report_uploaded_to_blob(trust_a, trust_b, baselines, monkeypatch):
 
 @pytest.mark.django_db
 def test_check_failure_raises_command_error_and_reports_it(
-    trust_a, trust_b, baselines
+    trust_a, trust_b, baselines, mock_blob_upload
 ):
     """If one check raises, the remaining checks still run, the failure is
     reported in a Check failures section, and the command exits non-zero so
