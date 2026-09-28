@@ -174,29 +174,51 @@ jobs:
           # when the upload fails — so the logs have the error text.
           # Requires the GitHub OIDC identity to have Log Analytics Reader
           # on the workspace (see docs).
+          #
+          # Note: Container Apps Jobs log to ContainerAppConsoleLogs_CL but
+          # the ContainerAppName_s column is EMPTY for jobs — the job name
+          # is in ContainerJobName_s instead. Querying on ContainerAppName_s
+          # silently returns no logs.
           if [ "$REPORT_SOURCE" = "none" ]; then
             ENV_ID=$(az containerapp job show \
               --name "$AZURE_JOB_NAME" \
               --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
-              --query managedEnvironmentId -o tsv 2>/dev/null || true)
+              --query 'properties.environmentId' -o tsv 2>/dev/null || true)
             WORKSPACE_CUSTOMER_ID=""
             if [ -n "$ENV_ID" ]; then
               WORKSPACE_CUSTOMER_ID=$(az resource show \
-                --id "$ENV_ID" \
-                --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv 2>/dev/null || true)
+                --ids "$ENV_ID" \
+                --query 'properties.appLogsConfiguration.logAnalyticsConfiguration.customerId' -o tsv 2>/dev/null || true)
             fi
             if [ -n "$WORKSPACE_CUSTOMER_ID" ]; then
               echo "Querying Log Analytics workspace $WORKSPACE_CUSTOMER_ID for job logs..."
               LOGS_JSON=$(az monitor log-analytics query \
-                --workspace-query "$WORKSPACE_CUSTOMER_ID" \
+                --workspace "$WORKSPACE_CUSTOMER_ID" \
                 --analytics-query "ContainerAppConsoleLogs_CL \
-                  | where ContainerAppName_s == '$AZURE_JOB_NAME' \
+                  | where ContainerJobName_s == '$AZURE_JOB_NAME' \
                   | where TimeGenerated > ago(2h) \
                   | order by TimeGenerated asc \
                   | project Log_s" 2>/dev/null || echo "[]")
               LOGS=$(echo "$LOGS_JSON" | jq -r '.[].Log_s // empty' 2>/dev/null || echo "")
               if [ -n "$LOGS" ]; then
-                echo "$LOGS" > "$REPORT_FILE"
+                # The job prints the report between sentinel markers
+                # (<<<ODS_REPORT_START>>> / <<<ODS_REPORT_END>>>). Extract
+                # just that content so the issue doesn't include Django's
+                # startup noise and check progress output. If the markers
+                # aren't found (e.g. the job crashed before printing them),
+                # fall back to the full logs.
+                START_MARKER="<<<ODS_REPORT_START>>>"
+                END_MARKER="<<<ODS_REPORT_END>>>"
+                if echo "$LOGS" | grep -q "$START_MARKER"; then
+                  REPORT_CONTENT=$(echo "$LOGS" | sed -n "/${START_MARKER}/,/${END_MARKER}/p" | sed "1d;\$d")
+                  if [ -n "$REPORT_CONTENT" ]; then
+                    echo "$REPORT_CONTENT" > "$REPORT_FILE"
+                  else
+                    echo "$LOGS" > "$REPORT_FILE"
+                  fi
+                else
+                  echo "$LOGS" > "$REPORT_FILE"
+                fi
                 REPORT_SOURCE="logs"
                 echo "Retrieved $(echo "$LOGS" | wc -l) log lines from Log Analytics."
               else
@@ -237,7 +259,11 @@ jobs:
                 echo ""
                 echo "---"
                 echo ""
-                echo "The job output above (between the markers if present) contains the failing check and its error in a \`## Check failures\` section."
+                if [ "$REPORT_SOURCE" = "logs" ]; then
+                  echo "The output above was retrieved from Log Analytics (the blob download failed). If it doesn't contain a \`## Check failures\` section, the job may have crashed before printing the report — check the full console logs in the Azure portal."
+                else
+                  echo "The job output above contains the failing check and its error in a \`## Check failures\` section."
+                fi
               else
                 echo "Could not retrieve the job's report automatically. Check the job's console logs in the Azure portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME -> Executions -> ${EXECUTION_NAME})."
                 echo ""

@@ -166,5 +166,7 @@ Or use the **Run workflow** button on the
 | Failure issue says "report source: blob" | The job uploaded the report but a check failed — the `## Check failures` section of the report (included in the issue) names the check and the error. |
 | Failure issue says "report source: logs" | The blob download failed but the workflow retrieved the job's stdout from Log Analytics — the issue contains the full job output including the error. |
 | Job log shows "ODS_REPORT_STORAGE_ACCOUNT_NAME is not set" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job — the command now fails loudly instead of silently skipping the upload. |
+| Job log shows "SystemCheckError: System check identified some issues" | A Django system check is failing at startup (e.g. `4_0.E001` — `CSRF_TRUSTED_ORIGINS` values must start with `http://` or `https://`). This kills `manage.py` before the command runs. Check `DJANGO_CSRF_TRUSTED_ORIGINS` and `DJANGO_ALLOWED_HOSTS` on the job's env vars. |
+| Log Analytics query returns no logs for the job | The query may be filtering on `ContainerAppName_s`, which is **empty** for Container Apps Jobs. Use `ContainerJobName_s` instead — the job name is there. |
 | Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `ods-change-detection`. |
 | "ODS change detection failed" issue | One of the three checks raised, or the report upload itself failed — the issue body contains the actual error text from the job's report or stdout. |
