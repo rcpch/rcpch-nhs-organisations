@@ -15,19 +15,25 @@ name: ODS change detection
 #   1. Log in to Azure with the federated OIDF credential (no stored secret).
 #   2. Start the Container Apps Job.
 #   3. Wait for the execution to finish.
-#   4. Download the combined report from Azure Blob Storage (the job
-#      uploads it there with its managed identity).
-#   5. Open a GitHub issue if the report is non-empty.
+#   4. Fetch the combined report — first from Azure Blob Storage (the job
+#      uploads it there with its managed identity), then from Log Analytics
+#      as a fallback (the job always prints the report to stdout between
+#      sentinel markers, even when the upload itself fails).
+#   5. Open a GitHub issue: "changes detected" if the job succeeded and the
+#      report is non-empty, or "check failed" (with the actual error text)
+#      if the job failed.
 #
 # The job runs `python manage.py ods_change_report`, which runs the three
 # dry-run checks (ODS sync, trust successions, ICB successions) and prints
 # the combined report between the markers.
 #
 # Prerequisites and one-off job setup are documented in
-# documentation/docs/developer/ods-change-detection.md. In particular, the
-# GitHub OIDC identity needs the Storage Blob Data Reader role on the report
-# storage account, and ODS_REPORT_STORAGE_ACCOUNT_NAME must be set as a repo
-# variable.
+# documentation/docs/developer/ods-change-detection.md. In particular:
+# - The GitHub OIDC identity needs the Storage Blob Data Reader role on the
+#   report storage account.
+# - The GitHub OIDC identity needs the Log Analytics Reader role on the
+#   workspace (for the log fallback when the blob download fails).
+# - ODS_REPORT_STORAGE_ACCOUNT_NAME must be set as a repo variable.
 
 on:
   schedule:
@@ -97,6 +103,11 @@ jobs:
           # fragile (ProcessExited is a container termination reason, not an
           # execution status, so it never appears here) and caused the runner
           # to poll forever when the status didn't match the list.
+          #
+          # Don't exit 1 here when the job fails — continue to the
+          # report-fetch steps so we can include the actual error text in
+          # the failure issue. The workflow is marked as failed by the final
+          # "Mark workflow as failed" step.
           STATUS="Unknown"
           for i in $(seq 1 70); do
             RAW=$(az containerapp job execution show \
@@ -121,30 +132,124 @@ jobs:
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "execution-name=$EXECUTION_NAME" >> "$GITHUB_OUTPUT"
           if [ "$STATUS" != "Succeeded" ]; then
-            echo "::error::ODS change detection job '$AZURE_JOB_NAME' execution '$EXECUTION_NAME' finished with status '${STATUS}'. See the job's console logs in the Azure portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME -> Executions -> $EXECUTION_NAME) or via Log Analytics."
-            exit 1
+            echo "::warning::ODS change detection job '$AZURE_JOB_NAME' execution '$EXECUTION_NAME' finished with status '${STATUS}'. Will attempt to fetch the report for the failure issue."
           fi
 
-      - name: Download report from blob storage
-        if: success()
+      - name: Fetch report (blob storage, then Log Analytics fallback)
         id: report
+        if: always()
         run: |
           set -eu
-          az storage blob download \
+          EXECUTION_NAME="${{ steps.execution.outputs.execution-name }}"
+          STATUS="${{ steps.execution.outputs.status }}"
+          REPORT_FILE="ods_report.md"
+          REPORT_SOURCE="none"
+
+          # Try blob storage first. The job uploads the report to blob
+          # storage BEFORE raising CommandError for check failures, so even
+          # a failed job may have uploaded the report (with a
+          # ## Check failures section). If the upload itself failed (missing
+          # env var, managed identity issue), the blob won't have the
+          # current report — fall back to Log Analytics.
+          if az storage blob download \
             --account-name "$ODS_REPORT_STORAGE_ACCOUNT_NAME" \
             --container-name "$ODS_REPORT_CONTAINER_NAME" \
             --name "$ODS_REPORT_BLOB_NAME" \
-            --file ods_report.md \
+            --file "$REPORT_FILE" \
             --auth-mode login \
-            --overwrite
-          if [ -s ods_report.md ]; then
+            --overwrite 2>/dev/null; then
+            if [ -s "$REPORT_FILE" ]; then
+              REPORT_SOURCE="blob"
+              echo "Report downloaded from blob storage."
+            else
+              REPORT_SOURCE="blob-empty"
+              echo "Report downloaded from blob storage but is empty (no changes detected)."
+            fi
+          else
+            echo "Blob download failed — falling back to Log Analytics."
+          fi
+
+          # If blob download failed, try Log Analytics. The job ALWAYS
+          # prints the report to stdout between the sentinel markers, even
+          # when the upload fails — so the logs have the error text.
+          # Requires the GitHub OIDC identity to have Log Analytics Reader
+          # on the workspace (see docs).
+          if [ "$REPORT_SOURCE" = "none" ]; then
+            ENV_ID=$(az containerapp job show \
+              --name "$AZURE_JOB_NAME" \
+              --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
+              --query managedEnvironmentId -o tsv 2>/dev/null || true)
+            WORKSPACE_CUSTOMER_ID=""
+            if [ -n "$ENV_ID" ]; then
+              WORKSPACE_CUSTOMER_ID=$(az resource show \
+                --id "$ENV_ID" \
+                --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv 2>/dev/null || true)
+            fi
+            if [ -n "$WORKSPACE_CUSTOMER_ID" ]; then
+              echo "Querying Log Analytics workspace $WORKSPACE_CUSTOMER_ID for job logs..."
+              LOGS_JSON=$(az monitor log-analytics query \
+                --workspace-query "$WORKSPACE_CUSTOMER_ID" \
+                --analytics-query "ContainerAppConsoleLogs_CL \
+                  | where ContainerAppName_s == '$AZURE_JOB_NAME' \
+                  | where TimeGenerated > ago(2h) \
+                  | order by TimeGenerated asc \
+                  | project Log_s" 2>/dev/null || echo "[]")
+              LOGS=$(echo "$LOGS_JSON" | jq -r '.[].Log_s // empty' 2>/dev/null || echo "")
+              if [ -n "$LOGS" ]; then
+                echo "$LOGS" > "$REPORT_FILE"
+                REPORT_SOURCE="logs"
+                echo "Retrieved $(echo "$LOGS" | wc -l) log lines from Log Analytics."
+              else
+                echo "Log Analytics query returned no logs."
+              fi
+            else
+              echo "Could not discover Log Analytics workspace from the Container Apps environment."
+            fi
+          fi
+
+          echo "report-source=$REPORT_SOURCE" >> "$GITHUB_OUTPUT"
+
+          # Determine if there are changes (only meaningful when the job
+          # succeeded and the report is non-empty).
+          if [ "$STATUS" = "Succeeded" ] && [ -s "$REPORT_FILE" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
 
+          # If the job failed, build a failure issue body with whatever
+          # report content we managed to fetch.
+          if [ "$STATUS" != "Succeeded" ]; then
+            {
+              echo "The monthly ODS change-detection run failed."
+              echo ""
+              echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              echo ""
+              echo "- Job: $AZURE_JOB_NAME (resource group $AZURE_JOB_RESOURCE_GROUP)"
+              echo "- Execution: ${EXECUTION_NAME:-unknown}"
+              echo "- Final status: ${STATUS:-unknown}"
+              echo "- Report source: $REPORT_SOURCE"
+              echo ""
+              if [ -s "$REPORT_FILE" ]; then
+                echo "---"
+                echo ""
+                cat "$REPORT_FILE"
+                echo ""
+                echo "---"
+                echo ""
+                echo "The job output above (between the markers if present) contains the failing check and its error in a \`## Check failures\` section."
+              else
+                echo "Could not retrieve the job's report automatically. Check the job's console logs in the Azure portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME -> Executions -> ${EXECUTION_NAME})."
+                echo ""
+                echo "The GitHub OIDC identity may need the Log Analytics Reader role on the workspace for automatic log retrieval."
+              fi
+              echo ""
+              echo "Re-run the workflow from the Actions tab once resolved."
+            } > failure.md
+          fi
+
       - name: Open issue if changes detected
-        if: steps.report.outputs.has_changes == 'true'
+        if: steps.execution.outputs.status == 'Succeeded' && steps.report.outputs.has_changes == 'true'
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: "ODS changes detected (${{ steps.date.outputs.date }})"
@@ -153,36 +258,8 @@ jobs:
             ods-changes
             needs-review
 
-      - name: Prepare failure issue body
-        if: failure()
-        run: |
-          EXECUTION_NAME="${{ steps.execution.outputs.execution-name }}"
-          STATUS="${{ steps.execution.outputs.status }}"
-          cat > failure.md <<EOF
-          The monthly ODS change-detection run failed.
-
-          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          The Container Apps job execution either failed or the workflow could
-          not reach it.
-
-          - Job: $AZURE_JOB_NAME (resource group $AZURE_JOB_RESOURCE_GROUP)
-          - Execution: ${EXECUTION_NAME:-unknown}
-          - Final status: ${STATUS:-unknown}
-
-          To see why the job failed, open the job's console logs in the Azure
-          portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME ->
-          Executions -> ${EXECUTION_NAME}) or query Log Analytics (see
-          documentation/docs/developer/ods-change-detection.md). The job
-          prints the failing check and its error in a `Check failures`
-          section between the `<<<ODS_REPORT_START>>>` / `<<<ODS_REPORT_END>>>`
-          markers on stdout.
-
-          Re-run the workflow from the Actions tab once resolved.
-          EOF
-
       - name: Open issue if the check failed
-        if: failure()
+        if: steps.execution.outputs.status != 'Succeeded'
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: "ODS change detection failed (${{ steps.date.outputs.date }})"
@@ -190,3 +267,9 @@ jobs:
           labels: |
             ods-changes
             check-failure
+
+      - name: Mark workflow as failed
+        if: steps.execution.outputs.status != 'Succeeded'
+        run: |
+          echo "::error::ODS change detection job finished with status '${{ steps.execution.outputs.status }}'. See the failure issue for details."
+          exit 1

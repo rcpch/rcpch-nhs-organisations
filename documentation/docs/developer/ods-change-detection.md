@@ -22,11 +22,14 @@ graph TD
     B --> C[az containerapp job start]
     C --> D[Container Apps Job<br/>ods_change_report]
     D --> E[Uploads combined report<br/>to blob storage]
-    E --> F[Workflow downloads report<br/>from blob storage]
-    F --> G{Report non-empty?}
-    G -- yes --> H[GitHub issue: ODS changes detected]
-    G -- no --> I[No issue]
-    D -. execution failed .-> J[GitHub issue: check failed]
+    D --> F[Prints report to stdout<br/>between sentinel markers]
+    E --> G[Workflow fetches report<br/>from blob storage]
+    F -. blob download failed .-> H[Workflow fetches report<br/>from Log Analytics]
+    G --> I{Job succeeded?<br/>Report non-empty?}
+    H --> I
+    I -- yes --> J[GitHub issue: ODS changes detected]
+    I -- no changes --> K[No issue]
+    I -- job failed --> L[GitHub issue: check failed<br/>with actual error text]
 ```
 
 ## The three checks
@@ -111,6 +114,14 @@ Prerequisites:
   The job's managed identity needs the **Storage Blob Data Contributor**
   role on the account, and the GitHub OIDC identity (the one behind
   `AZURE_CLIENT_ID`) needs **Storage Blob Data Reader**.
+- **Log Analytics Reader for the GitHub OIDC identity** — when the blob
+  download fails (e.g. the job's upload failed because of a missing env var
+  or a managed identity issue), the workflow falls back to fetching the job's
+  console logs from the Log Analytics workspace attached to the Container
+  Apps environment. The GitHub OIDC identity needs **Log Analytics Reader**
+  on the workspace for this fallback to work. Without it, the failure issue
+  will say "could not retrieve the job's report automatically" and point to
+  the Azure portal.
 - **The job needs ACR pull credentials** — the live image is private. Give a
   managed identity the `AcrPull` role on the registry and pass it via
   `--registry-identity`, or use registry admin credentials via
@@ -151,7 +162,9 @@ Or use the **Run workflow** button on the
 
 | Symptom | Likely cause |
 |---|---|
-| Workflow fails at "Download report from blob storage" | Missing `Storage Blob Data Reader` role for the GitHub OIDC identity, or the `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is not set. |
+| Failure issue says "report source: none" | The blob download failed AND the Log Analytics fallback failed. Check: (1) the GitHub OIDC identity has Storage Blob Data Reader on the storage account, (2) the GitHub OIDC identity has Log Analytics Reader on the workspace, (3) `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is set. |
+| Failure issue says "report source: blob" | The job uploaded the report but a check failed — the `## Check failures` section of the report (included in the issue) names the check and the error. |
+| Failure issue says "report source: logs" | The blob download failed but the workflow retrieved the job's stdout from Log Analytics — the issue contains the full job output including the error. |
 | Job log shows "ODS_REPORT_STORAGE_ACCOUNT_NAME is not set" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job — the command now fails loudly instead of silently skipping the upload. |
 | Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `ods-change-detection`. |
-| "ODS change detection failed" issue | One of the three checks raised — the `Check failures` section of the job's stdout names the check and the error. |
+| "ODS change detection failed" issue | One of the three checks raised, or the report upload itself failed — the issue body contains the actual error text from the job's report or stdout. |
