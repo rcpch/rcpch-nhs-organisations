@@ -88,10 +88,16 @@ jobs:
 
       - name: Wait for job execution to finish
         id: execution
+        timeout-minutes: 40
         run: |
           set -eu
           EXECUTION_NAME="${{ steps.start.outputs.execution-name }}"
           # The job replica timeout is 30 minutes; poll a little past that.
+          # Terminal states for a Container Apps Job execution are Succeeded,
+          # Failed and TimedOut. ProcessExited is reached as soon as the
+          # container process has exited (with any code) — the execution may
+          # stay in that state until the replica timeout elapses, so treat it
+          # as terminal too rather than polling until the loop runs out.
           STATUS="Unknown"
           for _ in $(seq 1 70); do
             STATUS=$(az containerapp job execution show \
@@ -101,13 +107,14 @@ jobs:
               --query status -o tsv)
             echo "Execution $EXECUTION_NAME status: $STATUS"
             case "$STATUS" in
-              Succeeded|Failed) break ;;
+              Succeeded|Failed|TimedOut|ProcessExited) break ;;
             esac
             sleep 30
           done
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "execution-name=$EXECUTION_NAME" >> "$GITHUB_OUTPUT"
           if [ "$STATUS" != "Succeeded" ]; then
-            echo "::error::ODS change detection job finished with status $STATUS"
+            echo "::error::ODS change detection job '$AZURE_JOB_NAME' execution '$EXECUTION_NAME' finished with status $STATUS. See the job's console logs in the Azure portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME -> Executions -> $EXECUTION_NAME) or via Log Analytics."
             exit 1
           fi
 
@@ -142,15 +149,29 @@ jobs:
       - name: Prepare failure issue body
         if: failure()
         run: |
+          EXECUTION_NAME="${{ steps.execution.outputs.execution-name }}"
+          STATUS="${{ steps.execution.outputs.status }}"
           cat > failure.md <<EOF
           The monthly ODS change-detection run failed.
 
           Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
           The Container Apps job execution either failed or the workflow could
-          not reach it. Check the job logs in the Azure portal (Container Apps
-          environment → Jobs → $AZURE_JOB_NAME → Executions) and re-run the
-          workflow from the Actions tab once resolved.
+          not reach it.
+
+          - Job: $AZURE_JOB_NAME (resource group $AZURE_JOB_RESOURCE_GROUP)
+          - Execution: ${EXECUTION_NAME:-unknown}
+          - Final status: ${STATUS:-unknown}
+
+          To see why the job failed, open the job's console logs in the Azure
+          portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME ->
+          Executions -> ${EXECUTION_NAME}) or query Log Analytics (see
+          documentation/docs/developer/ods-change-detection.md). The job
+          prints the failing check and its error in a `Check failures`
+          section between the `<<<ODS_REPORT_START>>>` / `<<<ODS_REPORT_END>>>`
+          markers on stdout.
+
+          Re-run the workflow from the Actions tab once resolved.
           EOF
 
       - name: Open issue if the check failed
