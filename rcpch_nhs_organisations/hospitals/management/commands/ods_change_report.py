@@ -127,16 +127,20 @@ class Command(BaseCommand):
         DefaultAzureCredential (the identity needs the Storage Blob Data
         Contributor role on the account).
 
-        No-op when ODS_REPORT_STORAGE_ACCOUNT_NAME is not configured (local
-        development and tests).
+        Fails loudly (CommandError) if ODS_REPORT_STORAGE_ACCOUNT_NAME is not
+        set — a successful job that silently skips the upload leaves the
+        workflow with no report to download, which is indistinguishable from
+        "no changes" and has caused silent failures in production. Local
+        development and tests should mock the upload (see test_ods_change_report.py).
         """
         account_name = os.getenv("ODS_REPORT_STORAGE_ACCOUNT_NAME")
         if not account_name:
-            self.stdout.write(
-                "ODS_REPORT_STORAGE_ACCOUNT_NAME not set — skipping report "
-                "upload (report is still printed above between the markers)."
+            raise CommandError(
+                "ODS_REPORT_STORAGE_ACCOUNT_NAME is not set — cannot upload "
+                "the ODS change report to blob storage. The Container Apps job "
+                "must have this env var set (see "
+                "documentation/docs/developer/ods-change-detection.md)."
             )
-            return
 
         # Imported here so environments without the azure packages can still
         # import the module and run the checks.

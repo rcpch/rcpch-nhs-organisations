@@ -152,6 +152,6 @@ Or use the **Run workflow** button on the
 | Symptom | Likely cause |
 |---|---|
 | Workflow fails at "Download report from blob storage" | Missing `Storage Blob Data Reader` role for the GitHub OIDC identity, or the `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is not set. |
-| Job log shows "skipping report upload" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job. |
+| Job log shows "ODS_REPORT_STORAGE_ACCOUNT_NAME is not set" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job — the command now fails loudly instead of silently skipping the upload. |
 | Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `ods-change-detection`. |
 | "ODS change detection failed" issue | One of the three checks raised — the `Check failures` section of the job's stdout names the check and the error. |
