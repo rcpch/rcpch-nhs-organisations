@@ -67,23 +67,19 @@ jobs:
         id: start
         run: |
           set -eu
+          # `az containerapp job start` returns the execution resource as
+          # JSON. The `name` field is the execution name (a GUID). Don't
+          # swallow errors with `|| true` — if the start fails we want to
+          # fail loudly, not fall back to a stale execution from the list.
           EXECUTION_NAME=$(az containerapp job start \
             --name "$AZURE_JOB_NAME" \
             --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
-            --query name -o tsv || true)
+            --query name -o tsv)
           if [ -z "$EXECUTION_NAME" ]; then
-            # Fall back to the newest registered execution (list order is
-            # not guaranteed, so sort by start time).
-            sleep 15
-            EXECUTION_NAME=$(az containerapp job execution list \
-              --name "$AZURE_JOB_NAME" \
-              --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
-              --query "sort_by(@, &startTime)[-1].name" -o tsv)
-          fi
-          if [ -z "$EXECUTION_NAME" ]; then
-            echo "::error::Could not determine the job execution name. Does the job '$AZURE_JOB_NAME' exist in resource group '$AZURE_RESOURCE_GROUP'?"
+            echo "::error::az containerapp job start returned an empty execution name. The job may not exist or the identity may lack the Container Apps Jobs Contributor role."
             exit 1
           fi
+          echo "Started execution: $EXECUTION_NAME"
           echo "execution-name=$EXECUTION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Wait for job execution to finish
@@ -93,28 +89,39 @@ jobs:
           set -eu
           EXECUTION_NAME="${{ steps.start.outputs.execution-name }}"
           # The job replica timeout is 30 minutes; poll a little past that.
-          # Terminal states for a Container Apps Job execution are Succeeded,
-          # Failed and TimedOut. ProcessExited is reached as soon as the
-          # container process has exited (with any code) — the execution may
-          # stay in that state until the replica timeout elapses, so treat it
-          # as terminal too rather than polling until the loop runs out.
+          #
+          # Invert the break logic: only the in-progress states (Running,
+          # Pending) keep polling. Anything else — Succeeded, Failed,
+          # Canceled, TimedOut, an empty string, or a value Azure invents in
+          # the future — breaks the loop. Enumerating terminal states is
+          # fragile (ProcessExited is a container termination reason, not an
+          # execution status, so it never appears here) and caused the runner
+          # to poll forever when the status didn't match the list.
           STATUS="Unknown"
-          for _ in $(seq 1 70); do
-            STATUS=$(az containerapp job execution show \
+          for i in $(seq 1 70); do
+            RAW=$(az containerapp job execution show \
               --name "$AZURE_JOB_NAME" \
               --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
               --job-execution-name "$EXECUTION_NAME" \
-              --query status -o tsv)
-            echo "Execution $EXECUTION_NAME status: $STATUS"
+              -o json 2>&1) || true
+            STATUS=$(echo "$RAW" | jq -r '.status // empty' 2>/dev/null || echo "")
+            echo "Execution $EXECUTION_NAME status: '${STATUS}' (poll $i/70)"
+            # On the first poll, or if the status is empty, dump the full
+            # JSON so we can see exactly what Azure is returning.
+            if [ "$i" -eq 1 ] || [ -z "$STATUS" ]; then
+              echo "--- Full execution JSON ---"
+              echo "$RAW" | jq . 2>/dev/null || echo "$RAW"
+              echo "--- end JSON ---"
+            fi
             case "$STATUS" in
-              Succeeded|Failed|TimedOut|ProcessExited) break ;;
+              Running|Pending) sleep 30 ;;
+              *) break ;;
             esac
-            sleep 30
           done
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "execution-name=$EXECUTION_NAME" >> "$GITHUB_OUTPUT"
           if [ "$STATUS" != "Succeeded" ]; then
-            echo "::error::ODS change detection job '$AZURE_JOB_NAME' execution '$EXECUTION_NAME' finished with status $STATUS. See the job's console logs in the Azure portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME -> Executions -> $EXECUTION_NAME) or via Log Analytics."
+            echo "::error::ODS change detection job '$AZURE_JOB_NAME' execution '$EXECUTION_NAME' finished with status '${STATUS}'. See the job's console logs in the Azure portal (Container Apps environment -> Jobs -> $AZURE_JOB_NAME -> Executions -> $EXECUTION_NAME) or via Log Analytics."
             exit 1
           fi
 
