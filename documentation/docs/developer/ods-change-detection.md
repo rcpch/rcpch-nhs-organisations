@@ -22,14 +22,12 @@ graph TD
     B --> C[az containerapp job start]
     C --> D[Container Apps Job<br/>ods_change_report]
     D --> E[Uploads combined report<br/>to blob storage]
-    D --> F[Prints report to stdout<br/>between sentinel markers]
-    E --> G[Workflow fetches report<br/>from blob storage]
-    F -. blob download failed .-> H[Workflow fetches report<br/>from Log Analytics]
-    G --> I{Job succeeded?<br/>Report non-empty?}
-    H --> I
-    I -- yes --> J[GitHub issue: ODS changes detected]
-    I -- no changes --> K[No issue]
-    I -- job failed --> L[GitHub issue: check failed<br/>with actual error text]
+    E --> F[Workflow downloads report<br/>from blob storage]
+    F --> G{Report non-empty?}
+    G -- yes --> H[GitHub issue: ODS changes detected]
+    G -- no --> I[No issue]
+    D -. job failed .-> J[Workflow fails:<br/>check Azure portal logs]
+    F -. blob download failed .-> J
 ```
 
 ## The three checks
@@ -55,9 +53,9 @@ an issue if the report is non-empty.
 
 If any check raises, the error is recorded, the remaining checks still run, a
 `Check failures` section is appended, and the command exits non-zero so the
-job execution is marked `Failed`. The workflow then opens a
-"ODS change detection failed" issue instead of a "changes detected" issue —
-a failed check must never look like "no changes".
+job execution is marked `Failed`. The workflow then fails with a meaningful
+error — no issue is posted. Check the job's console logs in the Azure portal
+for the error details.
 
 ## One-off job setup
 
@@ -100,7 +98,10 @@ The env vars the job needs (from `settings.py` and `ods_update.py`):
 plus the report upload vars `ODS_REPORT_STORAGE_ACCOUNT_NAME` (required),
 `ODS_REPORT_CONTAINER_NAME` (default `ods-change-reports`) and
 `ODS_REPORT_BLOB_NAME` (default `ods-change-report.md`). HTTP-only settings
-(`DJANGO_ALLOWED_HOSTS`, CSRF origins) are irrelevant to a job.
+(`DJANGO_ALLOWED_HOSTS`, CSRF origins) must also be set correctly on the
+job — Django's system checks run before the command and will fail the job
+if they're misconfigured (e.g. `CSRF_TRUSTED_ORIGINS` entries missing the
+`https://` scheme trigger `4_0.E001`, an Error-level check).
 
 > **Note:** Container Apps secrets and env vars are scoped per app/job —
 > they are **not** shared across a Container Apps environment. The job needs
@@ -113,15 +114,8 @@ Prerequisites:
   to a blob container (`ods-change-reports`) and the workflow downloads it.
   The job's managed identity needs the **Storage Blob Data Contributor**
   role on the account, and the GitHub OIDC identity (the one behind
-  `AZURE_CLIENT_ID`) needs **Storage Blob Data Reader**.
-- **Log Analytics Reader for the GitHub OIDC identity** — when the blob
-  download fails (e.g. the job's upload failed because of a missing env var
-  or a managed identity issue), the workflow falls back to fetching the job's
-  console logs from the Log Analytics workspace attached to the Container
-  Apps environment. The GitHub OIDC identity needs **Log Analytics Reader**
-  on the workspace for this fallback to work. Without it, the failure issue
-  will say "could not retrieve the job's report automatically" and point to
-  the Azure portal.
+  `AZURE_CLIENT_ID`) needs **Storage Blob Data Reader**. Without this role
+  the workflow fails at the download step with a meaningful error.
 - **The job needs ACR pull credentials** — the live image is private. Give a
   managed identity the `AcrPull` role on the registry and pass it via
   `--registry-identity`, or use registry admin credentials via
@@ -162,11 +156,9 @@ Or use the **Run workflow** button on the
 
 | Symptom | Likely cause |
 |---|---|
-| Failure issue says "report source: none" | The blob download failed AND the Log Analytics fallback failed. Check: (1) the GitHub OIDC identity has Storage Blob Data Reader on the storage account, (2) the GitHub OIDC identity has Log Analytics Reader on the workspace, (3) `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is set. |
-| Failure issue says "report source: blob" | The job uploaded the report but a check failed — the `## Check failures` section of the report (included in the issue) names the check and the error. |
-| Failure issue says "report source: logs" | The blob download failed but the workflow retrieved the job's stdout from Log Analytics — the issue contains the full job output including the error. |
+| Workflow fails at "Download report from blob storage" | Missing `Storage Blob Data Reader` role for the GitHub OIDC identity on the storage account, or the `ODS_REPORT_STORAGE_ACCOUNT_NAME` repo variable is not set. |
+| Workflow fails at "Wait for job execution to finish" | The Azure job failed. Check the job's console logs in the Azure portal (Container Apps environment -> Jobs -> ods-change-detection -> Executions). |
 | Job log shows "ODS_REPORT_STORAGE_ACCOUNT_NAME is not set" | `ODS_REPORT_STORAGE_ACCOUNT_NAME` env var not set on the job — the command now fails loudly instead of silently skipping the upload. |
 | Job log shows "SystemCheckError: System check identified some issues" | A Django system check is failing at startup (e.g. `4_0.E001` — `CSRF_TRUSTED_ORIGINS` values must start with `http://` or `https://`). This kills `manage.py` before the command runs. Check `DJANGO_CSRF_TRUSTED_ORIGINS` and `DJANGO_ALLOWED_HOSTS` on the job's env vars. |
-| Log Analytics query returns no logs for the job | The query may be filtering on `ContainerAppName_s`, which is **empty** for Container Apps Jobs. Use `ContainerJobName_s` instead — the job name is there. |
 | Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `ods-change-detection`. |
-| "ODS change detection failed" issue | One of the three checks raised, or the report upload itself failed — the issue body contains the actual error text from the job's report or stdout. |
+| Workflow shows status "unknown" | The `az containerapp job execution show` output was corrupted by stderr warnings mixed into the JSON. Fixed by capturing stdout and stderr separately. |
