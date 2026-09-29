@@ -99,25 +99,21 @@ jobs:
           # Canceled, TimedOut, an empty string, or a value Azure invents in
           # the future — breaks the loop.
           #
-          # Capture stdout and stderr SEPARATELY. Merging them with 2>&1
-          # corrupts the JSON when Azure CLI prints warnings to stderr (e.g.
-          # the SyntaxWarning from deploymentstacks), which makes jq fail
-          # to parse .status and leaves it empty — the loop breaks on the
-          # first poll with an unknown status.
+          # The execution status is at .properties.status in the JSON
+          # returned by `az containerapp job execution show`, NOT at the
+          # top level — querying .status returns empty and causes the loop
+          # to break immediately with an unknown status.
+          #
+          # Do NOT dump the full execution JSON to the logs — it contains
+          # the job's env vars (secrets) and would leak credentials.
           STATUS=""
           for i in $(seq 1 70); do
-            RAW=$(az containerapp job execution show \
+            STATUS=$(az containerapp job execution show \
               --name "$AZURE_JOB_NAME" \
               --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
               --job-execution-name "$EXECUTION_NAME" \
-              -o json 2>/dev/null) || true
-            STATUS=$(echo "$RAW" | jq -r '.status // empty' 2>/dev/null) || STATUS=""
+              --query 'properties.status' -o tsv 2>/dev/null) || STATUS=""
             echo "Execution $EXECUTION_NAME status: '${STATUS}' (poll $i/70)"
-            if [ "$i" -eq 1 ] || [ -z "$STATUS" ]; then
-              echo "--- Full execution JSON ---"
-              echo "$RAW" | jq . 2>/dev/null || echo "$RAW"
-              echo "--- end JSON ---"
-            fi
             case "$STATUS" in
               Running|Pending) sleep 30 ;;
               *) break ;;
