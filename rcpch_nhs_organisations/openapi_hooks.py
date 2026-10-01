@@ -8,8 +8,8 @@ the result before it is served. See the drf-spectacular docs on
 
 # The APIM subscription key, sent in the ``Ocp-Apim-Subscription-Key`` header.
 # Exposed as a scheme name constant so tests and docs can reference it.
-APIM_SUBSCRIPTION_KEY_SCHEME = "OcpApimSubscriptionKey"
-APIM_SUBSCRIPTION_KEY_HEADER = "Ocp-Apim-Subscription-Key"
+APIM_SUBSCRIPTION_KEY_SCHEME = "SubscriptionKey"
+APIM_SUBSCRIPTION_KEY_HEADER = "subscription-key"
 
 
 def add_apim_subscription_key_security(result, generator, request, public):
