@@ -220,7 +220,7 @@ def test_schema_has_no_security_scheme_without_header(api_client):
     assert response.status_code == 200
     schema = response.json()
     security_schemes = schema.get("components", {}).get("securitySchemes", {})
-    assert "OcpApimSubscriptionKey" not in security_schemes
+    assert "SubscriptionKey" not in security_schemes
     assert "security" not in schema or schema["security"] == []
 
 
@@ -233,13 +233,13 @@ def test_schema_has_apim_security_scheme_with_header(api_client):
     assert response.status_code == 200
     schema = response.json()
     schemes = schema.get("components", {}).get("securitySchemes", {})
-    assert "OcpApimSubscriptionKey" in schemes
-    scheme = schemes["OcpApimSubscriptionKey"]
+    assert "SubscriptionKey" in schemes
+    scheme = schemes["SubscriptionKey"]
     assert scheme["type"] == "apiKey"
     assert scheme["in"] == "header"
-    assert scheme["name"] == "Ocp-Apim-Subscription-Key"
+    assert scheme["name"] == "subscription-key"
     # Global security requirement is set.
-    assert schema.get("security") == [{"OcpApimSubscriptionKey": []}]
+    assert schema.get("security") == [{"SubscriptionKey": []}]
 
 
 def test_security_scheme_does_not_leak_between_requests(api_client):
@@ -250,7 +250,7 @@ def test_security_scheme_does_not_leak_between_requests(api_client):
     )
     response = api_client.get("/schema/")
     schema = response.json()
-    assert "OcpApimSubscriptionKey" not in schema.get("components", {}).get(
+    assert "SubscriptionKey" not in schema.get("components", {}).get(
         "securitySchemes", {}
     )
 

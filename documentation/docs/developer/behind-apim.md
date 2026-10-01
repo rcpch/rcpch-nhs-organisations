@@ -148,7 +148,13 @@ tracks the public hostname automatically.
 `add_apim_subscription_key_security` (same file) injects the APIM subscription
 key as an OpenAPI security scheme when the schema is requested through APIM.
 Swagger UI then shows an **Authorize** button; the consumer enters their key
-once and "Try it out" sends `Ocp-Apim-Subscription-Key` on every request.
+once and "Try it out" sends `subscription-key` on every request.
+
+Note: `subscription-key` is the header name this APIM instance is configured
+to accept (API → Settings → Subscription → Header name). It is **not** the
+Azure default (`Ocp-Apim-Subscription-Key`). If the APIM header name is ever
+changed back to the default, update `APIM_SUBSCRIPTION_KEY_HEADER` in
+`rcpch_nhs_organisations/openapi_hooks.py` to match.
 
 Both hooks are no-ops when `X-Forwarded-Prefix` is absent, so the raw Azure
 URL and local dev produce a spec with no security scheme, no `servers`, and no
@@ -218,14 +224,14 @@ After deploying both the APIM config and this code:
 curl -s https://api.rcpch.ac.uk/nhs-organisations/v1/docs/swagger-ui/ | grep -o 'url: "[^"]*schema[^"]*"'
 
 # Spec declares the subscription-key security scheme and servers pointing at the data API.
-curl -s https://api.rcpch.ac.uk/nhs-organisations/v1/docs/schema/ | python -m json.tool | grep -A4 -E 'OcpApimSubscriptionKey|"servers"'
+curl -s https://api.rcpch.ac.uk/nhs-organisations/v1/docs/schema/ | python -m json.tool | grep -A4 -E 'SubscriptionKey|"servers"'
 
 # Docs API base URL redirects to GitHub Pages.
 curl -i https://api.rcpch.ac.uk/nhs-organisations/v1/docs/ | grep -i location
 
 # Data API — key required.
 curl -i https://api.rcpch.ac.uk/nhs-organisations/v1/integrated_care_boards/ | head -1  # 401
-curl -i -H "Ocp-Apim-Subscription-Key: YOUR_KEY" https://api.rcpch.ac.uk/nhs-organisations/v1/integrated_care_boards/ | head -1  # 200
+curl -i -H "subscription-key: YOUR_KEY" https://api.rcpch.ac.uk/nhs-organisations/v1/integrated_care_boards/ | head -1  # 200
 ```
 
 The raw container URL should continue to serve the same pages unprefixed and
