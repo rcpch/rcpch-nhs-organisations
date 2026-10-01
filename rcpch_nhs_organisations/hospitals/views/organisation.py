@@ -147,7 +147,27 @@ class OrganisationViewSet(viewsets.ReadOnlyModelViewSet):
 
     """
 
-    queryset = Organisation.objects.all().order_by("name")
+    # select_related eagerly joins the ~10 parent FKs that OrganisationSerializer
+    # nests, collapsing an N+1 explosion (~2,500 orgs × ~10 lazy FK fetches)
+    # into a single JOIN'd query. Without this the unpaginated /organisations/
+    # list exceeds APIM's backend timeout in production.
+    queryset = (
+        Organisation.objects
+        .select_related(
+            "trust",
+            "local_health_board",
+            "integrated_care_board",
+            "nhs_england_region",
+            "openuk_network",
+            "paediatric_diabetes_unit",
+            "paediatric_diabetes_unit__paediatric_diabetes_network",
+            "london_borough",
+            "country",
+            "lower_layer_super_output_area",
+            "local_authority_district",
+        )
+        .order_by("name")
+    )
     serializer_class = OrganisationSerializer
     lookup_field = "ods_code"
     filterset_fields = [

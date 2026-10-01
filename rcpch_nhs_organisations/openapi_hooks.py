@@ -6,8 +6,11 @@ the result before it is served. See the drf-spectacular docs on
 ``POSTPROCESSING_HOOKS``.
 """
 
-# The APIM subscription key, sent in the ``Ocp-Apim-Subscription-Key`` header.
-# Exposed as a scheme name constant so tests and docs can reference it.
+# The APIM subscription key header name. This APIM instance is configured to
+# accept ``subscription-key`` (API → Settings → Subscription → Header name);
+# it is **not** the Azure default (``Ocp-Apim-Subscription-Key``). If the APIM
+# config is ever changed, update these constants to match.
+# Exposed as module-level constants so tests and docs can reference them.
 APIM_SUBSCRIPTION_KEY_SCHEME = "SubscriptionKey"
 APIM_SUBSCRIPTION_KEY_HEADER = "subscription-key"
 
