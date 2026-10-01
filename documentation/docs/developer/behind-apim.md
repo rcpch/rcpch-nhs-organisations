@@ -148,13 +148,12 @@ tracks the public hostname automatically.
 `add_apim_subscription_key_security` (same file) injects the APIM subscription
 key as an OpenAPI security scheme when the schema is requested through APIM.
 Swagger UI then shows an **Authorize** button; the consumer enters their key
-once and "Try it out" sends `subscription-key` on every request.
+once and "Try it out" sends `Ocp-Apim-Subscription-Key` on every request.
 
-Note: `subscription-key` is the header name this APIM instance is configured
-to accept (API → Settings → Subscription → Header name). It is **not** the
-Azure default (`Ocp-Apim-Subscription-Key`). If the APIM header name is ever
-changed back to the default, update `APIM_SUBSCRIPTION_KEY_HEADER` in
-`rcpch_nhs_organisations/openapi_hooks.py` to match.
+Note: APIM is configured with the Azure defaults — header name
+`Ocp-Apim-Subscription-Key` and query-parameter name `subscription-key`. The
+OpenAPI spec advertises the header form (which Swagger UI uses). Consumers
+who prefer `?subscription-key=…` can still use it; APIM accepts both.
 
 Both hooks are no-ops when `X-Forwarded-Prefix` is absent, so the raw Azure
 URL and local dev produce a spec with no security scheme, no `servers`, and no
@@ -231,7 +230,7 @@ curl -i https://api.rcpch.ac.uk/nhs-organisations/v1/docs/ | grep -i location
 
 # Data API — key required.
 curl -i https://api.rcpch.ac.uk/nhs-organisations/v1/integrated_care_boards/ | head -1  # 401
-curl -i -H "subscription-key: YOUR_KEY" https://api.rcpch.ac.uk/nhs-organisations/v1/integrated_care_boards/ | head -1  # 200
+curl -i -H "Ocp-Apim-Subscription-Key: YOUR_KEY" https://api.rcpch.ac.uk/nhs-organisations/v1/integrated_care_boards/ | head -1  # 200
 ```
 
 The raw container URL should continue to serve the same pages unprefixed and
