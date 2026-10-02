@@ -6,13 +6,15 @@ the result before it is served. See the drf-spectacular docs on
 ``POSTPROCESSING_HOOKS``.
 """
 
-# The APIM subscription key header name. This APIM instance is configured to
-# accept ``subscription-key`` (API → Settings → Subscription → Header name);
-# it is **not** the Azure default (``Ocp-Apim-Subscription-Key``). If the APIM
-# config is ever changed, update these constants to match.
+# APIM subscription credentials. This APIM API uses the Azure defaults:
+#   * header name:          ``Ocp-Apim-Subscription-Key``
+#   * query parameter name: ``subscription-key``
+# The OpenAPI security scheme below advertises the header form (which is what
+# Swagger UI's "Authorize" button sends on "Try it out"). The query-parameter
+# form is still accepted by APIM for consumers who prefer it.
 # Exposed as module-level constants so tests and docs can reference them.
 APIM_SUBSCRIPTION_KEY_SCHEME = "SubscriptionKey"
-APIM_SUBSCRIPTION_KEY_HEADER = "subscription-key"
+APIM_SUBSCRIPTION_KEY_HEADER = "Ocp-Apim-Subscription-Key"
 
 
 def add_apim_subscription_key_security(result, generator, request, public):

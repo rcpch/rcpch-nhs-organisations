@@ -237,7 +237,7 @@ def test_schema_has_apim_security_scheme_with_header(api_client):
     scheme = schemes["SubscriptionKey"]
     assert scheme["type"] == "apiKey"
     assert scheme["in"] == "header"
-    assert scheme["name"] == "subscription-key"
+    assert scheme["name"] == "Ocp-Apim-Subscription-Key"
     # Global security requirement is set.
     assert schema.get("security") == [{"SubscriptionKey": []}]
 
