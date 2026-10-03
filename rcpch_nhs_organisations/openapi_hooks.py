@@ -41,6 +41,12 @@ def add_apim_subscription_key_security(result, generator, request, public):
 
     components = result.setdefault("components", {})
     security_schemes = components.setdefault("securitySchemes", {})
+    # Advertise only the APIM subscription key. drf-spectacular would otherwise
+    # also emit cookieAuth/basicAuth schemes derived from DRF's default
+    # authenticators; those are irrelevant behind APIM and only confuse the
+    # Authorize dialog.
+    security_schemes.pop("cookieAuth", None)
+    security_schemes.pop("basicAuth", None)
     security_schemes[APIM_SUBSCRIPTION_KEY_SCHEME] = {
         "type": "apiKey",
         "in": "header",
@@ -50,8 +56,23 @@ def add_apim_subscription_key_security(result, generator, request, public):
             "endpoints. Obtain a key from the RCPCH API portal."
         ),
     }
-    # Global security requirement — applies to every operation in the spec.
-    result["security"] = [{APIM_SUBSCRIPTION_KEY_SCHEME: []}]
+    # Global security requirement — a sensible default for the spec as a whole.
+    requirement = [{APIM_SUBSCRIPTION_KEY_SCHEME: []}]
+    result["security"] = requirement
+
+    # An operation-level ``security`` overrides the global one, so the global
+    # requirement above is not enough on its own. drf-spectacular generates a
+    # per-operation ``security`` block from DRF's default authenticators
+    # (SessionAuthentication -> cookieAuth, BasicAuthentication -> basicAuth)
+    # plus ``{}`` (anonymous, because the viewsets allow unauthenticated
+    # access). Swagger UI therefore never attaches the subscription key on
+    # "Try it out" and APIM rejects the request with 401. Replace every
+    # operation's security with the subscription-key requirement so the key
+    # is actually sent.
+    for path_item in result.get("paths", {}).values():
+        for operation in path_item.values():
+            if isinstance(operation, dict) and "responses" in operation:
+                operation["security"] = requirement
     return result
 
 

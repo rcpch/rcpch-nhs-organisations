@@ -240,6 +240,33 @@ def test_schema_has_apim_security_scheme_with_header(api_client):
     assert scheme["name"] == "Ocp-Apim-Subscription-Key"
     # Global security requirement is set.
     assert schema.get("security") == [{"SubscriptionKey": []}]
+    # The auto-generated cookie/basic schemes are dropped so the Authorize
+    # dialog only offers the subscription key.
+    assert "cookieAuth" not in schemes
+    assert "basicAuth" not in schemes
+
+
+def test_operations_require_subscription_key_with_header(api_client):
+    """Every operation must require the subscription key (not cookie/basic/anon).
+
+    An operation-level ``security`` overrides the global one, so unless each
+    operation requires the subscription key Swagger UI will not attach the
+    ``Ocp-Apim-Subscription-Key`` header on "Try it out" and APIM returns 401.
+    """
+    response = api_client.get(
+        "/schema/",
+        HTTP_X_FORWARDED_PREFIX="/nhs-organisations/v1",
+    )
+    schema = response.json()
+    paths = schema.get("paths", {})
+    assert paths, "expected at least one path in the schema"
+    for path, path_item in paths.items():
+        for method, operation in path_item.items():
+            if not isinstance(operation, dict) or "responses" not in operation:
+                continue
+            assert operation.get("security") == [{"SubscriptionKey": []}], (
+                f"{method.upper()} {path} does not require the subscription key"
+            )
 
 
 def test_security_scheme_does_not_leak_between_requests(api_client):
