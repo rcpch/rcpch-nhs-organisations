@@ -37,10 +37,14 @@ from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
 from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources import (
     deep_fetch,
     fetch_roster,
+    fetch_by_postcode,
     roster_ods_code,
+    roster_primary_role,
     is_effectively_active,
+    legal_start,
     operational_end,
     LEVEL_ROSTER_FILTERS,
+    ROLE_ORG_SITE,
     TEMPORAL_FLOOR,
 )
 
@@ -392,6 +396,15 @@ class ReconcileEngine:
 
         bridge = self._parent_trust_bridge(org)
         if bridge is not None:
+            candidates = self._candidate_successor_codes(
+                org, record, bridge["successor_trust"]
+            )
+            candidate_note = (
+                " Candidate successor code(s) under "
+                f"{bridge['successor_trust']}: {', '.join(candidates)}."
+                if candidates
+                else ""
+            )
             result.changes.append(
                 DetectedChange(
                     level="organisation",
@@ -402,7 +415,7 @@ class ReconcileEngine:
                         f"{end.isoformat() if end else 'unknown'}) but has no own "
                         f"successor; its parent trust {bridge['predecessor_trust']} "
                         f"was succeeded by {bridge['successor_trust']} — review for a "
-                        "parallel successor code under the new trust."
+                        "parallel successor code under the new trust." + candidate_note
                     ),
                     effective_date=end or bridge["succession_date"],
                     payload={
@@ -415,6 +428,9 @@ class ReconcileEngine:
                             if bridge["succession_date"]
                             else None
                         ),
+                        # Candidate successor codes for human review only —
+                        # never auto-picked (postcode is not a unique key).
+                        "candidate_successors": candidates,
                     },
                 )
             )
@@ -460,6 +476,95 @@ class ReconcileEngine:
                 "successor_trust": ev["target_ods_code"],
                 "succession_date": ev["date"],
             }
+        return None
+
+    def _candidate_successor_codes(
+        self, org, record, successor_trust, fetch_budget=15, limit=10
+    ):
+        """Surface candidate successor codes for a closed site whose parent trust
+        was succeeded. Returns a sorted list of ODS codes (possibly empty).
+
+        ODS models no explicit link between a re-coded site and its predecessor,
+        so the structural bridge is: an active ``RO198`` directory site at the
+        predecessor's postcode whose current (open ``RE6``) parent is the
+        successor trust AND which is a genuine *parallel* code — one that was
+        already open under the successor trust *before* the predecessor closed.
+
+        That last condition is the discriminator that matters in practice. A
+        hospital postcode carries dozens of co-located sites under the successor
+        trust, but when two trusts merge ODS mints a fresh departmental code
+        (wards, clinics) for every sub-site on the merger date. Those freshly
+        minted codes share the postcode and the new trust but are not the moved
+        site; the genuinely parallel code pre-dates the merger. Filtering on
+        ``own legal start < predecessor's operational end`` isolates it
+        (e.g. North Middlesex RAPNM closed 2024-12-31 → RAL27, open under RAL
+        since 2003, is surfaced while ~28 merger-date departmental codes are
+        not).
+
+        Selection is deliberately name-free: a site's name may or may not
+        survive a transfer, so names are used *only* to order the bounded deep
+        fetches (a name match is fetched first so the strongest candidate is
+        confirmed within budget), never as a selection criterion. Nothing is
+        auto-picked — the list is surfaced for human review.
+        """
+        if successor_trust is None:
+            return []
+        fields = _extract_ord_fields(record)
+        postcode = fields.get("postcode")
+        if not postcode:
+            return []
+        predecessor_end = operational_end(record)
+        pred_name = (fields.get("name") or "").strip().upper()
+
+        # One postcode query returns every co-located site; filter cheaply on
+        # the roster fields (active + RO198) before spending any deep fetch.
+        prefiltered = []
+        for item in fetch_by_postcode(postcode, rate_limiter=self.rate_limiter):
+            candidate = roster_ods_code(item)
+            if not candidate or candidate == org.ods_code:
+                continue
+            if roster_primary_role(item) != ROLE_ORG_SITE:
+                continue
+            if item.get("Status") != "Active":
+                continue
+            name_match = bool(pred_name) and (
+                (item.get("Name") or "").strip().upper() == pred_name
+            )
+            prefiltered.append((candidate, name_match))
+
+        # Deep-fetch a bounded number, name-matching sites first so the
+        # strongest candidate is confirmed within budget. The name only orders
+        # the fetches here; the confirmation below is purely structural.
+        prefiltered.sort(key=lambda t: (not t[1], t[0]))
+
+        confirmed = []
+        for candidate, _ in prefiltered[:fetch_budget]:
+            if len(confirmed) >= limit:
+                break
+            detail = self._deep_fetch(candidate)
+            if detail is None or not is_effectively_active(detail):
+                continue
+            if self._open_parent_trust(detail) != successor_trust:
+                continue
+            # A genuine parallel code co-existed with the predecessor: it was
+            # open under the successor trust before the predecessor closed.
+            # This excludes the merger-date departmental codes.
+            start = legal_start(detail)
+            if (
+                predecessor_end is not None
+                and start is not None
+                and start >= predecessor_end
+            ):
+                continue
+            confirmed.append(candidate)
+        return sorted(confirmed)
+
+    def _open_parent_trust(self, record):
+        """Return the ODS code of the record's current (open ``RE6``) parent
+        trust, or None."""
+        for membership in _extract_trust_membership_info(record):
+            if membership.get("valid_to") is None:
+                return membership.get("trust_ods_code")
         return None
 
     def _organisation_successor(self, record):

@@ -75,17 +75,21 @@ def _detail(
     op_end=None,
     rels=None,
     succs=None,
+    postcode=None,
 ):
     date = [{"Type": "Legal", "Start": legal_start}]
     if op_end is not None:
         date.append({"Type": "Operational", "Start": legal_start, "End": op_end})
+    location = {}
+    if postcode is not None:
+        location["PostCode"] = postcode
     record = {
         "Name": name,
         "OrgId": {"extension": ods_code},
         "Status": status,
         "LastChangeDate": last_change,
         "Date": date,
-        "GeoLoc": {"Location": {}},
+        "GeoLoc": {"Location": location},
         "Contacts": {"Contact": []},
     }
     if rels:
@@ -104,6 +108,17 @@ def _roster(ods_code, name, status="Active", last_change="2024-01-01"):
     }
 
 
+def _postcode_item(ods_code, name, *, status="Active", primary_role="RO198"):
+    """A directory roster item as returned by a ``PostCode=`` query, carrying the
+    bare-string ``PrimaryRoleId`` the candidate-successor filter reads."""
+    return {
+        "OrgId": ods_code,
+        "Name": name,
+        "Status": status,
+        "PrimaryRoleId": primary_role,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Patch helpers
 # ---------------------------------------------------------------------------
@@ -113,10 +128,11 @@ APPLY = "rcpch_nhs_organisations.hospitals.general_functions.reconcile.apply"
 COMMAND = "rcpch_nhs_organisations.hospitals.management.commands.reconcile_ods"
 
 
-def _patch_engine(roster_map=None, details=None, flagged_links=None):
-    """Patch the three ODS sources the engine uses. Returns an ExitStack."""
+def _patch_engine(roster_map=None, details=None, flagged_links=None, postcode_map=None):
+    """Patch the ODS sources the engine uses. Returns an ExitStack."""
     roster_map = roster_map or {}
     details = details or {}
+    postcode_map = postcode_map or {}
 
     def fake_fetch_roster(filter_param, role_id, rate_limiter=None, **kwargs):
         # Keyed by role_id so existing fixtures (e.g. "RO197") keep working.
@@ -128,9 +144,15 @@ def _patch_engine(roster_map=None, details=None, flagged_links=None):
     def fake_fetch_updated(time_frame=30):
         return flagged_links or []
 
+    def fake_fetch_by_postcode(postcode, rate_limiter=None, **kwargs):
+        return postcode_map.get(postcode, [])
+
     stack = ExitStack()
     stack.enter_context(patch(f"{ENGINE}.fetch_roster", side_effect=fake_fetch_roster))
     stack.enter_context(patch(f"{ENGINE}.deep_fetch", side_effect=fake_deep_fetch))
+    stack.enter_context(
+        patch(f"{ENGINE}.fetch_by_postcode", side_effect=fake_fetch_by_postcode)
+    )
     stack.enter_context(
         patch(f"{ENGINE}.fetch_updated_organisations", side_effect=fake_fetch_updated)
     )
@@ -566,6 +588,133 @@ def test_organisation_parallel_code_via_parent_trust_bridge():
     # Must not be auto-applied or mis-classified as a plain retirement.
     assert not parallel[0].auto_safe
     assert not [c for c in result.changes if c.change_class == "retire"]
+
+
+@pytest.mark.django_db
+def test_parallel_code_surfaces_candidate_successor_code():
+    """The RAL27 pattern: a closed site (RAPNM) whose parent trust RAP was
+    succeeded by RAL. An active RO198 site (RAL27) at the predecessor's postcode
+    whose open RE6 parent is RAL is surfaced as a candidate successor — for
+    review only, not auto-picked. A co-located site under a different trust and
+    an inactive site at the same postcode are excluded, and matching ignores
+    names entirely."""
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    postcode = "N18 1QX"
+    details = {
+        "RAPNM": _detail(
+            "RAPNM",
+            "North Middlesex Hospital",
+            status="Active",
+            op_end="2024-12-31",
+            rels=[_rel("RAP", "2001-04-01")],
+            postcode=postcode,
+        ),
+        "RAP": _detail(
+            "RAP",
+            "North Mid Trust",
+            succs=[_succ("RAL", "Successor", "2025-01-01")],
+        ),
+        # The genuine successor site: open, active, parented on the successor
+        # trust RAL, and ALREADY OPEN before the predecessor closed (legal_start
+        # 2003, predecessor closed 2024-12-31) — a true parallel code. Note the
+        # DELIBERATELY different name: selection must not depend on the name.
+        "RAL27": _detail(
+            "RAL27",
+            "NORTH MIDDLESEX SITE (RENAMED)",
+            status="Active",
+            legal_start="2003-04-01",
+            rels=[_rel("RAL", "2003-04-01")],
+            postcode=postcode,
+        ),
+        # A freshly-minted departmental code under the SAME successor trust at
+        # the SAME postcode, created on the merger date (legal_start == the
+        # predecessor's end). ODS mints dozens of these on a trust merger; the
+        # temporal "pre-existing parallel" filter must exclude it.
+        "RALW1": _detail(
+            "RALW1",
+            "WARD 1",
+            status="Active",
+            legal_start="2025-01-01",
+            rels=[_rel("RAL", "2025-01-01")],
+            postcode=postcode,
+        ),
+        # A co-located site under a DIFFERENT trust — must not be offered.
+        "RXX99": _detail(
+            "RXX99",
+            "Unrelated Co-located Clinic",
+            status="Active",
+            rels=[_rel("RXX", "2010-04-01")],
+            postcode=postcode,
+        ),
+    }
+    postcode_map = {
+        postcode: [
+            _postcode_item("RAL27", "NORTH MIDDLESEX SITE (RENAMED)"),
+            _postcode_item("RALW1", "WARD 1"),
+            _postcode_item("RXX99", "Unrelated Co-located Clinic"),
+            # An inactive co-located site under the successor trust — excluded
+            # by the roster Status filter before any deep fetch.
+            _postcode_item("RAL88", "Closed RAL Site", status="Inactive"),
+            # A non-RO198 role at the same postcode (e.g. a GP practice) —
+            # excluded by the role filter.
+            _postcode_item("G123", "A GP Practice", primary_role="RO177"),
+        ]
+    }
+    with _patch_engine({}, details, postcode_map=postcode_map):
+        result = ReconcileEngine(["organisation"], since=None).detect()
+    parallel = [c for c in result.changes if c.change_class == "parallel-code"]
+    assert len(parallel) == 1
+    change = parallel[0]
+    assert change.payload["candidate_successors"] == ["RAL27"]
+    assert "RALW1" not in change.payload["candidate_successors"]
+    assert "RAL27" in change.summary
+    # Surfaced for review only — never auto-picked or auto-applied.
+    assert not change.auto_safe
+    assert "replacement_ods_code" not in change.payload
+
+
+@pytest.mark.django_db
+def test_parallel_code_no_candidate_when_postcode_has_no_successor_site():
+    """If no active RO198 site at the predecessor's postcode sits under the
+    successor trust, the candidate list is empty and the review item still
+    fires (the reviewer must find the successor by hand)."""
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    postcode = "N18 1QX"
+    details = {
+        "RAPNM": _detail(
+            "RAPNM",
+            "North Middlesex Hospital",
+            status="Active",
+            op_end="2024-12-31",
+            rels=[_rel("RAP", "2001-04-01")],
+            postcode=postcode,
+        ),
+        "RAP": _detail(
+            "RAP",
+            "North Mid Trust",
+            succs=[_succ("RAL", "Successor", "2025-01-01")],
+        ),
+        # Only a co-located site under a different trust exists.
+        "RXX99": _detail(
+            "RXX99",
+            "Unrelated Co-located Clinic",
+            status="Active",
+            rels=[_rel("RXX", "2010-04-01")],
+            postcode=postcode,
+        ),
+    }
+    postcode_map = {postcode: [_postcode_item("RXX99", "Unrelated Co-located Clinic")]}
+    with _patch_engine({}, details, postcode_map=postcode_map):
+        result = ReconcileEngine(["organisation"], since=None).detect()
+    parallel = [c for c in result.changes if c.change_class == "parallel-code"]
+    assert len(parallel) == 1
+    assert parallel[0].payload["candidate_successors"] == []
 
 
 @pytest.mark.django_db

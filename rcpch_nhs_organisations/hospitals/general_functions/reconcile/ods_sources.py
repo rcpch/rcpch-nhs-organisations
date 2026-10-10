@@ -21,6 +21,7 @@ stay safely under the ODS 5000-requests / 5-minutes ceiling.
 import datetime
 import logging
 import os
+from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
@@ -46,6 +47,7 @@ ROLE_TRUST = "RO197"
 ROLE_LHB = "RO142"
 ROLE_ICB_PRIMARY = "RO261"  # too broad for roster selection; kept for reference
 ROLE_ICB = "RO318"  # the ICB-specific (non-primary) role used for the roster
+ROLE_ORG_SITE = "RO198"  # NHS Trust Site (the organisation level)
 
 # Map a reconcile level to the ODS directory query that selects its roster:
 # (query_param, role_id). ``PrimaryRoleId`` is a strict primary-role match;
@@ -129,6 +131,41 @@ def fetch_roster(filter_param, role_id, limit=500, rate_limiter=None):
     return results
 
 
+def fetch_by_postcode(postcode, limit=500, rate_limiter=None):
+    """Fetch the directory roster items located at a given postcode.
+
+    Used to surface candidate successor codes for a closed organisation whose
+    parent trust was succeeded (the North Middlesex / RAL27 pattern): the site
+    re-opens under a parallel code beneath the successor trust, sharing the
+    predecessor's postcode. ODS models no explicit link between the two codes,
+    so ``postcode + successor-trust`` is the only structural bridge available.
+
+    Returns a list of roster items (each a bare-``OrgId`` dict carrying at least
+    ``OrgId``, ``Name``, ``Status``, ``PrimaryRoleId`` and ``PostCode``). A
+    blank postcode returns ``[]``. Candidate surfacing is best-effort — a
+    network failure here must never abort a reconciliation run, so HTTP errors
+    are logged and swallowed (an empty list means "no candidates offered").
+
+    A single postcode query returns every co-located site (dozens, spanning
+    many roles), so the caller filters to active ``RO198`` sites and confirms
+    the parent trust via a bounded number of deep fetches — this function
+    deliberately does no filtering itself beyond the postcode.
+    """
+    if not postcode:
+        return []
+    if rate_limiter is not None:
+        rate_limiter.acquire()
+    query = f"PostCode={quote(postcode)}&Limit={min(limit, 500)}"
+    request_url = f"{_base_url()}/organisations?{query}"
+    try:
+        response = requests.get(url=request_url, timeout=30)
+        response.raise_for_status()
+    except HTTPError as e:
+        logger.warning("ODS postcode fetch failed for %s: %s", postcode, e)
+        return []
+    return response.json().get("Organisations", [])
+
+
 def deep_fetch(ods_code, rate_limiter=None):
     """Fetch the full ODS record for a single ODS code, with rate limiting.
 
@@ -169,6 +206,18 @@ def roster_ods_code(roster_item):
     if isinstance(org_id, dict):
         return org_id.get("extension")
     return org_id
+
+
+def roster_primary_role(roster_item):
+    """Return the primary role id from a roster list item.
+
+    Directory summary items carry ``PrimaryRoleId`` as a bare string (unlike the
+    nested ``{"id": ...}`` form in a full record), but tolerate both shapes.
+    """
+    role = roster_item.get("PrimaryRoleId")
+    if isinstance(role, dict):
+        return role.get("id")
+    return role
 
 
 def legal_start(ord_record):
