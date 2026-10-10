@@ -23,9 +23,13 @@ name: ODS change detection
 # with a meaningful error — no issue is posted. The job's console logs
 # in the Azure portal have the error details.
 #
-# The job runs `python manage.py ods_change_report`, which runs the three
-# dry-run checks (ODS sync, trust successions, ICB successions) and prints
-# the combined report between the markers.
+# The job runs `python manage.py reconcile_ods --mode incremental --dry-run
+# --queue --upload-blob`, the unified reconciliation engine. It detects ODS
+# deltas across the organisation/trust/LHB/ICB levels, fills the
+# PendingOdsChange review queue in the production database (--queue), and
+# prints + uploads the combined categorised report between the markers
+# (--upload-blob). (It replaces the legacy `ods_change_report`, which ran
+# three separate dry-run checks and is retained as a fallback.)
 #
 # Prerequisites and one-off job setup are documented in
 # documentation/docs/developer/ods-change-detection.md. In particular, the
