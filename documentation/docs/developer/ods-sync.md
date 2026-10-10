@@ -75,14 +75,35 @@ The historical layer has a hard floor of **1 December 2020**
   successors of held codes, backward to pick up predecessor codes/names/parents
   that were live on or after the floor.
 
-**Worked example — North Middlesex.** The database holds `RAL27` (North
-Middlesex, under Royal Free `RAL`) today. In December 2020 the same site was
-`RAP01` under North Middlesex University Hospital NHS Trust `RAP`. The backfill
-reconstructs the `RAP01` organisation row, its `OrganisationTrustMembership` →
-`RAP`, an `OrganisationSuccession` `RAP01` → `RAL27`, and the `RAP` trust row
-and its memberships (because `RAP` was active on the floor). An as-of query for
-`2020-12-01` then returns `RAP01` under `RAP`; for today it returns `RAL27`
-under `RAL`.
+**Worked example — North Middlesex.** This site shows both the backward
+reconstruction *and* the end-date-aware closure logic. The database currently
+holds the organisation under the code **`RAPNM`** (ODS `Status=Active`),
+parented on North Middlesex University Hospital NHS Trust **`RAP`** (which the
+DB already holds as `active=False`). In ODS, `RAPNM` is still stamped
+`Status=Active` but carries a **Legal/Operational End of 2024-12-31** and has no
+own `Succs`; its parent trust `RAP` was **succeeded by Royal Free London `RAL`
+on 2025-01-01**, and the physical site re-opened under a parallel Royal-Free
+code (`RAL27`). Two things follow:
+
+- *Backward (floor) reconstruction.* For an as-of date in the covered window the
+  layer freezes `RAPNM` under `RAP`: the `RAPNM` organisation row, its
+  `OrganisationTrustMembership` → `RAP`, and the `RAP` trust row and its
+  memberships are all reconstructed back to the floor (because `RAP` was active
+  on 1 December 2020).
+- *Forward closure.* Because `RAPNM` has effectively closed (past end date) with
+  **no own successor**, the engine does not guess. It bridges via the
+  **parent-trust succession** (`RAP` → `RAL`) and surfaces a `parallel-code`
+  review item recording that bridge. It deliberately does **not** auto-pick
+  `RAL27` as the successor site: the shared postcode (`N18 1QX`) returns ~50
+  co-located `RO198` sites, and names change on transfer, so neither postcode
+  nor name is a safe key. A human links the parallel code from the review queue
+  (which then records the `OrganisationSuccession` and deactivates `RAPNM`).
+
+> Note: in **incremental** mode the organisation-level deep diff only runs for
+> codes the `/sync` feed flags in-window, so a *historical* closure like
+> `RAPNM` (end-dated in 2024) surfaces under **`--mode backfill`**, not a
+> routine incremental run. New closures going forward are `/sync`-flagged in
+> their window and so are caught incrementally.
 
 ## What is detected, per level
 
@@ -110,9 +131,9 @@ graph TD
 | `relationship` (new parent) | `RE6` (org→trust), `RE5`/`RE8` (trust→ICB) | Layer 2 membership row closed + opened | `reassign_*` / `backfill_*_membership` |
 | `succession` (merger/acq/split/closure) | `Succs` block | Layer 3 succession row + predecessor `active=False` + successor baseline | succession helpers via the apply path |
 | `superseded-code` | `Succs` on the held org + new `RE6` | `OrganisationSuccession` + new `Organisation` + membership transfer | succession helpers via the apply path |
-| `roster-add` (**trust/LHB/ICB only**) | `?PrimaryRoleId=` list | create entity | roster helpers via the apply path |
-| `retire` (**trust/LHB/ICB only**) | `Status` = Inactive | deactivate entity | `deactivate_*` via the apply path |
-| `parallel-code` | two active codes for one site | review only | human decision (see below) |
+| `roster-add` (**trust/LHB/ICB only**) | roster list + deep-fetch confirms still open | create entity | roster helpers via the apply path |
+| `retire` (**trust/LHB/ICB only**) | `Status` = Inactive, **or** past end date, **or** absent from roster and deep-fetch confirms closed | deactivate entity | `deactivate_*` via the apply path |
+| `parallel-code` | held site effectively closed (past end date) with no own successor, but its parent trust was succeeded | review only | human decision (see below) |
 
 ### Detection sources
 
@@ -122,15 +143,58 @@ Three ODS data sources are used together (see
 1. **`/sync?LastChangeDate=`** — the cheap trigger feed. Lists codes changed
    since a date (≤185 days). Drives *which* entities to deep-fetch on an
    incremental run.
-2. **`/organisations?PrimaryRoleId={role}&Limit=500`** — the roster per level,
-   with `Status` and `LastChangeDate`. Used for trust / LHB / ICB presence and
-   status reconciliation (organisations are a closed set and are not
-   roster-reconciled).
-3. **`/organisations/{ods_code}`** — per-entity detail (`Status`, `Rels`/`RE6`,
-   `Succs`). One deep-fetch returns an entity's entire history, so each entity
-   needs only one such call per run. Drives attribute, relationship, and
-   succession diffs, and is how superseded organisation codes are followed to
-   their successors.
+2. **`/organisations?{filter}={role}&Limit=500`, paginated with `Offset`** —
+   the roster per level, carrying `Status` and `LastChangeDate`. Used for trust
+   / LHB / ICB presence and status reconciliation (organisations are a closed
+   set and are not roster-reconciled). Two details matter:
+    - **Pagination.** The directory caps a page at 500 rows, so the roster is
+      paged with `Offset` until a short page is returned. (The `RO197` trust
+      roster is ~544 rows; without paging it truncated at 500 and every entity
+      past the first page looked "absent from ODS" — a false retirement.) The
+      first page omits `Offset` (ODS rejects `Offset=0` with HTTP 406) and the
+      page size is held at 500 (`Limit>500` is incompatible with `Offset`).
+    - **ICB role.** Trusts and LHBs are selected by their *primary* role
+      (`PrimaryRoleId=RO197` / `RO142`). ICBs are **not** selected by their
+      primary role `RO261` ("STRATEGIC PARTNERSHIP"), which is far broader than
+      ICBs (it also returns mental-health provider collaboratives, shared care
+      records, commissioning alliances — ~125 orgs). The reliable, name-free
+      discriminator is the *non-primary* ICB-specific role **`RO318`**, queried
+      via `Roles=RO318`, which returns exactly the real Integrated Care Boards.
+3. **`/organisations/{ods_code}`** — per-entity detail (`Status`, `Date`
+   (Legal/Operational start+end), `Rels`/`RE6`, `Succs`). One deep-fetch returns
+   an entity's entire history, so each entity needs only one such call per run
+   (results are cached within a run). Drives attribute, relationship, and
+   succession diffs; is how superseded organisation codes are followed to their
+   successors; and carries the **end date** the status logic depends on (see
+   below — the roster list items do not carry it).
+
+### End-date-aware status: trust the end date, not the `Status` flag
+
+The ODS `Status` header is **unreliable**: ODS leaves long-dissolved trusts and
+re-coded sites stamped `Status=Active` for years after they actually closed
+(e.g. South London Healthcare `RYQ` and NHS Direct `RYH`, both dissolved in
+2013, are still `Active` in the directory). Taken at face value, these zombies
+produced dozens of false "new entity in ODS" and "absent from ODS" lines.
+
+The authoritative signal is the **Operational/Legal End date**. An entity is
+*effectively active* (`ods_sources.is_effectively_active`) only when its
+`Status` is `Active` **and** it has no end date (or an end date in the future).
+The engine applies this in three places:
+
+- **Roster-add zombie filter.** A roster candidate that is in ODS but not in the
+  DB is deep-fetched before it is flagged; if its end date has passed it is
+  skipped (it is a long-dead code, not a genuinely new entity). A candidate that
+  cannot be deep-fetched is still surfaced — only a *confirmed* past end date
+  suppresses it.
+- **Retire-by-absence confirmation.** A held entity absent from the (English)
+  roster roles is deep-fetched before it is retired. If it is still effectively
+  active in ODS it is **not** retired — it simply sits outside the queried roles
+  (e.g. a Welsh LHB like Powys `7A7`, or a Crown-dependency site like Jersey
+  General `RGT1W`, both of which happen to live in the `Trust` table). Only an
+  entity ODS confirms as gone or closed is retired.
+- **Organisation closure detection.** A held-active organisation that ODS has
+  effectively closed (past end date) is detected even though its `Status` is
+  still `Active` — see the North Middlesex example below.
 
 ### Rate limiting
 
@@ -251,6 +315,25 @@ filterable by status) offers two actions:
   on a temporal table directly — there is one apply path.
 - **Dismiss selected changes** — requires a free-text reason, then stamps
   `status=dismissed` with the reason and reviewer.
+
+### Parallel active codes and curated divergences
+
+Some sites legitimately carry **two active-looking codes** at once, and ODS
+cannot always disambiguate them automatically:
+
+- **Resolvable by end date (the North Middlesex pattern).** One code has a past
+  end date and the other is open. The closed code's parent trust was succeeded,
+  so the engine emits a `parallel-code` review item carrying the parent-trust
+  bridge (`predecessor_trust` → `successor_trust`). The reviewer links the
+  surviving code; applying a `parallel-code` flags the old code
+  `diverged_from_ods` (and, when known, records `ods_replacement_code`) via
+  `apply._apply_parallel_code`.
+- **Not resolvable by end date (the Wythenshawe pattern).** Both codes are open
+  (no end date, both `Status=Active`) — a genuine, persistent divergence. The
+  end-date discriminator correctly leaves these **alone** (they are not flagged
+  closed). Such known-good divergences are curated in
+  `constants/ods_divergent_codes.py` and carried on the `Organisation` row as
+  `diverged_from_ods` so the engine never re-flags them.
 
 Every run is recorded as an **`OdsSyncRun`** row (mode, levels, since,
 `synced_through`, dry-run flag, `changes_detected`, status, and the stored
