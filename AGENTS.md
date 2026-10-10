@@ -257,7 +257,7 @@ truth for seeding and backfill:
 
 | Workflow | Schedule | What it does |
 |---|---|---|
-| `ods-change-detection.yml` | Monthly (1st of month) | Starts the Azure Container Apps ODS check job (which runs the three dry-run checks against the production DB) and opens a GitHub issue if changes are detected. |
+| `ods-change-detection.yml` | Monthly (1st of month) | Enforces and starts the Azure Container Apps ODS check job — which runs `reconcile_ods --mode incremental --dry-run --queue --upload-blob` against the production DB, filling the `PendingOdsChange` review queue — and opens a GitHub issue if changes are detected. |
 | `main_rcpch-nhs-organisations.yml` | On push/PR | CI — builds and tests. |
 | `pr.yml` | On PR | PR checks. |
 

@@ -62,6 +62,15 @@ Each monthly run therefore does two things at once: it **fills the review
 queue** (`--queue`) and **raises the notification issue** (`--upload-blob`). A
 reviewer then works the `PendingOdsChange` changelist in the admin.
 
+The command the job runs is **re-asserted by the workflow on every run** (an
+`az containerapp job update --command` step before the job is started), so the
+workflow YAML is the source of truth for the monthly command rather than the
+out-of-band Azure job definition. A job that predates the `reconcile_ods`
+migration (and still carried the legacy `ods_change_report` command) is healed
+automatically on the next run; setting the same command is a no-op. This needs
+the GitHub OIDC identity to have the **Container Apps Jobs Contributor** role on
+the job (already required to start it).
+
 ## How the report reaches the issue
 
 `--upload-blob` goes through the shared helper
@@ -182,4 +191,4 @@ Actions tab (`workflow_dispatch`).
 | Job log shows "SystemCheckError: System check identified some issues" | A Django system check is failing at startup (e.g. `4_0.E001` — `CSRF_TRUSTED_ORIGINS` values must start with `http://` or `https://`). This kills `manage.py` before the command runs. Check `DJANGO_CSRF_TRUSTED_ORIGINS` and `DJANGO_ALLOWED_HOSTS` on the job's env vars. |
 | Workflow fails at "Start ODS change detection job" | The job does not exist (create it — see one-off setup) or its name does not match `ods-change-detection`. |
 | Workflow shows status "unknown" | The `az containerapp job execution show` output was corrupted by stderr warnings mixed into the JSON. Fixed by capturing stdout and stderr separately. |
-| Issue opened but no rows in the review queue | The job ran without `--queue`. Add `--queue` to the job's command so each run fills `PendingOdsChange` as well as raising the issue. |
+| Issue opened but no rows in the review queue | The job ran without `--queue`. The workflow now re-asserts `--queue` via `az containerapp job update --command` before each run, so this should self-heal; if it persists, check that the enforce-command step succeeded. |
