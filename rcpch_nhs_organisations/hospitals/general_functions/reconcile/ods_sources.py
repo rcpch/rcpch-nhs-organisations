@@ -6,10 +6,11 @@ documentation/docs/developer/ods-sync.md, "Detection mechanism"):
 
 1. ``/sync?LastChangeDate=`` — the cheap trigger feed (already wrapped by
    ``fetch_updated_organisations`` in ``ods_update.py``).
-2. ``/organisations?PrimaryRoleId={role}&Limit=500`` — the roster per level,
-   with ``Status`` and ``LastChangeDate``. Used for trust / LHB / ICB presence
-   and status reconciliation (the organisation level is a closed set and is not
-   roster-reconciled). Implemented here as ``fetch_roster``.
+2. ``/organisations?PrimaryRoleId={role}`` (or ``Roles={role}`` for ICBs),
+   paginated with ``Offset``, carrying ``Status`` and ``LastChangeDate``. Used
+   for trust / LHB / ICB presence and status reconciliation (the organisation
+   level is a closed set and is not roster-reconciled). Implemented here as
+   ``fetch_roster``.
 3. ``/organisations/{ods_code}`` — per-entity detail (already wrapped by
    ``get_organisation``). Here we add ``deep_fetch`` which applies the rate
    limiter and returns the parsed record.
@@ -30,18 +31,30 @@ from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
 
 logger = logging.getLogger("hospitals")
 
-# ODS PrimaryRoleId codes for the four in-scope levels. The organisation level
-# (RO198 trust site / RO144 LHB site) is deliberately not roster-reconciled —
-# it is a closed set followed only along succession chains.
+# ODS role codes for the in-scope levels. The organisation level (RO198 trust
+# site / RO144 LHB site) is deliberately not roster-reconciled — it is a closed
+# set followed only along succession chains.
+#
+# Trusts and LHBs are selected by their *primary* role. ICBs are a special
+# case: their primary role RO261 ("STRATEGIC PARTNERSHIP") is far broader than
+# ICBs — it also covers mental-health provider collaboratives (SMHPCs), shared
+# care records, commissioning alliances, etc. (125 orgs vs the ~48 real ICBs).
+# The reliable, name-free discriminator is the *non-primary* role RO318, which
+# ODS assigns only to actual Integrated Care Boards. So the ICB roster is
+# selected by RO318, not RO261.
 ROLE_TRUST = "RO197"
 ROLE_LHB = "RO142"
-ROLE_ICB = "RO261"
+ROLE_ICB_PRIMARY = "RO261"  # too broad for roster selection; kept for reference
+ROLE_ICB = "RO318"  # the ICB-specific (non-primary) role used for the roster
 
-# Map a reconcile level to its roster PrimaryRoleId.
-LEVEL_ROLE_IDS = {
-    "trust": ROLE_TRUST,
-    "lhb": ROLE_LHB,
-    "icb": ROLE_ICB,
+# Map a reconcile level to the ODS directory query that selects its roster:
+# (query_param, role_id). ``PrimaryRoleId`` is a strict primary-role match;
+# ``Roles`` matches an org carrying the role in any (primary or non-primary)
+# position, which is how the non-primary ICB role RO318 is selected.
+LEVEL_ROSTER_FILTERS = {
+    "trust": ("PrimaryRoleId", ROLE_TRUST),
+    "lhb": ("PrimaryRoleId", ROLE_LHB),
+    "icb": ("Roles", ROLE_ICB),
 }
 
 # The historical floor. Entities inactive before this date are out of scope
@@ -63,29 +76,57 @@ def organisation_url(ods_code):
     return f"{_base_url()}/organisations/{ods_code}"
 
 
-def fetch_roster(role_id, limit=500, rate_limiter=None):
-    """Fetch the full ODS roster for a PrimaryRoleId.
+def fetch_roster(filter_param, role_id, limit=500, rate_limiter=None):
+    """Fetch the full, paginated ODS roster for a role.
+
+    ``filter_param`` is the directory query parameter (``PrimaryRoleId`` or
+    ``Roles``) and ``role_id`` the role code — see ``LEVEL_ROSTER_FILTERS``.
 
     Returns a list of dicts, one per organisation, each carrying at least
     ``OrgId`` (the ODS code), ``Name``, ``Status`` ("Active"/"Inactive"), and
     ``LastChangeDate``. This is the directory roster used for trust / LHB / ICB
     presence and status reconciliation.
 
+    The ODS directory caps a single page at 500 rows, so this paginates with
+    ``Offset`` until a short/empty page is returned. Two quirks are handled:
+    the API rejects ``Offset=0`` with HTTP 406, so the first page omits
+    ``Offset`` entirely; and ``Limit`` above 500 is incompatible with
+    ``Offset``, so the page size is held at 500. Without pagination the roster
+    silently truncated at 500 rows, which made every entity past the first page
+    look "absent from ODS" (a false retirement).
+
     ``all_nhs_hospitals_list`` uses a different NHS API and cannot be reused for
     this — the ODS directory roster carries the ``Status`` flag the engine needs.
     """
-    if rate_limiter is not None:
-        rate_limiter.acquire()
-    request_url = (
-        f"{_base_url()}/organisations?PrimaryRoleId={role_id}&Limit={limit}"
-    )
-    try:
-        response = requests.get(url=request_url, timeout=30)
-        response.raise_for_status()
-    except HTTPError as e:
-        logger.error("ODS roster fetch failed for %s: %s", role_id, e)
-        raise
-    return response.json().get("Organisations", [])
+    limit = min(limit, 500)
+    results = []
+    offset = 0
+    while True:
+        if rate_limiter is not None:
+            rate_limiter.acquire()
+        query = f"{filter_param}={role_id}&Limit={limit}"
+        if offset:
+            # Offset=0 is rejected (HTTP 406); omit it for the first page.
+            query += f"&Offset={offset}"
+        request_url = f"{_base_url()}/organisations?{query}"
+        try:
+            response = requests.get(url=request_url, timeout=30)
+            response.raise_for_status()
+        except HTTPError as e:
+            logger.error(
+                "ODS roster fetch failed for %s=%s (offset %s): %s",
+                filter_param,
+                role_id,
+                offset,
+                e,
+            )
+            raise
+        page = response.json().get("Organisations", [])
+        results.extend(page)
+        if len(page) < limit:
+            break
+        offset += limit
+    return results
 
 
 def deep_fetch(ods_code, rate_limiter=None):

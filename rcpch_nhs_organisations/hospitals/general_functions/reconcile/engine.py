@@ -40,7 +40,7 @@ from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources i
     roster_ods_code,
     extract_status,
     active_on_or_after_floor,
-    LEVEL_ROLE_IDS,
+    LEVEL_ROSTER_FILTERS,
     TEMPORAL_FLOOR,
 )
 
@@ -206,8 +206,8 @@ class ReconcileEngine:
 
     def _detect_roster_level(self, level, result):
         model = _model_for_level(level)
-        role_id = LEVEL_ROLE_IDS[level]
-        roster = fetch_roster(role_id, rate_limiter=self.rate_limiter)
+        filter_param, role_id = LEVEL_ROSTER_FILTERS[level]
+        roster = fetch_roster(filter_param, role_id, rate_limiter=self.rate_limiter)
         roster_by_code = {}
         for item in roster:
             code = roster_ods_code(item)

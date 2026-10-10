@@ -16,7 +16,7 @@ from rcpch_nhs_organisations.hospitals.general_functions.reconcile.rate_limit im
 )
 from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources import (
     TEMPORAL_FLOOR,
-    LEVEL_ROLE_IDS,
+    LEVEL_ROSTER_FILTERS,
 )
 
 __all__ = [
@@ -26,5 +26,5 @@ __all__ = [
     "build_report",
     "TokenBucketRateLimiter",
     "TEMPORAL_FLOOR",
-    "LEVEL_ROLE_IDS",
+    "LEVEL_ROSTER_FILTERS",
 ]

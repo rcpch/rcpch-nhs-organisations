@@ -118,7 +118,8 @@ def _patch_engine(roster_map=None, details=None, flagged_links=None):
     roster_map = roster_map or {}
     details = details or {}
 
-    def fake_fetch_roster(role_id, rate_limiter=None, **kwargs):
+    def fake_fetch_roster(filter_param, role_id, rate_limiter=None, **kwargs):
+        # Keyed by role_id so existing fixtures (e.g. "RO197") keep working.
         return roster_map.get(role_id, [])
 
     def fake_deep_fetch(ods_code, rate_limiter=None):
@@ -179,6 +180,84 @@ def test_rate_limiter_throttles_under_limit():
     assert len(slept) == 15
     # The sustained throttle rate stays well under the ODS ceiling of 5000/300.
     assert limiter.rate <= 5000 / 300
+
+
+# ---------------------------------------------------------------------------
+# Roster fetch: pagination + ICB role selector (unit, no DB)
+# ---------------------------------------------------------------------------
+
+
+ODS_SOURCES = "rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources"
+
+
+class _FakeResponse:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"Organisations": self._rows}
+
+
+def test_fetch_roster_paginates_past_500():
+    """The roster is fetched across pages: a full first page (500) triggers a
+    second request, and the first page must NOT send Offset (ODS 406s Offset=0)."""
+    from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources import (
+        fetch_roster,
+    )
+
+    page1 = [{"OrgId": f"T{i:03d}", "Name": "x", "Status": "Active"} for i in range(500)]
+    page2 = [{"OrgId": f"U{i:03d}", "Name": "y", "Status": "Active"} for i in range(44)]
+    calls = []
+
+    def fake_get(url, timeout=None):
+        calls.append(url)
+        return _FakeResponse(page1 if "Offset" not in url else page2)
+
+    with patch.dict("os.environ", {"NHS_ODS_API_URL": "https://ods.example/ORD"}):
+        with patch(f"{ODS_SOURCES}.requests.get", side_effect=fake_get):
+            rows = fetch_roster("PrimaryRoleId", "RO197")
+
+    assert len(rows) == 544
+    assert len(calls) == 2
+    assert "Offset" not in calls[0]  # first page omits Offset (avoids HTTP 406)
+    assert "Offset=500" in calls[1]
+
+
+def test_fetch_roster_single_short_page_stops():
+    """A first page shorter than the limit means no second request."""
+    from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources import (
+        fetch_roster,
+    )
+
+    page = [{"OrgId": "RAA", "Name": "x", "Status": "Active"}]
+    calls = []
+
+    def fake_get(url, timeout=None):
+        calls.append(url)
+        return _FakeResponse(page)
+
+    with patch.dict("os.environ", {"NHS_ODS_API_URL": "https://ods.example/ORD"}):
+        with patch(f"{ODS_SOURCES}.requests.get", side_effect=fake_get):
+            rows = fetch_roster("PrimaryRoleId", "RO197")
+
+    assert len(rows) == 1
+    assert len(calls) == 1
+
+
+def test_icb_roster_selector_uses_non_primary_ro318():
+    """ICBs are selected by the ICB-specific role RO318 via the ``Roles`` query,
+    not the over-broad primary role RO261 (which also returns SMHPCs, shared
+    care records and commissioning alliances)."""
+    from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources import (
+        LEVEL_ROSTER_FILTERS,
+    )
+
+    assert LEVEL_ROSTER_FILTERS["icb"] == ("Roles", "RO318")
+    assert LEVEL_ROSTER_FILTERS["trust"] == ("PrimaryRoleId", "RO197")
+    assert LEVEL_ROSTER_FILTERS["lhb"] == ("PrimaryRoleId", "RO142")
 
 
 # ---------------------------------------------------------------------------
