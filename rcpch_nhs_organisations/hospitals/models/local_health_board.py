@@ -19,7 +19,11 @@ from .time_and_user_abstract_base_classes import TimeStampAbstractBaseClass
 
 class LocalHealthBoardBoundaries(TimeStampAbstractBaseClass):
     boundary_identifier = models.CharField(max_length=9)
-    name = models.CharField(max_length=41)
+    # ODS names (e.g. "CWM TAF MORGANNWG UNIVERSITY LOCAL HEALTH BOARD", 47
+    # chars) are longer than the Welsh boundary shapefile column (LHB22NM)
+    # this model was originally sized against, so use the same generous width
+    # as Trust (the English equivalent of a Local Health Board).
+    name = models.CharField(max_length=100)
     welsh_name = models.CharField(max_length=40)
     bng_e = models.FloatField()
     bng_n = models.FloatField()

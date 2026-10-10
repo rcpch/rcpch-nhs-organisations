@@ -46,7 +46,10 @@ class LocalHealthBoardVersion(TimeStampAbstractBaseClass):
     # the immutable identifiers and live on the LocalHealthBoard itself; the
     # boundary geometry (geom) is treated as mutable here because boundaries
     # can be redrawn (e.g. 2022 LHB review).
-    name = models.CharField(max_length=41, null=True, blank=True, default=None)
+    # Widened from 41 to 100 to hold ODS names longer than the Welsh boundary
+    # shapefile column (e.g. "CWM TAF MORGANNWG UNIVERSITY LOCAL HEALTH
+    # BOARD", 47 chars). Matches TrustVersion.name.
+    name = models.CharField(max_length=100, null=True, blank=True, default=None)
     welsh_name = models.CharField(max_length=40, null=True, blank=True, default=None)
     bng_e = models.FloatField(null=True, blank=True, default=None)
     bng_n = models.FloatField(null=True, blank=True, default=None)
