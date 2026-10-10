@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django import forms
+from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
@@ -14,6 +15,7 @@ from .models import (
     LocalHealthBoardVersion,
     NHSEnglandRegion,
     NHSEnglandRegionVersion,
+    OdsSyncRun,
     Organisation,
     OrganisationIntegratedCareBoardMembership,
     OrganisationLocalHealthBoardMembership,
@@ -32,6 +34,7 @@ from .models import (
     PaediatricDiabetesUnitNetworkMembership,
     PaediatricDiabetesUnitSuccession,
     PaediatricDiabetesUnitVersion,
+    PendingOdsChange,
     Trust,
     TrustIntegratedCareBoardMembership,
     TrustNHSEnglandRegionMembership,
@@ -50,6 +53,7 @@ from .general_functions.membership import (
     backfill_organisation_attributes,
     backfill_trust_attributes,
 )
+from .general_functions.reconcile.apply import apply_pending_change, ApplyError
 
 
 # ---------------------------------------------------------------------------
@@ -2025,6 +2029,178 @@ class IntegratedCareBoardSuccessionAdmin(admin.ModelAdmin):
 
 
 # ---------------------------------------------------------------------------
+# ODS reconciliation review queue
+# ---------------------------------------------------------------------------
+
+
+class DismissForm(forms.Form):
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=True,
+        help_text="Required. Why is this change being dismissed?",
+    )
+
+
+class PendingOdsChangeAdmin(admin.ModelAdmin):
+    list_display = (
+        "ods_code",
+        "level",
+        "change_class",
+        "status",
+        "effective_date",
+        "summary_preview",
+        "detected_at",
+    )
+    list_filter = ("status", "level", "change_class")
+    search_fields = ("ods_code",)
+    ordering = ("status", "level", "change_class", "ods_code")
+    date_hierarchy = "detected_at"
+    readonly_fields = (
+        "level",
+        "ods_code",
+        "change_class",
+        "effective_date",
+        "payload_pretty",
+        "status",
+        "detected_at",
+        "source_run",
+        "reviewed_by",
+        "applied_at",
+    )
+    exclude = ("payload",)
+    actions = ("approve_and_apply", "dismiss_changes")
+
+    def summary_preview(self, obj):
+        summary = obj.payload.get("summary") if isinstance(obj.payload, dict) else None
+        if summary:
+            return summary
+        # Fall back to a compact rendering of the payload.
+        return ", ".join(f"{k}={v}" for k, v in (obj.payload or {}).items())[:80]
+
+    summary_preview.short_description = "Summary"
+
+    def payload_pretty(self, obj):
+        import json
+        from django.utils.html import format_html
+
+        return format_html(
+            "<pre style='white-space:pre-wrap'>{}</pre>",
+            json.dumps(obj.payload, indent=2, default=str),
+        )
+
+    payload_pretty.short_description = "Payload"
+
+    @admin.action(description="Approve & apply selected changes")
+    def approve_and_apply(self, request, queryset):
+        applied = 0
+        skipped = 0
+        failed = 0
+        for change in queryset:
+            if change.status == PendingOdsChange.STATUS_APPLIED:
+                skipped += 1
+                continue
+            if change.status == PendingOdsChange.STATUS_DISMISSED:
+                skipped += 1
+                continue
+            try:
+                description = apply_pending_change(change, user=request.user)
+            except ApplyError as exc:
+                failed += 1
+                self.message_user(
+                    request,
+                    f"{change.ods_code} ({change.change_class}): {exc}",
+                    level=messages.WARNING,
+                )
+                continue
+            change.status = PendingOdsChange.STATUS_APPLIED
+            change.applied_at = timezone.now()
+            change.reviewed_by = request.user
+            if description:
+                change.reviewer_notes = (
+                    (change.reviewer_notes + "\n" if change.reviewer_notes else "")
+                    + description
+                )
+            change.save(
+                update_fields=[
+                    "status",
+                    "applied_at",
+                    "reviewed_by",
+                    "reviewer_notes",
+                    "updated_at",
+                ]
+            )
+            applied += 1
+        self.message_user(
+            request,
+            f"Applied {applied}, skipped {skipped} (already terminal), "
+            f"{failed} needed review.",
+            level=messages.INFO if not failed else messages.WARNING,
+        )
+
+    @admin.action(description="Dismiss selected changes (with a reason)")
+    def dismiss_changes(self, request, queryset):
+        # Intermediate page: collect a required reason, then dismiss.
+        if "apply" in request.POST:
+            form = DismissForm(request.POST)
+            if form.is_valid():
+                reason = form.cleaned_data["reason"]
+                count = 0
+                for change in queryset:
+                    if change.is_terminal:
+                        continue
+                    change.status = PendingOdsChange.STATUS_DISMISSED
+                    change.reviewer_notes = reason
+                    change.reviewed_by = request.user
+                    change.save(
+                        update_fields=[
+                            "status",
+                            "reviewer_notes",
+                            "reviewed_by",
+                            "updated_at",
+                        ]
+                    )
+                    count += 1
+                self.message_user(
+                    request, f"Dismissed {count} change(s).", level=messages.INFO
+                )
+                return None
+        else:
+            form = DismissForm()
+        return render(
+            request,
+            "admin/hospitals/dismiss_pending_ods_changes.html",
+            {
+                "changes": queryset,
+                "form": form,
+                "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
+                "title": "Dismiss ODS changes",
+            },
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class OdsSyncRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "started_at",
+        "mode",
+        "levels",
+        "dry_run",
+        "status",
+        "changes_detected",
+        "synced_through",
+    )
+    list_filter = ("mode", "status", "dry_run")
+    date_hierarchy = "started_at"
+    ordering = ("-started_at",)
+    readonly_fields = [f.name for f in OdsSyncRun._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
 
@@ -2048,6 +2224,9 @@ admin.site.register(
 admin.site.register(
     IntegratedCareBoardSuccession, IntegratedCareBoardSuccessionAdmin
 )
+
+admin.site.register(PendingOdsChange, PendingOdsChangeAdmin)
+admin.site.register(OdsSyncRun, OdsSyncRunAdmin)
 
 admin.site.site_header = "RCPCH NHS Organisations"
 admin.site.site_title = "RCPCH NHS Organisations admin"
