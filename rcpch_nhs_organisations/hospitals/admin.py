@@ -2093,6 +2093,50 @@ class ApproveParallelCodeForm(forms.Form):
         return {"replacement_ods_code": ""}
 
 
+class ReconciliationStatusFilter(admin.SimpleListFilter):
+    """Filter for the reconciliation state of a PendingOdsChange.
+
+    Defaults to "Pending only" so the changelist shows the review queue at a
+    glance. Reviewers can switch to "Reconciled" to audit past decisions, or
+    "All" to see everything.
+    """
+    title = "reconciliation status"
+    parameter_name = "reconciliation"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("pending", "Pending only (default)"),
+            ("reconciled", "Reconciled (applied/dismissed)"),
+            ("all", "All"),
+        )
+
+    def value(self):
+        # Default to "pending" when no parameter is supplied.
+        val = super().value()
+        return val if val is not None else "pending"
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val == "pending":
+            return queryset.filter(status=PendingOdsChange.STATUS_PENDING)
+        if val == "reconciled":
+            return queryset.filter(status__in=PendingOdsChange.TERMINAL_STATUSES)
+        return queryset
+
+
+# Priority order for change_class in the changelist — structural changes
+# (which need human review) first, attribute changes (usually auto-applied) last.
+_CHANGE_CLASS_PRIORITY = {
+    PendingOdsChange.CLASS_PARALLEL_CODE: 0,
+    PendingOdsChange.CLASS_RELATIONSHIP: 1,
+    PendingOdsChange.CLASS_SUCCESSION: 2,
+    PendingOdsChange.CLASS_SUPERSEDED_CODE: 3,
+    PendingOdsChange.CLASS_ROSTER_ADD: 4,
+    PendingOdsChange.CLASS_RETIRE: 5,
+    PendingOdsChange.CLASS_ATTRIBUTE: 6,
+}
+
+
 class PendingOdsChangeAdmin(admin.ModelAdmin):
     list_display = (
         "ods_code",
@@ -2103,9 +2147,9 @@ class PendingOdsChangeAdmin(admin.ModelAdmin):
         "summary_preview",
         "detected_at",
     )
-    list_filter = ("status", "level", "change_class")
+    list_filter = (ReconciliationStatusFilter, "level", "change_class")
     search_fields = ("ods_code",)
-    ordering = ("status", "level", "change_class", "ods_code")
+    ordering = ()
     date_hierarchy = "detected_at"
     readonly_fields = (
         "level",
@@ -2131,6 +2175,37 @@ class PendingOdsChangeAdmin(admin.ModelAdmin):
             change_class=PendingOdsChange.CLASS_PARALLEL_CODE,
         ).count()
         return super().changelist_view(request, extra_context)
+
+    def get_queryset(self, request):
+        """Order the changelist by level, then change-class priority (structural
+        changes that need human review first, attribute changes last), then
+        ODS code — so the review queue surfaces the most important items at
+        the top instead of being drowned in attribute changes.
+
+        Bypasses super().get_queryset() because that calls get_ordering()
+        (which returns the annotation field) before the annotation is added.
+        """
+        from django.db.models import Case, IntegerField, Value, When
+        qs = self.model._default_manager.all()
+        priority_cases = [
+            When(change_class=cls, then=Value(priority))
+            for cls, priority in _CHANGE_CLASS_PRIORITY.items()
+        ]
+        return qs.annotate(
+            _change_class_order=Case(
+                *priority_cases, default=Value(99), output_field=IntegerField()
+            )
+        ).order_by("level", "_change_class_order", "ods_code")
+
+    def get_ordering(self, request, queryset=None):
+        """Return the priority ordering. The _change_class_order annotation
+        is always on the queryset because get_queryset adds it, so this is
+        safe to return unconditionally. Django admin's ChangeList calls this
+        without the queryset parameter (model_admin.get_ordering(request)),
+        so we cannot check for the annotation here — but it is always present
+        in the changelist path.
+        """
+        return ("level", "_change_class_order", "ods_code")
 
     def summary_preview(self, obj):
         summary = obj.payload.get("summary") if isinstance(obj.payload, dict) else None

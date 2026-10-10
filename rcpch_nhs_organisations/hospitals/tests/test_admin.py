@@ -1400,6 +1400,81 @@ def test_bulk_approve_skips_parallel_code_with_warning(superuser):
 
 
 @pytest.mark.django_db
+def test_changelist_defaults_to_pending_only(superuser):
+    """The changelist defaults to showing only pending changes — reconciled
+    (applied/dismissed) rows are hidden unless the reviewer switches the
+    filter to 'Reconciled' or 'All'."""
+    from django.test import Client
+
+    pending = PendingOdsChange.objects.create(
+        level="trust", ods_code="RAA", change_class="roster-add",
+        effective_date=datetime.date(2024, 1, 1), payload={"name": "A"},
+    )
+    applied = PendingOdsChange.objects.create(
+        level="trust", ods_code="RBB", change_class="roster-add",
+        effective_date=datetime.date(2024, 1, 1), payload={"name": "B"},
+        status=PendingOdsChange.STATUS_APPLIED,
+    )
+    dismissed = PendingOdsChange.objects.create(
+        level="trust", ods_code="RCC", change_class="roster-add",
+        effective_date=datetime.date(2024, 1, 1), payload={"name": "C"},
+        status=PendingOdsChange.STATUS_DISMISSED,
+    )
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_pendingodschange_changelist")
+
+    # Default view: only pending.
+    response = client.get(url)
+    codes = [c.ods_code for c in response.context["cl"].result_list]
+    assert "RAA" in codes
+    assert "RBB" not in codes
+    assert "RCC" not in codes
+
+    # 'Reconciled' view: only applied/dismissed.
+    response = client.get(url, {"reconciliation": "reconciled"})
+    codes = [c.ods_code for c in response.context["cl"].result_list]
+    assert "RAA" not in codes
+    assert "RBB" in codes
+    assert "RCC" in codes
+
+    # 'All' view: everything.
+    response = client.get(url, {"reconciliation": "all"})
+    codes = [c.ods_code for c in response.context["cl"].result_list]
+    assert "RAA" in codes
+    assert "RBB" in codes
+    assert "RCC" in codes
+
+
+@pytest.mark.django_db
+def test_changelist_orders_by_change_class_priority(superuser):
+    """Structural changes (parallel-code, succession) appear above attribute
+    changes, even when attribute changes have a lower ODS code alphabetically."""
+    from django.test import Client
+
+    PendingOdsChange.objects.create(
+        level="organisation", ods_code="AAA", change_class="attribute",
+        effective_date=datetime.date(2024, 1, 1), payload={"summary": "attr"},
+    )
+    PendingOdsChange.objects.create(
+        level="organisation", ods_code="ZZZ", change_class="parallel-code",
+        effective_date=datetime.date(2024, 1, 1), payload={"summary": "parallel"},
+    )
+    PendingOdsChange.objects.create(
+        level="organisation", ods_code="MMM", change_class="succession",
+        effective_date=datetime.date(2024, 1, 1), payload={"summary": "succession"},
+    )
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_pendingodschange_changelist")
+
+    response = client.get(url, {"reconciliation": "all"})
+    codes = [c.ods_code for c in response.context["cl"].result_list]
+    # parallel-code (ZZZ) first, then succession (MMM), then attribute (AAA)
+    assert codes == ["ZZZ", "MMM", "AAA"]
+
+
+@pytest.mark.django_db
 def test_pending_change_dismiss_requires_a_reason(superuser):
     """Dismiss shows an intermediate page and requires a reason; dismissing with
     a reason stamps the row dismissed, an empty reason does not."""
