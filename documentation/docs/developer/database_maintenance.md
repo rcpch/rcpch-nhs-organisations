@@ -39,29 +39,35 @@ There are two distinct jobs, and it is important not to confuse them:
 
 ## The ODS (Organisation Dataservice) ORD (Organisation Reference Data) API
 
-This service is the national standard and provided by [NHS Digital](https://digital.nhs.uk/developer/api-catalogue/organisation-data-service-ord)
+This service is the national standard and provided by [NHS Digital](https://digital.nhs.uk/developer/api-catalogue/organisation-data-service-ord).
 
-It is used to maintain the lists in the RCPCH NHS Organisations API up to date. In particular, the endpoint `/sync?LastChangeDate=` returns a large list of updates to organisational data.
+It is the source of truth the RCPCH NHS Organisations API reconciles against.
+There are two ODS endpoints in play:
 
-Functions in the `ods_update` file in `general_functions` can make periodic calls to this endpoint and update any records in the Trust and Organisation tables if any have been published.
+- `/organisations/{ods_code}` — returns an entity's **full** `Rels` and
+  `Succs` history regardless of age. The backfills and `reconcile_ods`'s
+  attribute scan read this (it is not subject to the 185-day limit).
+- `/sync?LastChangeDate=` — returns entities that **changed** in a window
+  (capped at 185 days). `reconcile_ods --mode incremental` uses this for its
+  self-adjusting monthly window.
 
-Since the temporal history layer was added, attribute changes are routed through the temporal helpers (`update_organisation_attributes` / `update_trust_attributes`) so that the previous state is recorded in the `*Version` tables before being overwritten. See [temporal-history.md](temporal-history.md) for the design.
+All writes are routed through the temporal helpers
+(`update_organisation_attributes` / `update_trust_attributes` / …) so the
+previous state is recorded in the `*Version` tables before being overwritten.
+See [temporal-history.md](temporal-history.md) for the design.
 
-**NOTE**: The ODS sync only updates Trusts and Organisations. ICBs, NHS England Regions, and Paediatric Diabetes Units are not synced from the ODS automatically — they are maintained via the backfill commands (see below) or manually via the admin.
+!!! note "One command detects drift: `reconcile_ods`"
+    `reconcile_ods` is the single entry point for detecting ODS drift across
+    the organisation, trust, Local Health Board, and ICB levels (attributes,
+    relationships, successions, roster and status). It **supersedes** the old
+    `cron --service organisations` sync and the `ods_change_report` job, which
+    remain only as legacy entry points. For day-to-day use jump to
+    [Regular maintenance](#regular-maintenance-ongoing); everything below
+    about dry-runs and the monthly job is covered there.
 
-### Dry-run mode
-
-The `cron` command accepts `--dry-run`, which reports what *would* change without writing to the database. This is used by the GitHub Action for ODS change detection (see [temporal-history.md](temporal-history.md)) and is recommended before applying any sync:
-
-```console
-docker compose exec django python manage.py cron --service organisations --dry-run
-```
-
-The `--report-file` flag writes the markdown report to a file instead of stdout, which is what the GitHub Action uses:
-
-```console
-docker compose exec django python manage.py cron --service organisations --dry-run --report-file ods_changes.md
-```
+    NHS England Regions and Paediatric Diabetes Units are **not** reconciled
+    from ODS — regions are static and PDUs are not tracked by ODS. They are
+    maintained via the backfill commands (below) or manually via the admin.
 
 ## Backfill commands
 
@@ -234,12 +240,13 @@ the consuming software (e.g. E12) references but that is not in the RCPCH
 seed list. This is **not** a merger — the site isn't new, it's just missing
 from the database.
 
-The `cron` sync command cannot discover these organisations. It calls the
-ODS `/sync` endpoint, which returns only organisations that *changed* in the
-last 185 days, and even then it only processes organisations that are
-already in the database (it matches by `ods_code` and skips anything not
-found). So an organisation that was never seeded will never be picked up by
-the sync, no matter how many times you run it.
+The roster scan in `reconcile_ods` surfaces a brand-new organisation in ODS
+as a *roster-add* in its report, but it does **not** create the organisation
+row — organisations are a closed, seeded set. (The old `cron` sync could
+never discover them either: `/sync` returns only organisations that *changed*
+and already exist in the database.) So an organisation that was never seeded
+has to be added explicitly with `mergers --create`, no matter how many sync
+or reconcile passes you run.
 
 To add a missing organisation, fetch it directly from the ODS
 `/organisations/{ods_code}` endpoint using `mergers --create`:
