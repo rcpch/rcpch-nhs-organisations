@@ -283,9 +283,15 @@ def _extract_icb_membership_info(ord_record):
 
     Returns a list of dicts, one per RE5/RE8 rel pointing at an ICB, ordered
     by start date:
-        {"icb_ods_code": "QKS", "valid_from": "2020-04-01", "valid_to": None}
+        {"icb_ods_code": "QKS", "valid_from": "2020-04-01", "valid_to": None,
+         "rel_id": "RE8", "status": "Active"}
     ``valid_to`` is ``None`` if the rel is still active (the open interval).
-    Returns an empty list if the record has no ``Rels`` block or no ICB rels.
+    ``rel_id`` is the ODS relationship id (``RE5`` legacy commissioning, which
+    ODS never closes, vs ``RE8`` maintained geographic/partner). ``status`` is
+    the ODS ``Status`` (``Active``/``Inactive``). Both are needed by
+    :func:`build_trust_icb_timeline` to resolve the single current ICB when a
+    trust carries several concurrent ICB rels. Returns an empty list if the
+    record has no ``Rels`` block or no ICB rels.
     """
     rels = ord_record.get("Rels", {}).get("Rel", [])
     if isinstance(rels, dict):
@@ -326,6 +332,8 @@ def _extract_icb_membership_info(ord_record):
                 "icb_ods_code": icb_ods_code,
                 "valid_from": valid_from,
                 "valid_to": valid_to,
+                "rel_id": rel.get("id"),
+                "status": rel.get("Status"),
             }
         )
 
@@ -342,6 +350,138 @@ def _parse_ods_date(date_str):
         return datetime.date.fromisoformat(date_str)
     except (ValueError, TypeError):
         return None
+
+
+# ICB-rel precedence used when collapsing a trust's overlapping ODS ICB rels
+# into a single current ICB. RE8 is the maintained geographic/partner rel and
+# is kept up to date across reorganisations; RE5 is the legacy "is commissioned
+# by" rel that ODS opens once (at 2020-04-01) and never closes, so it must only
+# win when no RE8 rel is active.
+_ICB_REL_RANK = {"RE8": 0, "RE5": 1}
+
+
+def _icb_rel_rank(rel_id):
+    return _ICB_REL_RANK.get(rel_id, 2)
+
+
+def _choose_current_icb(active, previous_icb):
+    """Pick the single current ICB from the rels active in one period.
+
+    ``active`` is a list of parsed rels (dicts with ``icb``, ``start``,
+    ``rel_id``). Precedence: maintained RE8 over legacy RE5, then the latest
+    operational start (a later reorganisation supersedes an earlier one), then
+    continuity with the previous period, then the alphabetically-first ICB code
+    for determinism.
+    """
+    best_rank = min(_icb_rel_rank(p["rel_id"]) for p in active)
+    candidates = [p for p in active if _icb_rel_rank(p["rel_id"]) == best_rank]
+    latest_start = max(p["start"] for p in candidates)
+    candidates = [p for p in candidates if p["start"] == latest_start]
+    icb_codes = {p["icb"] for p in candidates}
+    if previous_icb in icb_codes:
+        return previous_icb
+    return sorted(icb_codes)[0]
+
+
+def build_trust_icb_timeline(memberships):
+    """Collapse the raw ICB rels of an ODS trust record into a clean timeline.
+
+    ``memberships`` is the output of :func:`_extract_icb_membership_info`. ODS
+    carries several *concurrent* ICB rels for a single trust:
+
+    - a legacy ``RE5`` "is commissioned by" rel that points at the trust's
+      original (2020) ICB and is **never closed** (stays open forever), and
+    - one or more maintained ``RE8`` geographic/partner rels that track the
+      current ICB across the 2022/2023/2026 reorganisations — occasionally
+      several open at once during an overlap window.
+
+    Writing those verbatim leaves multiple ``valid_to IS NULL`` rows per trust,
+    which violates the "one current ICB" invariant the audit chain
+    (organisation → trust → ICB → region → country) depends on, and makes the
+    reconcile detector pick an arbitrary open row.
+
+    This resolves, for every distinct period, the single current ICB via
+    :func:`_choose_current_icb`, then merges adjacent equal-ICB periods. The
+    result is a list of ``{"icb_ods_code", "valid_from" (date),
+    "valid_to" (date|None)}`` ordered by ``valid_from``, non-overlapping, with
+    at most one open row.
+    """
+    parsed = []
+    for m in memberships:
+        start = _parse_ods_date(m["valid_from"])
+        if start is None:
+            continue
+        end = _parse_ods_date(m["valid_to"])
+        # A rel ODS marks Inactive but leaves open is treated as closed at its
+        # start (defensive — real data always carries an explicit End date).
+        if end is None and m.get("status") == "Inactive":
+            continue
+        parsed.append(
+            {
+                "icb": m["icb_ods_code"],
+                "start": start,
+                "end": end,
+                "rel_id": m.get("rel_id"),
+            }
+        )
+    if not parsed:
+        return []
+
+    # Period boundaries are every start and every (finite) end date. Each
+    # boundary opens a window running to the next boundary (or to None).
+    boundaries = sorted(
+        {p["start"] for p in parsed}
+        | {p["end"] for p in parsed if p["end"] is not None}
+    )
+    segments = []
+    previous_icb = None
+    for index, window_start in enumerate(boundaries):
+        window_end = (
+            boundaries[index + 1] if index + 1 < len(boundaries) else None
+        )
+        active = [
+            p
+            for p in parsed
+            if p["start"] <= window_start
+            and (p["end"] is None or p["end"] > window_start)
+        ]
+        if not active:
+            continue
+        chosen = _choose_current_icb(active, previous_icb)
+        segments.append({"icb": chosen, "from": window_start, "to": window_end})
+        previous_icb = chosen
+
+    merged = []
+    for segment in segments:
+        if (
+            merged
+            and merged[-1]["icb"] == segment["icb"]
+            and merged[-1]["to"] == segment["from"]
+        ):
+            merged[-1]["to"] = segment["to"]
+        else:
+            merged.append(dict(segment))
+
+    return [
+        {
+            "icb_ods_code": s["icb"],
+            "valid_from": s["from"],
+            "valid_to": s["to"],
+        }
+        for s in merged
+    ]
+
+
+def current_trust_icb_code(memberships):
+    """Return the ODS code of a trust's single current ICB, or None.
+
+    Resolves the overlapping RE5/RE8 rels via :func:`build_trust_icb_timeline`
+    and returns the ICB of the open (``valid_to is None``) segment.
+    """
+    for segment in build_trust_icb_timeline(memberships):
+        if segment["valid_to"] is None:
+            return segment["icb_ods_code"]
+    return None
 
 
 def _recent_succession_events(succession_events, time_frame, reference_date=None):

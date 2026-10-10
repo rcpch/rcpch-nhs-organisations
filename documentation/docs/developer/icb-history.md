@@ -322,9 +322,52 @@ The command:
 3. Reads the `RE5`/`RE8` rels pointing at `RO261` (ICBs) — ignoring
    `RO210` (CCGs) and `RO132` (STPs), which are not needed for audit
    reporting.
-4. For each rel, backfills a `TrustIntegratedCareBoardMembership` row
-   with the operational `[Start, End]` interval (idempotent on
-   `(trust, icb, valid_from, valid_to)`).
+4. Collapses those rels into a **clean single-ICB timeline** via
+   `build_trust_icb_timeline` (see below), then reconciles the database
+   against it: creating the segments it is missing and deleting any
+   stale/overlapping rows a previous run left behind. The result is a
+   non-overlapping set of `TrustIntegratedCareBoardMembership` rows with
+   **exactly one current (open, `valid_to IS NULL`) row** per trust.
+
+### Why a timeline is built, not a verbatim copy
+
+ODS carries *several concurrent ICB rels* per trust, so copying each rel
+to a membership row leaves a trust with multiple `valid_to IS NULL` rows —
+which breaks the "one current ICB" invariant the audit chain
+(organisation → trust → ICB → region → country) depends on, and makes the
+`reconcile_ods` detector pick an arbitrary open row (producing spurious
+`ICB parent X → Y` deltas that flip between runs). The duplication has two
+causes:
+
+- A legacy **`RE5`** "is commissioned by" rel that ODS opens once (at
+  2020-04-01) pointing at the trust's original ICB and **never closes**.
+- One or more maintained **`RE8`** geographic/partner rels, occasionally
+  several open at once during a reorganisation overlap (e.g. a trust's old
+  ICB and its 2026 successor both briefly Active).
+
+`build_trust_icb_timeline` (in `general_functions/ods_update.py`) resolves,
+for every period, the single current ICB using this precedence among the
+rels active in that period:
+
+1. prefer the maintained **`RE8`** over the legacy **`RE5`**;
+2. among those, the rel with the **latest operational start** (a later
+   reorganisation supersedes an earlier one);
+3. on a tie, keep the ICB already in force in the **previous period**
+   (continuity); otherwise the alphabetically-first ICB code.
+
+Adjacent equal-ICB periods are then merged. `reconcile_ods` reads the same
+resolver (`current_trust_icb_code`) when detecting trust → ICB relationship
+changes, so the detector and the backfill always agree on "the current
+ICB".
+
+!!! tip "Repairing an earlier verbatim run"
+    Older runs of this command wrote each rel verbatim and could leave a
+    trust with two or three open rows. Re-running the current command
+    **repairs** that in place: it deletes the stale/overlapping rows and
+    rewrites the clean timeline. The membership table is entirely
+    ODS-derived (never hand-curated), so pruning those machine-generated
+    rows here is the sanctioned repair path. The run summary reports
+    `Rows removed (stale/overlapping)`.
 
 Organisations do not have their own ICB rels in the ODS — only trusts do.
 An organisation's ICB affiliation is implicit through its parent trust:
@@ -335,5 +378,5 @@ table is populated by the seed (current state) and the forward-looking
 
 The command mirrors `backfill_trust_memberships` (which reads `RE6` rels
 to recover trust membership history) and reuses the same ODS-fetch,
-idempotency, `--dry-run`, `--yes`, and `--since`/`--all` window patterns.
-The default window is 2020-04-01 (when ICB rels first appear in ODS).
+`--dry-run`, `--yes`, and `--since`/`--all` window patterns. The default
+window is 2020-04-01 (when ICB rels first appear in ODS).

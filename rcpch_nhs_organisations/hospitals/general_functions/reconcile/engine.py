@@ -31,6 +31,7 @@ from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
     _extract_succession_info,
     _extract_trust_membership_info,
     _extract_icb_membership_info,
+    current_trust_icb_code,
     _parse_ods_date,
     _diff_fields,
 )
@@ -700,8 +701,8 @@ class ReconcileEngine:
         TrustMembership = apps.get_model(
             "hospitals", "TrustIntegratedCareBoardMembership"
         )
-        current_icb_code = self._current_parent_code(
-            _extract_icb_membership_info(record), key="icb_ods_code"
+        current_icb_code = current_trust_icb_code(
+            _extract_icb_membership_info(record)
         )
         if current_icb_code is None:
             return
