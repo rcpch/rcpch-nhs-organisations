@@ -49,6 +49,7 @@ from rcpch_nhs_organisations.hospitals.models import (
     NHSEnglandRegionVersion,
     PaediatricDiabetesNetwork,
     PaediatricDiabetesNetworkVersion,
+    PendingOdsChange,
 )
 
 User = get_user_model()
@@ -1300,3 +1301,123 @@ def test_backfill_buttons_on_organisation_change_form(
     assert b"Backfill attributes" in response.content
     assert b"Backfill trust membership" in response.content
     assert b"Backfill merger" not in response.content
+
+
+# ---------------------------------------------------------------------------
+# PendingOdsChange review queue (reconcile_ods apply path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_pending_ods_change_admin_registered():
+    assert PendingOdsChange in admin.site._registry
+
+
+@pytest.mark.django_db
+def test_pending_change_approve_and_apply_performs_write_and_is_idempotent(
+    superuser, organisation_with_baseline, trust_b
+):
+    """Approve & apply drives the temporal helper (re-points the org), stamps the
+    row applied, and a second approval is a no-op (idempotent)."""
+    from django.test import Client
+
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAA01",
+        change_class="relationship",
+        effective_date=datetime.date(2024, 1, 1),
+        payload={
+            "relationship": "organisation-trust",
+            "old_ods_code": "RAA",
+            "new_ods_code": "RBB",
+        },
+    )
+    client = Client()
+    client.force_login(superuser)
+    changelist_url = reverse("admin:hospitals_pendingodschange_changelist")
+
+    response = client.post(
+        changelist_url,
+        {"action": "approve_and_apply", "_selected_action": [str(change.pk)]},
+    )
+    assert response.status_code == 302
+
+    organisation_with_baseline.refresh_from_db()
+    assert organisation_with_baseline.trust == trust_b
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_APPLIED
+    assert change.applied_at is not None
+    assert change.reviewed_by_id == superuser.pk
+
+    # Re-approving the already-applied row writes nothing new and does not error.
+    membership_count = OrganisationTrustMembership.objects.filter(
+        organisation=organisation_with_baseline
+    ).count()
+    response2 = client.post(
+        changelist_url,
+        {"action": "approve_and_apply", "_selected_action": [str(change.pk)]},
+    )
+    assert response2.status_code == 302
+    assert (
+        OrganisationTrustMembership.objects.filter(
+            organisation=organisation_with_baseline
+        ).count()
+        == membership_count
+    )
+
+
+@pytest.mark.django_db
+def test_pending_change_dismiss_requires_a_reason(superuser):
+    """Dismiss shows an intermediate page and requires a reason; dismissing with
+    a reason stamps the row dismissed, an empty reason does not."""
+    from django.test import Client
+
+    change = PendingOdsChange.objects.create(
+        level="trust",
+        ods_code="RBB",
+        change_class="roster-add",
+        effective_date=datetime.date(2024, 1, 1),
+        payload={"name": "New Trust"},
+    )
+    client = Client()
+    client.force_login(superuser)
+    changelist_url = reverse("admin:hospitals_pendingodschange_changelist")
+
+    # Selecting the action renders the intermediate reason page (no dismissal yet).
+    page = client.post(
+        changelist_url,
+        {"action": "dismiss_changes", "_selected_action": [str(change.pk)]},
+    )
+    assert page.status_code == 200
+    assert b"reason" in page.content.lower()
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_PENDING
+
+    # Submitting with an empty reason is rejected (form invalid); still pending.
+    rejected = client.post(
+        changelist_url,
+        {
+            "action": "dismiss_changes",
+            "_selected_action": [str(change.pk)],
+            "apply": "1",
+            "reason": "",
+        },
+    )
+    assert rejected.status_code == 200
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_PENDING
+
+    # Submitting with a reason dismisses the row and records the reason.
+    done = client.post(
+        changelist_url,
+        {
+            "action": "dismiss_changes",
+            "_selected_action": [str(change.pk)],
+            "apply": "1",
+            "reason": "Not relevant to the audit geography.",
+        },
+    )
+    assert done.status_code == 302
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_DISMISSED
+    assert change.reviewer_notes == "Not relevant to the audit geography."
