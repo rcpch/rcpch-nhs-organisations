@@ -93,11 +93,21 @@ code (`RAL27`). Two things follow:
 - *Forward closure.* Because `RAPNM` has effectively closed (past end date) with
   **no own successor**, the engine does not guess. It bridges via the
   **parent-trust succession** (`RAP` → `RAL`) and surfaces a `parallel-code`
-  review item recording that bridge. It deliberately does **not** auto-pick
-  `RAL27` as the successor site: the shared postcode (`N18 1QX`) returns ~50
-  co-located `RO198` sites, and names change on transfer, so neither postcode
-  nor name is a safe key. A human links the parallel code from the review queue
-  (which then records the `OrganisationSuccession` and deactivates `RAPNM`).
+  review item recording that bridge. It deliberately does **not** auto-pick a
+  successor site, but it **does surface candidate successor codes** for the
+  reviewer. The shared postcode (`N18 1QX`) returns ~90 co-located sites, ~29 of
+  them `RO198` sites already parented on the successor trust `RAL` — because ODS
+  mints a fresh departmental code (wards, clinics) for every sub-site on the
+  merger date. The genuine parallel code is isolated by a **name-free temporal
+  discriminator**: of those `RAL` sites, only `RAL27` was *already open before
+  `RAPNM` closed* (its own legal start, 2003-04-01, predates the 2024-12-31
+  end); the ~28 merger-date departmental codes all start on 2025-01-01 and are
+  excluded. So the review item reads "… candidate successor code(s) under RAL:
+  RAL27". Names are used only to *order* a bounded set of deep fetches (a
+  name-matching site is confirmed first), never as a selection key, because a
+  site's name may or may not survive a transfer. A human links the surviving
+  code from the review queue (which then records the `OrganisationSuccession`
+  and deactivates `RAPNM`).
 
 > Note: in **incremental** mode the organisation-level deep diff only runs for
 > codes the `/sync` feed flags in-window, so a *historical* closure like
@@ -324,9 +334,15 @@ cannot always disambiguate them automatically:
 - **Resolvable by end date (the North Middlesex pattern).** One code has a past
   end date and the other is open. The closed code's parent trust was succeeded,
   so the engine emits a `parallel-code` review item carrying the parent-trust
-  bridge (`predecessor_trust` → `successor_trust`). The reviewer links the
-  surviving code; applying a `parallel-code` flags the old code
-  `diverged_from_ods` (and, when known, records `ods_replacement_code`) via
+  bridge (`predecessor_trust` → `successor_trust`) plus a `candidate_successors`
+  list — active `RO198` sites at the closed code's postcode that are already
+  parented on the successor trust **and** were open before the closed code ended
+  (a name-free "pre-existing parallel" test that isolates the moved site from the
+  departmental codes ODS mints on the merger date; see the North Middlesex
+  worked example). The list is for review only — it is never auto-picked, since
+  a postcode is not a unique key. The reviewer links the surviving code; applying
+  a `parallel-code` flags the old code `diverged_from_ods` (and, when the
+  reviewer supplies it, records `ods_replacement_code`) via
   `apply._apply_parallel_code`.
 - **Not resolvable by end date (the Wythenshawe pattern).** Both codes are open
   (no end date, both `Status=Active`) — a genuine, persistent divergence. The
