@@ -1,9 +1,8 @@
 """
 Shared transport for the monthly ODS report → GitHub-issue path.
 
-Both ``ods_change_report`` (legacy, three checks) and ``reconcile_ods`` (the
-unified engine) emit a combined markdown report that the
-``ods-change-detection`` GitHub workflow turns into a monthly issue. The
+``reconcile_ods`` (the unified engine) emits a combined markdown report that
+the ``ods-change-detection`` GitHub workflow turns into a monthly issue. The
 workflow cannot read the Azure database, so detection runs in an Azure
 Container Apps Job which:
 
@@ -12,8 +11,7 @@ Container Apps Job which:
 2. uploads the report to Azure Blob Storage, from where the workflow
    downloads it and opens an issue if it is non-empty.
 
-This module is the single implementation of that transport so the two
-commands stay byte-for-byte compatible. See
+This module is the single implementation of that transport. See
 documentation/docs/developer/ods-change-detection.md.
 """
 import os
@@ -45,7 +43,7 @@ def upload_report(report, stdout, *, required=True):
     download, which is indistinguishable from "no changes" and has caused
     silent failures in production. When ``required`` is False (local use), the
     upload is simply skipped. Local development and tests should mock the
-    upload (see test_ods_change_report.py).
+    upload (see test_reconcile_ods.py).
     """
     account_name = os.getenv("ODS_REPORT_STORAGE_ACCOUNT_NAME")
     if not account_name:

@@ -59,9 +59,9 @@ See [temporal-history.md](temporal-history.md) for the design.
 !!! note "One command detects drift: `reconcile_ods`"
     `reconcile_ods` is the single entry point for detecting ODS drift across
     the organisation, trust, Local Health Board, and ICB levels (attributes,
-    relationships, successions, roster and status). It **supersedes** the old
+    relationships, successions, roster and status). It replaced the old
     `cron --service organisations` sync and the `ods_change_report` job, which
-    remain only as legacy entry points. For day-to-day use jump to
+    have been removed. For day-to-day use jump to
     [Regular maintenance](#regular-maintenance-ongoing); everything below
     about dry-runs and the monthly job is covered there.
 

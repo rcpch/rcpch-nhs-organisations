@@ -32,8 +32,8 @@ no changes, and no issue is opened.
 > **History.** The job previously ran `ods_change_report`, which ran three
 > separate dry-run checks (`cron`, `backfill_successions --entity trust`,
 > `backfill_successions --entity icb`). The single `reconcile_ods` pass covers
-> those checks plus roster/status reconciliation and child re-pointing.
-> `ods_change_report` is retained as a backward-compatible fallback.
+> those checks plus roster/status reconciliation and child re-pointing. The
+> legacy `cron` and `ods_change_report` commands have been removed.
 
 ## Why the job runs in Azure
 

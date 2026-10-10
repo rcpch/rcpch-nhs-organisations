@@ -5,8 +5,9 @@ Treats ODS as the source of truth and reconciles the local database against it
 across four geography levels (organisation, trust, lhb, icb), detecting
 attribute, relationship, succession, roster, and status changes.
 
-Replaces the overlapping cron / backfill_successions / backfill_*_memberships /
-ods_change_report detection surface with one engine. See
+Replaced the overlapping cron / backfill_successions / backfill_*_memberships /
+ods_change_report detection surface with one engine (those legacy commands
+have been removed). See
 documentation/docs/developer/ods-sync.md.
 
     python manage.py reconcile_ods \

@@ -28,8 +28,8 @@ name: ODS change detection
 # deltas across the organisation/trust/LHB/ICB levels, fills the
 # PendingOdsChange review queue in the production database (--queue), and
 # prints + uploads the combined categorised report between the markers
-# (--upload-blob). (It replaces the legacy `ods_change_report`, which ran
-# three separate dry-run checks and is retained as a fallback.)
+# (--upload-blob). (It replaced the legacy `ods_change_report` command, which
+# ran three separate dry-run checks and has been removed.)
 #
 # The command the job runs is NOT baked into the Azure job definition alone
 # (which is out-of-band state the repo cannot see): a dedicated step below
