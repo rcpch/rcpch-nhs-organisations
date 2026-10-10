@@ -38,8 +38,8 @@ from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources i
     deep_fetch,
     fetch_roster,
     roster_ods_code,
-    extract_status,
-    active_on_or_after_floor,
+    is_effectively_active,
+    operational_end,
     LEVEL_ROSTER_FILTERS,
     TEMPORAL_FLOOR,
 )
@@ -160,6 +160,19 @@ class ReconcileEngine:
         self.write_queue = write_queue or apply
         self.stdout = stdout
         self._flagged_codes = None  # populated lazily for incremental runs
+        # Deep-fetch cache: one ODS detail call returns an entity's entire
+        # history, and several detection passes may need the same record
+        # (roster zombie check, retire-by-absence confirmation, per-entity
+        # deep diff, parent-trust bridge). Cache so each code is fetched once.
+        self._deep_cache = {}
+
+    def _deep_fetch(self, code):
+        """Deep-fetch an ODS record once per run, caching the result (incl. None)."""
+        if code in self._deep_cache:
+            return self._deep_cache[code]
+        record = deep_fetch(code, rate_limiter=self.rate_limiter)
+        self._deep_cache[code] = record
+        return record
 
     # ------------------------------------------------------------------
     # Public API
@@ -216,11 +229,20 @@ class ReconcileEngine:
 
         db_entities = {e.ods_code: e for e in model.objects.all()}
 
-        # Roster presence: in ODS (active), not in DB → roster-add.
+        # Roster presence: in ODS (active), not in DB → roster-add. The roster
+        # Status flag alone is unreliable (ODS leaves long-dissolved trusts
+        # stamped Active for years), so confirm the candidate is genuinely still
+        # open via a deep fetch before flagging. A candidate we cannot fetch is
+        # surfaced anyway — we only suppress ones ODS positively shows as closed.
         for code, item in roster_by_code.items():
             if item.get("Status") != "Active":
                 continue
             if code in db_entities:
+                continue
+            candidate = self._deep_fetch(code)
+            if candidate is not None and not is_effectively_active(candidate):
+                # A zombie: ODS still stamps it Active but its end date has
+                # passed (e.g. a trust that merged years ago). Not a real add.
                 continue
             result.changes.append(
                 DetectedChange(
@@ -248,6 +270,15 @@ class ReconcileEngine:
                 continue
             item = roster_by_code.get(code)
             if item is None:
+                # Absent from the English roster roles. Before retiring, confirm
+                # the entity is really gone from ODS — a held row can be absent
+                # simply because it sits outside the queried roles (e.g. a Welsh
+                # LHB or a Crown-dependency site mis-stored in this table). If a
+                # deep fetch shows it still effectively active, it is not a
+                # retirement.
+                record = self._deep_fetch(code)
+                if record is not None and is_effectively_active(record):
+                    continue
                 result.changes.append(
                     DetectedChange(
                         level=level,
@@ -277,7 +308,7 @@ class ReconcileEngine:
         for code, entity in db_entities.items():
             if flagged is not None and code not in flagged:
                 continue
-            record = deep_fetch(code, rate_limiter=self.rate_limiter)
+            record = self._deep_fetch(code)
             if record is None:
                 result.fetch_errors.append((level, code))
                 continue
@@ -297,7 +328,7 @@ class ReconcileEngine:
             code = org.ods_code
             if flagged is not None and code not in flagged:
                 continue
-            record = deep_fetch(code, rate_limiter=self.rate_limiter)
+            record = self._deep_fetch(code)
             if record is None:
                 result.fetch_errors.append(("organisation", code))
                 continue
@@ -306,43 +337,130 @@ class ReconcileEngine:
             self._diff_successions("organisation", org, record, result)
             self._diff_organisation_trust_relationship(org, record, result)
 
-            # Status: ODS Inactive but we still hold it active and it is not a
-            # curated divergence → either a superseded code (a Successor exists)
-            # or a plain retirement.
-            ods_active = extract_status(record)
-            if not ods_active and org.active and not org.diverged_from_ods:
-                successor = self._organisation_successor(record)
-                if successor is not None:
-                    result.changes.append(
-                        DetectedChange(
-                            level="organisation",
-                            ods_code=code,
-                            change_class="superseded-code",
-                            summary=(
-                                f"{org} is Inactive in ODS and succeeded by "
-                                f"{successor['target_ods_code']}."
-                            ),
-                            effective_date=successor["date"],
-                            payload={
-                                "successor_ods_code": successor["target_ods_code"],
-                                "succession_date": (
-                                    successor["date"].isoformat()
-                                    if successor["date"]
-                                    else None
-                                ),
-                            },
-                        )
-                    )
-                else:
-                    result.changes.append(
-                        DetectedChange(
-                            level="organisation",
-                            ods_code=code,
-                            change_class="retire",
-                            summary=f"{org} is Inactive in ODS with no successor.",
-                            payload={"reason": "ods-inactive"},
-                        )
-                    )
+            # Effective status: an org we still hold active but that ODS has
+            # effectively closed (Status Inactive OR a past end date — the ODS
+            # Status flag alone is unreliable, so re-coded sites stay stamped
+            # Active past their end date). Curated divergences are left alone.
+            if (
+                not is_effectively_active(record)
+                and org.active
+                and not org.diverged_from_ods
+            ):
+                self._detect_organisation_closure(org, record, result)
+
+    def _detect_organisation_closure(self, org, record, result):
+        """Classify a held-active org that ODS has effectively closed.
+
+        Three outcomes, in order of confidence:
+
+        1. The org's own ``Succs`` names a successor code → ``superseded-code``
+           (we follow the closed-set chain forward to that code).
+        2. No own successor, but the held parent trust has an ODS successor →
+           ``parallel-code``: the site very likely re-opened under a parallel
+           code beneath the successor trust (the North Middlesex pattern). We
+           record the parent-trust bridge for review but never auto-pick the
+           successor site — postcode is not a unique key (dozens of co-located
+           sites) and names change on transfer.
+        3. Neither → a plain ``retire``.
+        """
+        code = org.ods_code
+        end = operational_end(record)
+        successor = self._organisation_successor(record)
+        if successor is not None:
+            result.changes.append(
+                DetectedChange(
+                    level="organisation",
+                    ods_code=code,
+                    change_class="superseded-code",
+                    summary=(
+                        f"{org} is closed in ODS and succeeded by "
+                        f"{successor['target_ods_code']}."
+                    ),
+                    effective_date=successor["date"] or end,
+                    payload={
+                        "successor_ods_code": successor["target_ods_code"],
+                        "succession_date": (
+                            successor["date"].isoformat()
+                            if successor["date"]
+                            else None
+                        ),
+                        "operational_end": end.isoformat() if end else None,
+                    },
+                )
+            )
+            return
+
+        bridge = self._parent_trust_bridge(org)
+        if bridge is not None:
+            result.changes.append(
+                DetectedChange(
+                    level="organisation",
+                    ods_code=code,
+                    change_class="parallel-code",
+                    summary=(
+                        f"{org} is closed in ODS (end "
+                        f"{end.isoformat() if end else 'unknown'}) but has no own "
+                        f"successor; its parent trust {bridge['predecessor_trust']} "
+                        f"was succeeded by {bridge['successor_trust']} — review for a "
+                        "parallel successor code under the new trust."
+                    ),
+                    effective_date=end or bridge["succession_date"],
+                    payload={
+                        "reason": "parent-trust-succession-bridge",
+                        "operational_end": end.isoformat() if end else None,
+                        "predecessor_trust": bridge["predecessor_trust"],
+                        "successor_trust": bridge["successor_trust"],
+                        "succession_date": (
+                            bridge["succession_date"].isoformat()
+                            if bridge["succession_date"]
+                            else None
+                        ),
+                    },
+                )
+            )
+            return
+
+        result.changes.append(
+            DetectedChange(
+                level="organisation",
+                ods_code=code,
+                change_class="retire",
+                summary=f"{org} is closed in ODS with no successor.",
+                effective_date=end,
+                payload={
+                    "reason": "ods-inactive",
+                    "operational_end": end.isoformat() if end else None,
+                },
+            )
+        )
+
+    def _parent_trust_bridge(self, org):
+        """If the held parent trust has an on/after-floor ODS successor, return
+        bridge info ``{predecessor_trust, successor_trust, succession_date}``;
+        else None.
+
+        A closed site with no own ``Succs`` is often moved at the trust level:
+        the parent trust was succeeded and the site re-opened under a parallel
+        code beneath the successor trust. We surface that bridge for review
+        rather than guessing the successor site.
+        """
+        parent = org.trust
+        if parent is None:
+            return None
+        parent_record = self._deep_fetch(parent.ods_code)
+        if parent_record is None:
+            return None
+        for ev in _extract_succession_info(parent_record):
+            if ev["type"] != "Successor":
+                continue
+            if ev["date"] is not None and ev["date"] < self.floor:
+                continue
+            return {
+                "predecessor_trust": parent.ods_code,
+                "successor_trust": ev["target_ods_code"],
+                "succession_date": ev["date"],
+            }
+        return None
 
     def _organisation_successor(self, record):
         """Return the on/after-floor Successor event for an org record, or None.

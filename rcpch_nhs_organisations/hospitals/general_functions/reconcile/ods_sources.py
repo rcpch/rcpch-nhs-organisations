@@ -210,3 +210,32 @@ def active_on_or_after_floor(ord_record, floor=TEMPORAL_FLOOR):
     if end is None:
         return True
     return end >= floor
+
+
+def is_effectively_active(ord_record, as_of=None):
+    """True if an entity is genuinely still open, not merely ODS-Status-Active.
+
+    The ODS ``Status`` header is unreliable: ODS leaves long-dissolved trusts
+    (and re-coded sites) stamped ``Active`` for years after they closed. The
+    authoritative signal is the Operational/Legal End date — an entity is
+    effectively inactive once that end date has passed. An entity is effectively
+    active only when BOTH:
+
+      * its ``Status`` is "Active", AND
+      * it has no end date, or its end date is on/after ``as_of``
+        (defaulting to today).
+
+    This is the discriminator that lets the engine (a) skip zombie roster-adds
+    — long-dead trusts ODS still flags Active — and (b) spot held sites that
+    have effectively closed even though their ODS record is still stamped
+    Active (e.g. a site re-coded under a successor trust). The roster list items
+    do not carry the end-date block, so a deep fetch is required before this
+    check can be applied.
+    """
+    if not extract_status(ord_record):
+        return False
+    end = operational_end(ord_record)
+    if end is None:
+        return True
+    as_of = as_of or datetime.date.today()
+    return end >= as_of

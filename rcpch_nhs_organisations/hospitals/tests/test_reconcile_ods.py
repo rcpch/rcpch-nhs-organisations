@@ -260,6 +260,30 @@ def test_icb_roster_selector_uses_non_primary_ro318():
     assert LEVEL_ROSTER_FILTERS["lhb"] == ("PrimaryRoleId", "RO142")
 
 
+def test_is_effectively_active_end_date_aware():
+    """is_effectively_active trusts the end date over the (unreliable) Status
+    flag: Active + no end → active; Active + past end → closed; Inactive →
+    closed; Active + future end → active."""
+    from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources import (
+        is_effectively_active,
+    )
+
+    today = datetime.date(2026, 1, 1)
+    assert is_effectively_active(_detail("RAA", "x"), as_of=today) is True
+    assert (
+        is_effectively_active(_detail("RAA", "x", op_end="2013-10-01"), as_of=today)
+        is False
+    )
+    assert (
+        is_effectively_active(_detail("RAA", "x", status="Inactive"), as_of=today)
+        is False
+    )
+    assert (
+        is_effectively_active(_detail("RAA", "x", op_end="2030-01-01"), as_of=today)
+        is True
+    )
+
+
 # ---------------------------------------------------------------------------
 # Roster reconciliation (trust / icb)
 # ---------------------------------------------------------------------------
@@ -287,6 +311,52 @@ def test_trust_retire_detected_when_inactive_in_ods(trust_a):
     retires = [c for c in result.changes if c.change_class == "retire"]
     assert len(retires) == 1
     assert retires[0].ods_code == "RAA"
+
+
+@pytest.mark.django_db
+def test_zombie_roster_add_skipped(trust_a):
+    """A trust ODS still stamps Active but whose end date has passed (a long-dead
+    trust ODS never cleaned up) is NOT flagged as a new roster add."""
+    roster = {
+        "RO197": [_roster("RAA", "Trust A"), _roster("RZZ", "Dissolved Trust")]
+    }
+    details = {
+        "RAA": _detail("RAA", "Trust A"),
+        # ODS Status Active but an Operational End in the past: effectively dead.
+        "RZZ": _detail("RZZ", "Dissolved Trust", op_end="2013-10-01"),
+    }
+    with _patch_engine(roster, details):
+        result = ReconcileEngine(["trust"], since=None).detect()
+    adds = [c for c in result.changes if c.change_class == "roster-add"]
+    assert adds == []
+
+
+@pytest.mark.django_db
+def test_absent_but_effectively_active_not_retired(trust_a):
+    """A held trust absent from the (English) roster roles but still effectively
+    active in ODS (no end date) is NOT retired — it simply sits outside the
+    queried roles (the Welsh LHB / Crown-dependency case)."""
+    # Roster omits RAA entirely; a deep fetch shows it is still open.
+    roster = {"RO197": []}
+    details = {"RAA": _detail("RAA", "Trust A")}  # Active, no end date
+    with _patch_engine(roster, details):
+        result = ReconcileEngine(["trust"], since=None).detect()
+    retires = [c for c in result.changes if c.change_class == "retire"]
+    assert retires == []
+
+
+@pytest.mark.django_db
+def test_absent_and_effectively_closed_is_retired(trust_a):
+    """A held trust absent from the roster AND effectively closed in ODS (past
+    end date) is retired."""
+    roster = {"RO197": []}
+    details = {"RAA": _detail("RAA", "Trust A", op_end="2015-04-01")}
+    with _patch_engine(roster, details):
+        result = ReconcileEngine(["trust"], since=None).detect()
+    retires = [c for c in result.changes if c.change_class == "retire"]
+    assert len(retires) == 1
+    assert retires[0].ods_code == "RAA"
+    assert retires[0].payload["reason"] == "absent-from-roster"
 
 
 @pytest.mark.django_db
@@ -432,6 +502,91 @@ def test_organisation_superseded_code_detected(trust_a):
     superseded = [c for c in result.changes if c.change_class == "superseded-code"]
     assert len(superseded) == 1
     assert superseded[0].payload["successor_ods_code"] == "RAL27"
+
+
+@pytest.mark.django_db
+def test_organisation_superseded_code_detected_by_end_date(trust_a):
+    """ODS leaves a re-coded site stamped Active past its end date. The engine
+    must still treat it as closed (end-date-aware) and, with an own Successor,
+    flag superseded-code."""
+    Organisation.objects.create(
+        ods_code="RAP01", name="North Mid", trust=trust_a, active=True
+    )
+    details = {
+        "RAP01": _detail(
+            "RAP01",
+            "North Mid",
+            status="Active",  # ODS stale Active flag
+            op_end="2024-12-31",  # but a past end date
+            succs=[_succ("RAL27", "Successor", "2025-01-01")],
+        ),
+    }
+    with _patch_engine({}, details):
+        result = ReconcileEngine(["organisation"], since=None).detect()
+    superseded = [c for c in result.changes if c.change_class == "superseded-code"]
+    assert len(superseded) == 1
+    assert superseded[0].payload["successor_ods_code"] == "RAL27"
+
+
+@pytest.mark.django_db
+def test_organisation_parallel_code_via_parent_trust_bridge():
+    """The North Middlesex pattern: a held site ODS has effectively closed (past
+    end date) with no own Succs, but its held parent trust has an ODS successor.
+    The engine surfaces a parallel-code review item recording the trust bridge,
+    without auto-picking a successor site."""
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    details = {
+        # Site: ODS stale Active, but a past Legal/Operational end, no Succs,
+        # still parented on RAP.
+        "RAPNM": _detail(
+            "RAPNM",
+            "North Middlesex Hospital",
+            status="Active",
+            op_end="2024-12-31",
+            rels=[_rel("RAP", "2001-04-01")],
+        ),
+        # Parent trust RAP: succeeded by RAL on 2025-01-01.
+        "RAP": _detail(
+            "RAP",
+            "North Mid Trust",
+            succs=[_succ("RAL", "Successor", "2025-01-01")],
+        ),
+    }
+    with _patch_engine({}, details):
+        result = ReconcileEngine(["organisation"], since=None).detect()
+    parallel = [c for c in result.changes if c.change_class == "parallel-code"]
+    assert len(parallel) == 1
+    payload = parallel[0].payload
+    assert payload["predecessor_trust"] == "RAP"
+    assert payload["successor_trust"] == "RAL"
+    assert payload["reason"] == "parent-trust-succession-bridge"
+    # Must not be auto-applied or mis-classified as a plain retirement.
+    assert not parallel[0].auto_safe
+    assert not [c for c in result.changes if c.change_class == "retire"]
+
+
+@pytest.mark.django_db
+def test_wythenshawe_parallel_open_codes_not_flagged():
+    """A genuinely persistent divergence — two parallel codes BOTH open in ODS
+    (no end date, Status Active) — is left alone: it is not resolvable by the
+    end-date discriminator and must not be flagged closed."""
+    trust = Trust.objects.create(ods_code="RM3", name="MFT", active=True)
+    Organisation.objects.create(
+        ods_code="RM325", name="Wythenshawe", trust=trust, active=True
+    )
+    details = {
+        "RM325": _detail("RM325", "Wythenshawe", status="Active"),  # open, no end
+    }
+    with _patch_engine({}, details):
+        result = ReconcileEngine(["organisation"], since=None).detect()
+    assert not [
+        c
+        for c in result.changes
+        if c.change_class in {"retire", "superseded-code", "parallel-code"}
+    ]
 
 
 @pytest.mark.django_db
