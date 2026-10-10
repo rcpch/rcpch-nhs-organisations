@@ -378,6 +378,28 @@ up to date for future mergers.
 > marking predecessors inactive with version rows) require the helper functions
 > via a shell or management command until more admin actions are built.
 
+### Driven from the ODS review queue (`reconcile_ods`)
+
+Mergers no longer have to be spotted by eye. The `reconcile_ods` engine (see
+[ods-sync.md](ods-sync.md)) detects succession events,
+child re-pointing, superseded organisation codes, and status changes against
+ODS and lands each one as a **`PendingOdsChange`** row for review. In the
+admin, the `PendingOdsChange` changelist offers:
+
+- **Approve & apply** — applies the change through the same temporal helpers
+  described below (succession row + predecessor closure, membership
+  re-pointing, successor creation for a superseded code). It is idempotent, so
+  re-approving an already-applied row is a no-op, and it stamps the row with
+  who applied it and when.
+- **Dismiss (with a required reason)** — for a detected delta the team decides
+  not to apply (e.g. a curated ODS divergence).
+
+Attribute-only renames with no succession in the window are applied
+automatically (under `reconcile_ods --apply`); every *structural* merger change
+is queued for a human to confirm, because ODS succession semantics are
+occasionally ambiguous. The wizard functions and admin actions below are the
+same code the Approve & apply path drives — you can still invoke them directly.
+
 ### What the admin can do today
 
 - **Create succession rows.** The `TrustSuccession`, `OrganisationSuccession`,

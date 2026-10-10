@@ -93,6 +93,36 @@ The temporal layer has three components:
 The main tables (`Organisation`, `Trust`, etc.) continue to represent current
 state and are unchanged in shape. The temporal layer is purely additive.
 
+## ODS reconciliation models
+
+Two operational models support the `reconcile_ods` engine (see
+[ods-sync.md](ods-sync.md)). They do not hold geography —
+they record the detection/apply workflow that keeps the geography in step with
+ODS.
+
+- **`OdsSyncRun`** — one row per `reconcile_ods` invocation. Records the
+  `mode` (incremental / backfill), the `levels` reconciled, the `since`
+  window start, the `synced_through` date, whether it was a `dry_run`, how
+  many `changes_detected`, the `status` (running / success / failed), the
+  rendered `report`, and start/complete timestamps. The
+  `last_successful(mode=...)` classmethod drives the self-adjusting
+  incremental window — the next run scans from the previous run's
+  `synced_through` (minus a few days' margin).
+- **`PendingOdsChange`** — the review queue. Each structural delta the engine
+  detects (succession, relationship re-pointing, superseded code, roster add,
+  retire, parallel code) is upserted here rather than applied automatically.
+  Fields: `level`, `ods_code`, `change_class`, `effective_date`, a `payload`
+  JSON (old → new values, succession events, successor codes), `status`
+  (pending / approved / applied / dismissed), `detected_at`, a `source_run`
+  FK, and `reviewed_by` / `reviewer_notes` / `applied_at` audit stamps. A
+  unique constraint on `(level, ods_code, change_class, effective_date)`
+  makes re-runs idempotent (an already-queued or already-terminal change is
+  never duplicated). Attribute-only changes with no succession in the window
+  are *not* queued — they are auto-applied (under `--apply`) through the same
+  temporal helpers. The admin surfaces the queue with **Approve & apply** and
+  **Dismiss** actions; approve drives the existing temporal helpers (never a
+  direct write) and is idempotent.
+
 For the full design, see [temporal-history.md](temporal-history.md). For how
 mergers are handled, see [merger-handling.md](merger-handling.md). For test
 coverage, see [testing.md](testing.md).

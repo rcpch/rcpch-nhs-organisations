@@ -83,6 +83,20 @@ metadata linking predecessor → successor):
 `TrustSuccession`, `OrganisationSuccession`,
 `PaediatricDiabetesUnitSuccession`, `IntegratedCareBoardSuccession`.
 
+### ODS reconciliation models
+
+Two operational models support the `reconcile_ods` engine (not geography —
+they record the detection/apply workflow):
+
+- `OdsSyncRun` — one row per `reconcile_ods` run (mode, levels, window,
+  `synced_through`, dry-run flag, counts, status, report). Drives the
+  self-adjusting incremental window via `last_successful(mode=...)`.
+- `PendingOdsChange` — the review queue. One upserted row per detected
+  structural delta (`level`, `ods_code`, `change_class`, `effective_date`,
+  `payload`, `status`, audit stamps), unique on
+  `(level, ods_code, change_class, effective_date)` for idempotency. Applied
+  or dismissed from the admin.
+
 ### Helper functions
 
 All temporal writes go through helpers in
@@ -128,6 +142,7 @@ All commands are in `rcpch_nhs_organisations/hospitals/management/commands/`.
 
 | Command | Purpose |
 |---|---|
+| `reconcile_ods [--levels ...] [--mode incremental\|backfill] [--since YYYY-MM-DD] [--dry-run] [--apply] [--queue] [--report-file PATH] [--check-overlaps] [--rate N]` | **Unified ODS reconciliation engine** (see `ods-sync.md`). Treats ODS as source of truth across organisation/trust/LHB/ICB levels, detecting attribute, relationship, succession, roster, and status changes. Plain `--dry-run` writes nothing; `--dry-run --queue` fills the `PendingOdsChange` review queue; `--apply` auto-applies attribute-only changes and queues structural ones. Supersedes the detection half of `cron`, `backfill_successions`, `backfill_*_memberships`, and `ods_change_report`. |
 | `seed --level all` | Seed the database from constants (trusts, organisations, PDUs, networks, abstraction levels). |
 | `cron --service organisations [--dry-run] [--time-frame N]` | ODS sync — fetches changes from the ODS `/sync` endpoint and applies them through the temporal helpers. |
 | `mergers --organisations <codes> --create/--delete [--dry-run]` | Create or delete organisations from the ODS Spine. |
@@ -193,6 +208,7 @@ All tests live in `rcpch_nhs_organisations/hospitals/tests/`. There are
 | `test_backfill_icb_memberships.py` | `backfill_icb_memberships`. |
 | `test_backfill_pdu_successions.py` | `backfill_pdu_successions`. |
 | `test_ods_change_report.py` | `ods_change_report` (combined change-detection report) and the `--report-file` flag on `backfill_successions`. |
+| `test_reconcile_ods.py` | The unified `reconcile_ods` engine, command, apply path, overlap detector, rate limiter, idempotency/interval parity, and categorised report. |
 | `test_viewsets.py` | API viewset smoke tests. |
 
 ### ODS API mocking

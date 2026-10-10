@@ -27,12 +27,15 @@ All tests live in `rcpch_nhs_organisations/hospitals/tests/` and are run with
 | `test_membership_helpers.py` | The helper functions in `general_functions/membership.py` — the sanctioned write path | 14 |
 | `test_ods_sync.py` | The refactored ODS sync with `--dry-run` | 8 |
 | `test_mergers_command.py` | The `mergers` management command with `--dry-run` and baseline temporal row creation | 5 |
-| `test_admin.py` | The admin interface (reassign trust action, history inlines, succession admin pages) | 11 |
+| `test_admin.py` | The admin interface (reassign trust action, history inlines, succession admin pages, and the `PendingOdsChange` review-queue approve/dismiss actions) | 55 |
 | `test_snapshot_api.py` | The `GET /organisations/{ods_code}/snapshot?date=` endpoint | 8 |
 | `test_cron_report_file.py` | The `--report-file` flag used by the GitHub Action | 2 |
 | `test_merger_workflows.py` | End-to-end integration tests for the full merger workflows | 4 |
+| `test_reconcile_ods.py` | The unified `reconcile_ods` engine, command, apply path, overlap detector, rate limiter, idempotency/parity, and report | 29 |
 
-**Total: 184 tests** (including the 2 pre-existing viewset tests).
+> The per-file counts above are indicative; the table pre-dates the
+> `backfill_*` and `reconcile_ods` work. Run `./s/test` for the authoritative
+> total.
 
 ## Temporal invariants tested
 
@@ -66,6 +69,7 @@ that exercise ODS-dependent code mock the network functions via
 | `test_ods_sync.py` | `fetch_updated_organisations`, `get_organisation` | Patched in `ods_update` module |
 | `test_cron_report_file.py` | Same as above | Same pattern |
 | `test_mergers_command.py` | `fetch_organisation_by_ods_code`, `fetch_by_postcode`, `builtins.input` | Patched in the `general_functions` package (where the names are imported into) |
+| `test_reconcile_ods.py` | `fetch_roster`, `deep_fetch`, `fetch_updated_organisations` (engine) and `deep_fetch` (apply) | Patched in `general_functions/reconcile/engine.py` and `general_functions/reconcile/apply.py` |
 
 The argument-validation tests in `test_mergers_command.py`
 (`test_create_and_delete_rejected_together`, `test_no_create_or_delete_rejected`,
