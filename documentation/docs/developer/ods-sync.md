@@ -340,10 +340,13 @@ cannot always disambiguate them automatically:
   (a name-free "pre-existing parallel" test that isolates the moved site from the
   departmental codes ODS mints on the merger date; see the North Middlesex
   worked example). The list is for review only — it is never auto-picked, since
-  a postcode is not a unique key. The reviewer links the surviving code; applying
-  a `parallel-code` flags the old code `diverged_from_ods` (and, when the
-  reviewer supplies it, records `ods_replacement_code`) via
-  `apply._apply_parallel_code`.
+  a postcode is not a unique key. The reviewer confirms the surviving code;
+  applying a `parallel-code` with a replacement deep-fetches the successor
+  from ODS, creates the `Organisation` row if missing, links via
+  `OrganisationSuccession`, re-points it to its current parent trust, closes
+  the predecessor, and flags the old code `diverged_from_ods` with
+  `ods_replacement_code` via `apply._apply_parallel_code`. Applying without a
+  replacement flags `diverged_from_ods` only.
 - **Not resolvable by end date (the Wythenshawe pattern).** Both codes are open
   (no end date, both `Status=Active`) — a genuine, persistent divergence. The
   end-date discriminator correctly leaves these **alone** (they are not flagged

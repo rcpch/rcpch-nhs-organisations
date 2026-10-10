@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+
+{% block search %}
+{{ block.super }}
+{% if parallel_code_count %}
+<div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 4px; padding: 1em; margin-bottom: 1em; color: #333;">
+  <p style="margin: 0 0 0.5em 0;"><strong>&#9888; {{ parallel_code_count }} parallel-code change(s) need individual review.</strong></p>
+  <p style="margin: 0;">Parallel-code changes cannot be applied via the bulk <em>Approve &amp; apply</em> action —
+  they need the replacement code to be confirmed. Open each row and use the
+  <strong>Approve &amp; apply</strong> button on its change page to pick the successor code from the candidate list.</p>
+</div>
+{% endif %}
+{% endblock %}

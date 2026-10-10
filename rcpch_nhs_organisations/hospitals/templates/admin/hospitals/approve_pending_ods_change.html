@@ -1,0 +1,142 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label='hospitals' %}">Hospitals</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_pendingodschange_changelist' %}">Pending ODS changes</a> &rsaquo;
+  Approve & apply
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Approve &amp; apply</h1>
+
+<div style="background: #e3f2fd; border: 2px solid #1565c0; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
+  <p style="margin-top: 0;"><strong>{{ change.ods_code }}</strong> — {{ change.get_level_display }} / {{ change.get_change_class_display }}</p>
+  <p style="margin-bottom: 0;">{{ change.payload.summary }}</p>
+</div>
+
+{% if change.change_class == 'parallel-code' %}
+  {# Parallel-code: the reviewer must confirm the replacement code. #}
+  <div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
+    <p style="margin-top: 0;"><strong>This is a parallel active code.</strong> The engine has flagged that
+    <code>{{ change.ods_code }}</code> is closed in ODS but has no own successor, and its
+    parent trust was succeeded. The candidate successor codes below are surfaced for
+    review only — they are <strong>never auto-picked</strong> because a postcode is not
+    a unique key.</p>
+
+    {% if candidates %}
+    <p style="margin-bottom: 0;"><strong>Candidate successor code(s):</strong></p>
+    <ul style="margin-top: 0.5em;">
+      {% for c in candidates %}
+        <li><code>{{ c }}</code></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="margin-bottom: 0;"><strong>No candidate successor codes were found.</strong> You will need to
+    identify the correct successor code manually (see guidance below).</p>
+    {% endif %}
+
+    <p style="margin-top: 1em;"><strong>Guidance:</strong> If the correct successor is
+    not in the candidate list, type its ODS code in the "Custom replacement" field below.
+    To find it:</p>
+    <ul style="margin-bottom: 0;">
+      <li>Look up the organisation on the
+        <a href="https://directory.spineservices.nhs.uk/" target="_blank">NHS ODS Directory</a>
+        by name or postcode.</li>
+      <li>Check the <code>{{ change.payload.predecessor_trust }}</code> &rarr;
+        <code>{{ change.payload.successor_trust }}</code> trust succession in the
+        <a href="{% url 'admin:hospitals_trustsuccession_changelist' %}">Trust succession</a>
+        admin page.</li>
+      <li>If the successor organisation does not exist in the database yet, create it
+        with <code>python manage.py mergers --organisations &lt;code&gt; --create</code>
+        before approving this change.</li>
+    </ul>
+  </div>
+
+  {# The form: visible inputs with labels, not hidden in a pale table. #}
+  {% if form.non_field_errors %}
+    <div class="errornote">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <fieldset style="background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1em; margin-bottom: 1em;">
+      <legend style="font-weight: bold; padding: 0 0.5em;">Confirm the replacement code</legend>
+
+      <div style="margin-bottom: 1em;">
+        <label for="id_replacement_ods_code" style="display: block; font-weight: bold; margin-bottom: 0.3em;">
+          Replacement ODS code:
+        </label>
+        {{ form.replacement_ods_code }}
+        <p style="color: #333; font-size: 0.9em; margin: 0.3em 0 0 0;">
+          Pick the active ODS code that replaces the closed code, or leave blank to
+          flag the old code as diverged without a replacement.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1em;">
+        <label for="id_custom_replacement" style="display: block; font-weight: bold; margin-bottom: 0.3em;">
+          Custom replacement (overrides the dropdown):
+        </label>
+        {{ form.custom_replacement }}
+        <p style="color: #333; font-size: 0.9em; margin: 0.3em 0 0 0;">
+          If the correct successor is not in the candidate list, type its ODS code here.
+        </p>
+      </div>
+
+      <div>
+        <label for="id_notes" style="display: block; font-weight: bold; margin-bottom: 0.3em;">
+          Notes (optional):
+        </label>
+        {{ form.notes }}
+      </div>
+    </fieldset>
+
+    <div class="submit-row">
+      <input type="submit" name="apply" value="Approve &amp; apply" class="default">
+      <a href="{% url 'admin:hospitals_pendingodschange_change' change.pk %}" class="button">Cancel</a>
+    </div>
+  </form>
+
+{% else %}
+  {# All other change classes: simple confirmation. #}
+  <p>Approving will apply this change through the temporal helpers and mark the row
+  as <strong>applied</strong>. This action is idempotent — re-approving an
+  already-applied row is a no-op.</p>
+
+  {% if change.change_class == 'succession' %}
+  <div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
+    <p style="margin: 0;"><strong>Succession change.</strong> Both the predecessor and successor must
+    already be in the database. If the successor is missing, apply the matching
+    <em>roster-add</em> change first, then re-approve this one.</p>
+  </div>
+  {% endif %}
+
+  {% if change.change_class == 'relationship' %}
+  <div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
+    <p style="margin: 0;"><strong>Re-parenting change.</strong> The new parent must already be in the
+    database. If it is missing, apply the matching <em>roster-add</em> change first,
+    then re-approve this one.</p>
+  </div>
+  {% endif %}
+
+  {% if change.change_class == 'superseded-code' %}
+  <div style="background: #e3f2fd; border: 2px solid #1565c0; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
+    <p style="margin: 0;"><strong>Superseded code.</strong> Approving will deep-fetch the successor
+    (<code>{{ change.payload.successor_ods_code }}</code>) from ODS, create the
+    organisation if it is missing, link via <code>OrganisationSuccession</code>, and
+    close the predecessor.</p>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="submit-row">
+      <input type="submit" name="apply" value="Approve &amp; apply" class="default">
+      <a href="{% url 'admin:hospitals_pendingodschange_change' change.pk %}" class="button">Cancel</a>
+    </div>
+  </form>
+{% endif %}
+{% endblock %}

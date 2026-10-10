@@ -194,18 +194,34 @@ successor.
 
 ## Using the management commands
 
-Two commands are involved in mergers:
+Two commands are involved in mergers, and their roles are distinct:
 
-- `reconcile_ods` detects structural drift against ODS (successions,
+- `reconcile_ods` **detects** structural drift against ODS (successions,
   re-parentings, superseded codes, parallel active codes, roster additions,
-  status changes) and stages it in the `PendingOdsChange` admin review queue.
-  It **supersedes** the old `cron --service organisations` sync. See
-  [ods-sync.md](ods-sync.md) for the full engine reference and
-  [ods-change-detection.md](ods-change-detection.md) for the monthly Azure job.
+  status changes) and **records** it as `PendingOdsChange` rows in the admin
+  review queue. It does **not** apply mergers, create successor entities, or
+  resolve parallel codes itself — it only stages the change for a human to
+  confirm. The actual database writes happen later, either from the admin
+  (**Approve & apply** on a queued change) or from the `mergers` command
+  (creating/deleting organisations). See [ods-sync.md](ods-sync.md) for the
+  full engine reference and [ods-change-detection.md](ods-change-detection.md)
+  for the monthly Azure job.
 - `mergers` creates or deletes `Organisation` rows from the Spine. It is
   unchanged by the temporal rework — it still creates baseline temporal rows
   (`OrganisationVersion` plus the relevant membership rows) so a new
   organisation has history from creation day forward.
+
+> **`reconcile_ods` never writes mergers or parallel-code resolutions.**
+> It compares ODS against the database, saves each detected structural delta
+> as a `PendingOdsChange` row, and stops there. The one exception is
+> attribute-only changes (name, address, telephone, …) with no succession in
+> the window — those are the only class `reconcile_ods --apply` writes
+> automatically. Every *structural* change (a merger, acquisition, split,
+> closure, re-parenting, superseded code, parallel code, roster addition, or
+> retirement) is queued for a human to **Approve & apply** from the admin, or
+> to handle via the `mergers` command and the merger wizards. This is because
+> ODS succession semantics are occasionally ambiguous and a human should
+> confirm the predecessor → successor mapping.
 
 ### Detecting changes from ODS
 
@@ -426,20 +442,30 @@ helpers, so the writes are identical and idempotent.
 
 The `reconcile_ods` engine (see [ods-sync.md](ods-sync.md)) detects succession
 events, child re-pointing, superseded organisation codes, parallel active
-codes, roster additions, and status changes against ODS, and lands each one as
-a `PendingOdsChange` row for review. In the admin, the `PendingOdsChange`
-changelist (grouped by status, level, and change class, filterable) offers two
-actions:
+codes, roster additions, and status changes against ODS, and **records** each
+one as a `PendingOdsChange` row for review — it does not apply them. The actual
+writes happen when a reviewer acts on the queue (or handles the change via the
+`mergers` command / merger wizards).
+
+Each `PendingOdsChange` change page has two per-row buttons (in addition to the
+bulk changelist actions):
 
 - **Approve & apply** — drives
   `general_functions/reconcile/apply.py::apply_pending_change`, which
   dispatches to a handler per change class and calls the existing idempotent
-temporal helpers in one transaction, then stamps `status=applied`,
+  temporal helpers in one transaction, then stamps `status=applied`,
   `applied_at`, and `reviewed_by`. Re-approving an already-applied row is a
-  no-op.
-- **Dismiss (with a required reason)** — for a detected delta the team decides
-  not to apply (e.g. a curated ODS divergence). Stamps `status=dismissed` with
-  the reason and reviewer.
+  no-op. For `parallel-code` changes, an intermediate form lets the reviewer
+  confirm the replacement code before applying (see [Parallel active
+codes](#parallel-active-codes) below).
+- **Dismiss…** — shows an intermediate page requiring a free-text reason, then
+  stamps `status=dismissed` with the reason and reviewer. For a detected delta
+  the team decides not to apply (e.g. a curated ODS divergence).
+
+The bulk changelist actions (**Approve & apply selected changes** and
+**Dismiss selected changes**) are still available for reviewing multiple rows
+at once, but they do not show the intermediate form for `parallel-code`
+changes — use the per-row button when you need to confirm a replacement code.
 
 The change classes and what applying each one does:
 
@@ -451,7 +477,7 @@ The change classes and what applying each one does:
 | `superseded-code` | An organisation is closed in ODS and its own `Succs` names a successor code | Deep-fetches the successor from ODS, creates the `Organisation` row (with baseline temporal rows) if missing, links via `OrganisationSuccession` (type=`code_change`), re-points it to its current parent trust, and closes the predecessor. |
 | `roster-add` | A trust / LHB / ICB is active in ODS but missing from the database | Creates the entity row. (Organisations are a closed set — they are never roster-added; use `mergers --create` or approve a `superseded-code` instead.) |
 | `retire` | An entity is active in the database but closed/inactive in ODS with no successor | Calls `deactivate_<entity>` (organisation/trust) or `update_integrated_care_board_attributes(active=False)` (ICB). |
-| `parallel-code` | An organisation is closed in ODS but has no own successor, and its parent trust was succeeded — the site likely re-opened under a parallel code beneath the successor trust (the North Middlesex pattern) | Flags the old code `diverged_from_ods` and, when the reviewer supplies it, records `ods_replacement_code`. Does **not** auto-pick the successor site. |
+| `parallel-code` | An organisation is closed in ODS but has no own successor, and its parent trust was succeeded — the site likely re-opened under a parallel code beneath the successor trust (the North Middlesex pattern) | When the reviewer supplies a replacement code: deep-fetches the successor from ODS, creates the `Organisation` row if missing, links via `OrganisationSuccession` (type=`code_change`), re-points it to its current parent trust, closes the predecessor, and flags the old code `diverged_from_ods` with `ods_replacement_code`. When no replacement is supplied: flags `diverged_from_ods` only. Does **not** auto-pick the successor site — the reviewer confirms it. |
 
 When a handler needs an operator decision it raises `ApplyError` with
 guidance rather than guessing — for example, a `succession` whose target is
@@ -474,9 +500,32 @@ patterns:
   the closed code ended (a name-free "pre-existing parallel" test that
   isolates the moved site from the departmental codes ODS mints on the merger
   date). The list is for review only — it is never auto-picked, since a
-  postcode is not a unique key. The reviewer confirms the surviving code and,
-  if they want the audit to remap, supplies the `ods_replacement_code` when
-  approving; applying flags the old code `diverged_from_ods`.
+  postcode is not a unique key.
+
+  To action a `parallel-code` change, open the `PendingOdsChange` row and click
+  **Approve & apply**. An intermediate form shows the candidate successor
+  code(s) and lets you:
+
+  - **Pick a replacement** from the candidate list (dropdown), or type a
+    **custom replacement** ODS code if the correct successor is not in the
+    list. The apply handler then deep-fetches the successor from ODS, creates
+    the `Organisation` row if it is missing, links it to the old code via
+    `OrganisationSuccession` (type=`code_change`), re-points it to its current
+    parent trust (so it appears under the successor trust in the API), closes
+    the predecessor (`active=False`), and flags the old code `diverged_from_ods`
+    with `ods_replacement_code`.
+  - **Leave the replacement blank** to flag the old code as diverged without a
+    replacement (e.g. when ODS folded the site into a parent record rather
+    than issuing a twin). No successor is created or linked.
+  - **Dismiss** the change if the flagged code is a known-good divergence
+    (e.g. a curated entry in `constants/ods_divergent_codes.py`).
+
+  If the apply handler cannot fetch the successor from ODS (e.g. a network
+  error or the code is not in ODS), it raises an `ApplyError` telling you to
+  create the organisation first with `python manage.py mergers --organisations
+  <code> --create`, then re-approve. The form's guidance block also links to
+  the Trust succession admin page and the ODS Directory to help find the
+  right code.
 - **Not resolvable by end date (the Wythenshawe pattern).** Both codes are
   open (no end date, both `Status=Active`) — a genuine, persistent
   divergence. The end-date discriminator correctly leaves these **alone**

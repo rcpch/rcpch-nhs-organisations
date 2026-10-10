@@ -317,15 +317,102 @@ def _apply_roster_add(change):
 
 
 def _apply_parallel_code(change):
-    """Record a parallel-active-code decision as a divergence on the org row
-    (the DB-side equivalent of an ods_divergent_codes entry)."""
+    """Record a parallel-active-code decision.
+
+    When the reviewer supplies a ``replacement_ods_code``, this performs the
+    full reconciliation: deep-fetch the successor from ODS, create the
+    ``Organisation`` row (with baseline temporal rows) if missing, link via
+    ``OrganisationSuccession``, re-point it to its current parent trust,
+    close the predecessor, and flag the old code as diverged. This is the
+    same write path as ``_apply_superseded_code``, plus the divergence flag.
+
+    When no replacement is supplied (the reviewer leaves it blank), only the
+    divergence flag is set on the old code — the successor is not created or
+    linked. This is for cases where ODS folded the site into a parent record
+    rather than issuing a twin, or the reviewer wants to handle the successor
+    separately via ``mergers --create``.
+    """
     if change.level != "organisation":
         raise ApplyError("Parallel-code changes apply to organisations only.")
-    org = _entity("organisation", change.ods_code)
+
+    from rcpch_nhs_organisations.hospitals.general_functions import membership as m
+
+    Organisation = apps.get_model("hospitals", "Organisation")
+    OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
+    Trust = apps.get_model("hospitals", "Trust")
+
+    pred = _entity("organisation", change.ods_code)
     replacement = change.payload.get("replacement_ods_code")
+    ev_date = change.effective_date or timezone.now().date()
+
+    if not replacement:
+        # No successor supplied — flag the old code as diverged only.
+        with transaction.atomic():
+            pred.diverged_from_ods = True
+            pred.save(update_fields=["diverged_from_ods", "updated_at"])
+        return f"Flagged {change.ods_code} as diverged from ODS (no replacement)."
+
+    # Full reconciliation: create/link the successor, record the succession,
+    # re-point to the parent trust, close the predecessor, and flag the
+    # divergence.
+    record = deep_fetch(replacement)
+    if record is None:
+        raise ApplyError(
+            f"Could not fetch the successor record {replacement} from ODS. "
+            "Create it with `python manage.py mergers --organisations "
+            f"{replacement} --create` first, then re-approve."
+        )
+    fields = _extract_ord_fields(record)
+
     with transaction.atomic():
-        org.diverged_from_ods = True
-        if replacement:
-            org.ods_replacement_code = replacement
-        org.save(update_fields=["diverged_from_ods", "ods_replacement_code"])
-    return f"Flagged {change.ods_code} as diverged from ODS."
+        successor, created = Organisation.objects.get_or_create(
+            ods_code=replacement,
+            defaults={
+                "name": fields.get("name"),
+                "address1": fields.get("address1"),
+                "address2": fields.get("address2"),
+                "address3": fields.get("address3"),
+                "city": fields.get("city"),
+                "county": fields.get("county"),
+                "postcode": fields.get("postcode"),
+                "telephone": fields.get("telephone"),
+                "website": fields.get("website"),
+                "active": True,
+            },
+        )
+        # Link the successor to its current parent trust from the ODS RE6 rel.
+        memberships = _extract_trust_membership_info(record)
+        current_trust_code = next(
+            (mem["trust_ods_code"] for mem in memberships if mem.get("valid_to") is None),
+            None,
+        )
+        if current_trust_code:
+            new_trust = Trust.objects.filter(ods_code=current_trust_code).first()
+            if new_trust is not None and successor.trust_id != new_trust.pk:
+                m.reassign_organisation_trust(
+                    successor, new_trust, effective_date=ev_date
+                )
+
+        if not OrganisationSuccession.objects.filter(
+            predecessor=pred, successor=successor, succession_date=ev_date
+        ).exists():
+            OrganisationSuccession.objects.create(
+                predecessor=pred,
+                successor=successor,
+                succession_date=ev_date,
+                succession_type="code_change",
+                notes="Created from ODS reconciliation (parallel code).",
+            )
+        if pred.active:
+            m.update_organisation_attributes(pred, effective_date=ev_date, active=False)
+        # Flag the old code as diverged with the replacement code.
+        pred.diverged_from_ods = True
+        pred.ods_replacement_code = replacement
+        pred.save(update_fields=["diverged_from_ods", "ods_replacement_code", "updated_at"])
+
+    verb = "created" if created else "linked existing"
+    return (
+        f"Followed {change.ods_code} → {replacement} ({verb} successor), "
+        f"recorded succession, closed the predecessor, and flagged "
+        f"{change.ods_code} as diverged from ODS."
+    )

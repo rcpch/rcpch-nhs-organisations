@@ -1367,6 +1367,39 @@ def test_pending_change_approve_and_apply_performs_write_and_is_idempotent(
 
 
 @pytest.mark.django_db
+def test_bulk_approve_skips_parallel_code_with_warning(superuser):
+    """The bulk Approve & apply action skips parallel-code changes (which need
+    the per-row form to confirm the replacement code) and warns the reviewer."""
+    from django.test import Client
+
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={"candidate_successors": ["RAL27"]},
+    )
+    client = Client()
+    client.force_login(superuser)
+    changelist_url = reverse("admin:hospitals_pendingodschange_changelist")
+
+    response = client.post(
+        changelist_url,
+        {"action": "approve_and_apply", "_selected_action": [str(change.pk)]},
+    )
+    assert response.status_code == 302
+    change.refresh_from_db()
+    # The change must still be pending — the bulk action did NOT apply it.
+    assert change.status == PendingOdsChange.STATUS_PENDING
+    rapnm = Organisation.objects.get(ods_code="RAPNM")
+    assert rapnm.diverged_from_ods is False
+
+
+@pytest.mark.django_db
 def test_pending_change_dismiss_requires_a_reason(superuser):
     """Dismiss shows an intermediate page and requires a reason; dismissing with
     a reason stamps the row dismissed, an empty reason does not."""
@@ -1421,3 +1454,247 @@ def test_pending_change_dismiss_requires_a_reason(superuser):
     change.refresh_from_db()
     assert change.status == PendingOdsChange.STATUS_DISMISSED
     assert change.reviewer_notes == "Not relevant to the audit geography."
+
+
+# ---------------------------------------------------------------------------
+# Per-row approve / dismiss views on the PendingOdsChange change page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_per_row_approve_view_applies_change(superuser, organisation_with_baseline, trust_b):
+    """The per-row Approve & apply view (not the changelist action) applies the
+    change and stamps the row applied."""
+    from django.test import Client
+
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAA01",
+        change_class="relationship",
+        effective_date=datetime.date(2024, 1, 1),
+        payload={
+            "relationship": "organisation-trust",
+            "old_ods_code": "RAA",
+            "new_ods_code": "RBB",
+        },
+    )
+    client = Client()
+    client.force_login(superuser)
+
+    # GET shows the confirmation page.
+    approve_url = reverse("admin:hospitals_pendingodschange_approve", args=[change.pk])
+    page = client.get(approve_url)
+    assert page.status_code == 200
+    assert b"Approve & apply" in page.content
+
+    # POST applies the change.
+    response = client.post(approve_url)
+    assert response.status_code == 302
+    organisation_with_baseline.refresh_from_db()
+    assert organisation_with_baseline.trust == trust_b
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_APPLIED
+    assert change.reviewed_by_id == superuser.pk
+
+
+@pytest.mark.django_db
+def test_per_row_dismiss_view_dismisses_with_reason(superuser):
+    """The per-row Dismiss view shows an intermediate page, requires a reason,
+    and dismisses the row."""
+    from django.test import Client
+
+    change = PendingOdsChange.objects.create(
+        level="trust",
+        ods_code="RBB",
+        change_class="roster-add",
+        effective_date=datetime.date(2024, 1, 1),
+        payload={"name": "New Trust"},
+    )
+    client = Client()
+    client.force_login(superuser)
+    dismiss_url = reverse("admin:hospitals_pendingodschange_dismiss", args=[change.pk])
+
+    # GET shows the reason form.
+    page = client.get(dismiss_url)
+    assert page.status_code == 200
+    assert b"reason" in page.content.lower()
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_PENDING
+
+    # POST with a reason dismisses.
+    done = client.post(dismiss_url, {"reason": "Curated divergence."})
+    assert done.status_code == 302
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_DISMISSED
+    assert change.reviewer_notes == "Curated divergence."
+
+
+@pytest.mark.django_db
+def test_per_row_approve_parallel_code_with_replacement(superuser, trust_b):
+    """Approving a parallel-code change via the per-row view lets the reviewer
+    pick a replacement code from the candidate list, and the apply handler
+    creates the successor org, records the succession, and flags the old code
+    as diverged."""
+    from django.test import Client
+    from unittest.mock import patch
+
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    org = Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={
+            "summary": "RAPNM is closed in ODS but has no own successor",
+            "reason": "parent-trust-succession-bridge",
+            "predecessor_trust": "RAP",
+            "successor_trust": "RAL",
+            "candidate_successors": ["RAL27"],
+        },
+    )
+    successor_detail = {
+        "Name": "North Middlesex Hospital",
+        "GeoLoc": {"Location": {"AddrLn1": "1 St", "Town": "London", "PostCode": "N18 1QX"}},
+        "Contacts": {"Contact": []},
+        "Rels": {"Rel": [{
+            "id": "RE6",
+            "Status": "Active",
+            "Date": [{"Type": "Operational", "Start": "2024-07-01"}],
+            "Target": {"OrgId": {"extension": "RBB"}, "PrimaryRoleId": {"id": "RO197"}},
+        }]},
+    }
+    client = Client()
+    client.force_login(superuser)
+    approve_url = reverse("admin:hospitals_pendingodschange_approve", args=[change.pk])
+
+    # GET shows the intermediate form with the candidate list.
+    page = client.get(approve_url)
+    assert page.status_code == 200
+    assert b"RAL27" in page.content
+    assert b"candidate" in page.content.lower()
+
+    # POST with the replacement selected.
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.reconcile.apply.deep_fetch",
+        return_value=successor_detail,
+    ):
+        response = client.post(approve_url, {"replacement_ods_code": "RAL27"})
+    assert response.status_code == 302
+    org.refresh_from_db()
+    assert org.diverged_from_ods is True
+    assert org.ods_replacement_code == "RAL27"
+    assert org.active is False
+    successor = Organisation.objects.get(ods_code="RAL27")
+    assert successor.trust == trust_b
+    assert OrganisationSuccession.objects.filter(
+        predecessor=org, successor=successor
+    ).exists()
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_APPLIED
+
+
+@pytest.mark.django_db
+def test_per_row_approve_parallel_code_without_replacement(superuser):
+    """Approving a parallel-code change without selecting a replacement flags
+    the old code as diverged but leaves ods_replacement_code null."""
+    from django.test import Client
+
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    org = Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={
+            "summary": "RAPNM is closed in ODS",
+            "candidate_successors": [],
+        },
+    )
+    client = Client()
+    client.force_login(superuser)
+    approve_url = reverse("admin:hospitals_pendingodschange_approve", args=[change.pk])
+
+    response = client.post(approve_url, {})
+    assert response.status_code == 302
+    org.refresh_from_db()
+    assert org.diverged_from_ods is True
+    assert org.ods_replacement_code is None
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_APPLIED
+
+
+@pytest.mark.django_db
+def test_per_row_approve_parallel_code_custom_replacement(superuser, trust_b):
+    """The reviewer can type a custom replacement code that is not in the
+    candidate list."""
+    from django.test import Client
+    from unittest.mock import patch
+
+    rap = Trust.objects.create(ods_code="RAP", name="North Mid Trust", active=False)
+    org = Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=rap, active=True
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={
+            "summary": "RAPNM is closed in ODS",
+            "candidate_successors": ["RAL27"],
+        },
+    )
+    successor_detail = {
+        "Name": "North Middlesex Hospital",
+        "GeoLoc": {"Location": {"AddrLn1": "1 St", "Town": "London", "PostCode": "N18 1QX"}},
+        "Contacts": {"Contact": []},
+        "Rels": {"Rel": [{
+            "id": "RE6",
+            "Status": "Active",
+            "Date": [{"Type": "Operational", "Start": "2024-07-01"}],
+            "Target": {"OrgId": {"extension": "RBB"}, "PrimaryRoleId": {"id": "RO197"}},
+        }]},
+    }
+    client = Client()
+    client.force_login(superuser)
+    approve_url = reverse("admin:hospitals_pendingodschange_approve", args=[change.pk])
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.reconcile.apply.deep_fetch",
+        return_value=successor_detail,
+    ):
+        response = client.post(approve_url, {"custom_replacement": "RAL99"})
+    assert response.status_code == 302
+    org.refresh_from_db()
+    assert org.diverged_from_ods is True
+    assert org.ods_replacement_code == "RAL99"
+    assert Organisation.objects.filter(ods_code="RAL99").exists()
+
+
+@pytest.mark.django_db
+def test_per_row_approve_terminal_change_is_noop(superuser):
+    """Approving an already-applied or already-dismissed row is a no-op with a
+    warning message."""
+    from django.test import Client
+
+    change = PendingOdsChange.objects.create(
+        level="trust",
+        ods_code="RBB",
+        change_class="roster-add",
+        effective_date=datetime.date(2024, 1, 1),
+        payload={"name": "New Trust"},
+        status=PendingOdsChange.STATUS_APPLIED,
+    )
+    client = Client()
+    client.force_login(superuser)
+    approve_url = reverse("admin:hospitals_pendingodschange_approve", args=[change.pk])
+    response = client.post(approve_url)
+    assert response.status_code == 302
+    change.refresh_from_db()
+    assert change.status == PendingOdsChange.STATUS_APPLIED

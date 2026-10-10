@@ -1140,3 +1140,98 @@ def test_apply_superseded_code_follows_held_org_to_successor(trust_a, trust_b):
         apply_pending_change(change)
     assert Organisation.objects.filter(ods_code="RAL27").count() == 1
     assert OrganisationSuccession.objects.filter(successor=successor).count() == 1
+
+
+@pytest.mark.django_db
+def test_apply_parallel_code_with_replacement_creates_successor(trust_a, trust_b):
+    """Approving a parallel-code change with a replacement code performs the
+    full reconciliation: deep-fetch the successor from ODS, create the org, link
+    via OrganisationSuccession, re-point to the parent trust, close the
+    predecessor, and flag the old code as diverged (the North Middlesex RAPNM
+    → RAL27 pattern)."""
+    pred = Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=trust_a, active=True
+    )
+    successor_detail = _detail(
+        "RAL27", "North Middlesex Hospital", rels=[_rel("RBB", "2024-07-01")]
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={
+            "reason": "parent-trust-succession-bridge",
+            "predecessor_trust": "RAA",
+            "successor_trust": "RBB",
+            "candidate_successors": ["RAL27"],
+            "replacement_ods_code": "RAL27",
+        },
+    )
+
+    with patch(f"{APPLY}.deep_fetch", side_effect=lambda code, **kw: successor_detail):
+        apply_pending_change(change)
+
+    successor = Organisation.objects.get(ods_code="RAL27")
+    assert successor.trust_id == trust_b.pk
+    assert OrganisationSuccession.objects.filter(
+        predecessor=pred, successor=successor, succession_type="code_change"
+    ).exists()
+    pred.refresh_from_db()
+    assert pred.active is False
+    assert pred.diverged_from_ods is True
+    assert pred.ods_replacement_code == "RAL27"
+
+
+@pytest.mark.django_db
+def test_apply_parallel_code_without_replacement_flags_only(trust_a):
+    """Approving a parallel-code change without a replacement code only flags
+    the old code as diverged — no successor is created or linked."""
+    pred = Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=trust_a, active=True
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={"candidate_successors": []},
+    )
+
+    apply_pending_change(change)
+
+    pred.refresh_from_db()
+    assert pred.diverged_from_ods is True
+    assert pred.ods_replacement_code is None
+    assert pred.active is True  # not closed — no successor to close it for
+    assert not Organisation.objects.filter(ods_code="RAL27").exists()
+    assert not OrganisationSuccession.objects.exists()
+
+
+@pytest.mark.django_db
+def test_apply_parallel_code_idempotent(trust_a, trust_b):
+    """Re-applying a parallel-code change with a replacement is a no-op — the
+    successor is not duplicated, the succession row is not duplicated."""
+    pred = Organisation.objects.create(
+        ods_code="RAPNM", name="North Middlesex Hospital", trust=trust_a, active=True
+    )
+    successor_detail = _detail(
+        "RAL27", "North Middlesex Hospital", rels=[_rel("RBB", "2024-07-01")]
+    )
+    change = PendingOdsChange.objects.create(
+        level="organisation",
+        ods_code="RAPNM",
+        change_class="parallel-code",
+        effective_date=datetime.date(2024, 12, 31),
+        payload={
+            "candidate_successors": ["RAL27"],
+            "replacement_ods_code": "RAL27",
+        },
+    )
+
+    with patch(f"{APPLY}.deep_fetch", side_effect=lambda code, **kw: successor_detail):
+        apply_pending_change(change)
+        apply_pending_change(change)
+
+    assert Organisation.objects.filter(ods_code="RAL27").count() == 1
+    assert OrganisationSuccession.objects.filter(successor__ods_code="RAL27").count() == 1
