@@ -43,4 +43,16 @@ KNOWN_PARALLEL_ORGANISATIONS = [
             "did not surface RBN52, so the mapping is curated here."
         ),
     },
+    {
+        "predecessor_ods_code": "RVJJ8",
+        "successor_ods_code": "RA7C2",
+        "predecessor_trust": "RVJ",  # TODO: confirm predecessor trust
+        "successor_trust": "RA7",  # TODO: confirm successor trust
+        "name": "",  # TODO: confirm organisation name
+        "notes": (
+            "RVJJ8 was closed in ODS and succeeded by RA7C2 under a "
+            "successor trust. The engine's candidate-successor detection "
+            "surfaced several potential options, so the correct mapping is curated here."
+        ),
+    },
 ]
