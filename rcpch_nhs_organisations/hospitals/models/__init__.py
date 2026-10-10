@@ -13,6 +13,7 @@ from .lower_layer_super_output_area import (
 from .london_borough import LondonBorough, LondonBoroughBoundaries
 from .nhs_england_region import NHSEnglandRegion, NHSEnglandRegionBoundaries
 from .nhs_england_region_version import NHSEnglandRegionVersion
+from .ods_sync_run import OdsSyncRun
 from .open_uk_network import OPENUKNetwork
 from .organisation import Organisation
 from .organisation_integrated_care_board_membership import (
@@ -50,6 +51,7 @@ from .paediatric_diabetes_unit_network_membership import (
 )
 from .paediatric_diabetes_unit_succession import PaediatricDiabetesUnitSuccession
 from .paediatric_diabetes_unit_version import PaediatricDiabetesUnitVersion
+from .pending_ods_change import PendingOdsChange
 from .time_and_user_abstract_base_classes import TimeStampAbstractBaseClass
 from .trust import Trust
 from .trust_integrated_care_board_membership import (
