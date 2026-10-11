@@ -999,14 +999,19 @@ class BackfillMergerAdminMixin:
         ods_validation = None
 
         if request.method == "POST":
-            form = BackfillMergerForm(request.POST)
-            if form.is_valid():
-                # "Fetch from ODS" button: fetch the predecessor's full ODS
-                # record and pre-fill the form fields (name, established
-                # date, succession date, successor). Do not perform the
-                # backfill.
-                if "fetch_ods" in request.POST:
-                    pred_code = form.cleaned_data["predecessor_ods_code"]
+            # "Fetch from ODS" button: only the ODS code is needed. Don't
+            # run full form validation — the other required fields (name,
+            # successor, date, type) haven't been filled yet. Fetch the
+            # predecessor's full ODS record and pre-fill the form fields.
+            # Do not perform the backfill.
+            if "fetch_ods" in request.POST:
+                pred_code = request.POST.get("predecessor_ods_code", "").strip()
+                if not pred_code:
+                    form = BackfillMergerForm(request.POST)
+                    form.add_error(
+                        "predecessor_ods_code", "Enter an ODS code to fetch."
+                    )
+                else:
                     try:
                         ord_record = get_organisation(
                             f"https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/{pred_code}"
@@ -1039,15 +1044,18 @@ class BackfillMergerAdminMixin:
                         successor_obj = None
                         if successor_code:
                             successor_obj = Trust.objects.filter(ods_code=successor_code).first()
-                        # Build the pre-filled form.
-                        initial = dict(form.cleaned_data)
-                        initial["predecessor_name"] = ods_name
-                        if legal_start:
-                            initial["predecessor_established_date"] = legal_start
-                        if succ_date_str:
-                            initial["succession_date"] = succ_date_str
-                        if successor_obj:
-                            initial["successor"] = successor_obj
+                        # Build the pre-filled form. Preserve any fields the
+                        # user already entered (e.g. notes) but populate the
+                        # rest from ODS.
+                        initial = {
+                            "predecessor_ods_code": pred_code,
+                            "predecessor_name": ods_name,
+                            "predecessor_established_date": legal_start or "",
+                            "successor": successor_obj or obj,
+                            "succession_date": succ_date_str or "",
+                            "succession_type": "merger",
+                            "notes": request.POST.get("notes", ""),
+                        }
                         form = BackfillMergerForm(initial=initial)
                         ods_validation = {
                             "status": "found",
@@ -1065,6 +1073,10 @@ class BackfillMergerAdminMixin:
                             ),
                         }
                     except Exception as e:
+                        form = BackfillMergerForm(initial={
+                            "predecessor_ods_code": pred_code,
+                            "successor": obj,
+                        })
                         ods_validation = {
                             "status": "not-found",
                             "ods_code": pred_code,
@@ -1074,7 +1086,9 @@ class BackfillMergerAdminMixin:
                                 "historical name and dates manually."
                             ),
                         }
-                elif "backfill" in request.POST:
+            elif "backfill" in request.POST:
+                form = BackfillMergerForm(request.POST)
+                if form.is_valid():
                     # Perform the backfill.
                     pred_code = form.cleaned_data["predecessor_ods_code"]
                     pred_name = form.cleaned_data["predecessor_name"]

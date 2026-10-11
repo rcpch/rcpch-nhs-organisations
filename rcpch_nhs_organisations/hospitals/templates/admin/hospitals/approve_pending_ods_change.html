@@ -62,7 +62,7 @@
 
   <form method="post">
     {% csrf_token %}
-    <fieldset style="background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1em; margin-bottom: 1em;">
+    <fieldset style="background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1em; margin-bottom: 1em; color: #333;">
       <legend style="font-weight: bold; padding: 0 0.5em;">Confirm the replacement code</legend>
 
       <div style="margin-bottom: 1em;">
@@ -108,17 +108,94 @@
 
   {% if change.change_class == 'succession' %}
   <div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
-    <p style="margin: 0;"><strong>Succession change.</strong> Both the predecessor and successor must
-    already be in the database. If the successor is missing, apply the matching
-    <em>roster-add</em> change first, then re-approve this one.</p>
+    <p style="margin-top: 0;"><strong>Succession change.</strong> Both the predecessor and
+    successor must already be in the database before this can be applied.</p>
+
+    {% if change.payload.target_in_database %}
+    {# Both entities exist — the succession row itself is missing. #}
+    <p style="margin-bottom: 0;">Both entities are in the database. Approving will
+    create the succession row and close the predecessor in one transaction.</p>
+
+    {% else %}
+    {# The target is not in the database. event_type tells us which side is missing. #}
+    {% if change.payload.event_type == 'Successor' %}
+    {# This entity was absorbed into the target — the successor is missing. #}
+    <p>The <strong>successor</strong>
+    (<code>{{ change.payload.target_ods_code }}</code>) is not in the database.</p>
+    {% else %}
+    {# This entity absorbed the target — the predecessor is missing. #}
+    <p>The <strong>predecessor</strong>
+    (<code>{{ change.payload.target_ods_code }}</code>) is not in the database.</p>
+    {% endif %}
+
+    <p style="margin-bottom: 0.5em;"><strong>How to create it:</strong></p>
+    {% if change.level == 'organisation' %}
+    <ul style="margin-top: 0; margin-bottom: 0.5em;">
+      <li>Create the missing organisation from the ODS Spine:<br>
+        <code>python manage.py mergers --organisations {{ change.payload.target_ods_code }} --create</code><br>
+        This fetches the organisation's name, address, postcode, and parent trust
+        from ODS and creates the row with baseline relationships.</li>
+      <li>Then re-approve this change to record the
+        <code>OrganisationSuccession</code> row and close the predecessor.</li>
+      <li>If you have already recorded the succession manually (e.g. via the
+        admin succession page), <strong>dismiss</strong> this row with a reason
+        instead.</li>
+    </ul>
+    {% elif change.level == 'trust' %}
+    <ul style="margin-top: 0; margin-bottom: 0.5em;">
+      <li>Open the <strong>successor trust's</strong> admin page and use the
+        <strong>Backfill merger&hellip;</strong> wizard. It fetches the predecessor
+        from ODS, creates the <code>Trust</code> row (with
+        <code>active=False</code>), writes the version rows (historical name +
+        closure), and creates the <code>TrustSuccession</code> row — all in one
+        transaction.</li>
+      <li>After the wizard completes, <strong>dismiss</strong> this pending row
+        with a reason (e.g. <em>"Succession recorded via Backfill merger
+        wizard"</em>), since the wizard writes the succession row directly.</li>
+      <li>If the predecessor is a genuinely new trust (not a historical
+        predecessor), apply the matching <em>roster-add</em> change first, then
+        re-approve this one.</li>
+    </ul>
+    {% elif change.level == 'icb' %}
+    <ul style="margin-top: 0; margin-bottom: 0.5em;">
+      <li>Use the <strong>Backfill merger&hellip;</strong> wizard on the successor
+        ICB's admin page, or run
+        <code>python manage.py backfill_successions --entity icb</code> to
+        backfill ICB successions from the ODS <code>Succs</code> block.</li>
+      <li>After the backfill completes, <strong>dismiss</strong> this pending row
+        with a reason.</li>
+    </ul>
+    {% else %}
+    <ul style="margin-top: 0; margin-bottom: 0.5em;">
+      <li>Apply the matching <em>roster-add</em> change first (if one exists),
+        then re-approve this one.</li>
+      <li>If no roster-add change exists, create the entity manually via the
+        admin, then re-approve.</li>
+    </ul>
+    {% endif %}
+    {% endif %}
   </div>
   {% endif %}
 
   {% if change.change_class == 'relationship' %}
   <div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
-    <p style="margin: 0;"><strong>Re-parenting change.</strong> The new parent must already be in the
-    database. If it is missing, apply the matching <em>roster-add</em> change first,
-    then re-approve this one.</p>
+    <p style="margin-top: 0;"><strong>Re-parenting change.</strong> The new parent must
+    already be in the database before this can be applied.</p>
+    {% if change.level == 'organisation' %}
+    <p style="margin-bottom: 0.5em;">The new parent trust is
+    <code>{{ change.payload.new_ods_code }}</code>. If it is not in the database:</p>
+    <ul style="margin-top: 0; margin-bottom: 0;">
+      <li>If the trust is a new entity in ODS, apply the matching
+        <em>roster-add</em> change for it first, then re-approve this one.</li>
+      <li>If the trust is a historical predecessor that was absorbed, use the
+        <strong>Backfill merger&hellip;</strong> wizard on the successor trust's
+        admin page to create it, then re-approve.</li>
+    </ul>
+    {% else %}
+    <p style="margin-bottom: 0;">The new parent
+    (<code>{{ change.payload.new_ods_code }}</code>) is not in the database. Apply
+    the matching <em>roster-add</em> change first, then re-approve this one.</p>
+    {% endif %}
   </div>
   {% endif %}
 

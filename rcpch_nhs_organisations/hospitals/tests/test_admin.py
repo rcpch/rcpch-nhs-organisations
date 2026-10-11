@@ -1237,6 +1237,63 @@ def test_backfill_merger_fetch_ods_does_not_backfill(superuser, trust_successor)
 
 
 @pytest.mark.django_db
+def test_backfill_merger_fetch_ods_only_needs_ods_code(superuser, trust_successor):
+    """The 'Fetch from ODS' button works with only the ODS code filled in —
+    the other required fields (name, successor, date, type) have not been
+    entered yet. This is the whole point of the fetch: to pre-fill them."""
+    from django.test import Client
+    from unittest.mock import patch
+
+    client = Client()
+    client.force_login(superuser)
+    url = reverse("admin:hospitals_trust_backfill_merger", args=[trust_successor.pk])
+
+    fake_record = {
+        "Name": "Pennine Acute Hospitals NHS Trust",
+        "Status": "Active",
+        "Date": [
+            {"Type": "Operational", "Start": "2002-04-01"},
+            {"Type": "Legal", "Start": "2002-04-01", "End": "2021-09-30"},
+        ],
+        "Succs": {
+            "Succ": [
+                {
+                    "Type": "Successor",
+                    "Date": [{"Type": "Legal", "Start": "2021-10-01"}],
+                    "Target": {
+                        "OrgId": {"extension": "RM3"},
+                        "PrimaryRoleId": {"id": "RO197"},
+                    },
+                }
+            ]
+        },
+    }
+
+    with patch(
+        "rcpch_nhs_organisations.hospitals.general_functions.ods_update.get_organisation",
+        return_value=fake_record,
+    ):
+        response = client.post(
+            url,
+            {
+                "predecessor_ods_code": "RW6",
+                # NOTE: no predecessor_name, no succession_date, no
+                # succession_type, no successor — only the ODS code.
+                "fetch_ods": "Fetch from ODS",
+            },
+        )
+
+    assert response.status_code == 200
+    assert b"found" in response.content
+    assert b"Pennine Acute" in response.content
+    assert b"2002-04-01" in response.content
+    assert b"2021-10-01" in response.content
+    assert b"RM3" in response.content
+    assert not Trust.objects.filter(ods_code="RW6").exists()
+    assert TrustSuccession.objects.count() == 0
+
+
+@pytest.mark.django_db
 def test_backfill_merger_fetch_ods_handles_not_found(superuser, trust_successor):
     """If the ODS API returns an error, the validation message shows 'not found'
     but the form is still usable."""
