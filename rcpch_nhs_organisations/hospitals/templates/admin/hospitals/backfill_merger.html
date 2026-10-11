@@ -89,7 +89,7 @@ writes in one transaction:</p>
   <div class="errornote">{{ form.non_field_errors }}</div>
 {% endif %}
 
-<form method="post" id="backfill-merger-form">
+<form method="post" id="backfill-merger-form" novalidate>
   {% csrf_token %}
   <table>
     {{ form.as_table }}
