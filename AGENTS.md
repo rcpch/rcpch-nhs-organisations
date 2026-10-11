@@ -129,12 +129,20 @@ port 8003.
 | `/nhs_england_regions/` | NHS England region list/detail |
 | `/paediatric_diabetes_units/` | PDU list/detail |
 | `/paediatric_diabetes_units/sibling-organisations/{ods_code}/` | PDU for a given organisation with parent |
-| `/organisations/{ods_code}/snapshot/?date=YYYY-MM-DD` | Temporal snapshot of an organisation at a given date |
+| `/organisations/{ods_code}/snapshot/?date=YYYY-MM-DD` | **Give me everything about this organisation as it was on date X.** Temporal snapshot of an organisation at a given date — its name/address/active state (Layer 1) plus every parent relationship (trust, LHB, ICB, NHS England region, OPENUK, PDU) as they were on that date (Layer 2). For a date before the queried ODS code was the live audit code, walks the `OrganisationSuccession` chain backwards to the predecessor that was in force then (Layer 3). Returns 404 if no entity (predecessor or queried) covered the date. If omitted, `date` defaults to today (current state). |
 | `/schema/` | OpenAPI schema |
 | `/swagger-ui/` | Swagger UI |
 
-The snapshot endpoint is the read path for audit reports — it assembles
-the entity version plus every relationship as of the given date.
+The snapshot endpoint is the read path for audit reports — it answers
+"what was this ODS code's full geography on date X?" by assembling the
+entity version plus every relationship as of that date. When the queried
+code was not the live code on that date (because of a merger, split, or
+parallel-code succession), it walks the `OrganisationSuccession` chain
+backwards to the predecessor that was in force then, and returns that
+predecessor's state with `predecessor_ods_code` populated. This is what
+lets audits compare current performance against past performance using
+the current ODS code as the query key, even across mergers and
+code changes.
 
 ## Management commands
 

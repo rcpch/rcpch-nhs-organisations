@@ -195,19 +195,43 @@ def organisation_snapshot(organisation, on_date):
 
 class OrganisationSnapshotView(APIView):
     """
+    **Give me everything about this organisation as it was on date X.**
+
     Returns a snapshot of an organisation and all its relationships as they
-    were on a given date. If the organisation did not exist on that date but a
-    predecessor (linked via OrganisationSuccession) did, the predecessor's
-    state is returned with `predecessor_ods_code` populated.
+    were on a given date — its name/address/active state plus every parent
+    relationship (trust, Local Health Board, Integrated Care Board, NHS
+    England region, OPEN UK network, Paediatric Diabetes Unit) as they were
+    on that date.
 
-    This is the endpoint used by national audits to report longitudinal data
-    against the organisational geography that was in force at the time the
-    data was collected.
+    This is the endpoint used by national audits to compare current
+    performance against past performance: the audit queries the **current**
+    ODS code with a historical date and gets back the organisational
+    geography that was in force when the historical data was collected.
 
-    See documentation/docs/developer/temporal-history.md for the design.
+    **Predecessor walk.** If the queried ODS code was not the live audit code
+    on that date (because of a merger, split, or parallel-code succession),
+    the endpoint walks the `OrganisationSuccession` chain backwards to the
+    predecessor that was in force then, and returns that predecessor's state
+    with `predecessor_ods_code` populated. Two cases:
+
+    1. *Strict succession* — the successor did not exist at the queried date
+       (e.g. querying `RJZ30` at 2012 walks to `RYQ30`, Princess Royal under
+       South London Healthcare before the 2013 split).
+    2. *Parallel code* — the successor pre-existed at the queried date, but a
+       succession link records that the predecessor was the live audit code
+       before the succession date (e.g. querying `RAL27` at 2020 walks to
+       `RAPNM`, North Middlesex under North Middlesex University Hospital
+       NHS Trust `RAP` before it closed on 2024-12-31 and followed to `RAL27`).
+
+    Returns 404 if no entity (the queried code or any predecessor) covered
+    the date, or if the queried ODS code does not exist in the database.
+
+    See documentation/docs/developer/temporal-history.md for the design and
+    documentation/docs/developer/ods-sync.md for the predecessor walk.
     """
 
     @extend_schema(
+        summary="Snapshot of an organisation as it was on a given date",
         tags=["Organisations"],
         parameters=[
             OpenApiParameter(
@@ -216,19 +240,33 @@ class OrganisationSnapshotView(APIView):
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "The date to snapshot. If omitted, returns the current "
-                    "state. Format: YYYY-MM-DD."
+                    "The date to snapshot the organisation at. Returns the "
+                    "organisation's name/address/active state and every parent "
+                    "relationship (trust, LHB, ICB, NHS England region, OPENUK, "
+                    "PDU) as they were on that date. If the queried ODS code "
+                    "was not the live audit code on that date, walks the "
+                    "succession chain backwards to the predecessor that was. "
+                    "If omitted, returns the current state. Format: YYYY-MM-DD."
                 ),
             ),
         ],
         responses={
             200: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                description="Organisation snapshot",
+                description=(
+                    "Everything about this organisation as it was on the "
+                    "given date — its attributes plus every parent "
+                    "relationship. If a predecessor was returned, "
+                    "`predecessor_ods_code` is populated."
+                ),
             ),
             404: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                description="Organisation not found, or no state exists for the given date.",
+                description=(
+                    "The organisation (or any predecessor in the succession "
+                    "chain) did not exist on the given date, or the queried "
+                    "ODS code is not in the database."
+                ),
             ),
         },
     )
