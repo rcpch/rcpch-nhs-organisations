@@ -176,11 +176,6 @@ def _apply_succession(change):
     from rcpch_nhs_organisations.hospitals.general_functions import membership as m
 
     payload = change.payload
-    if not payload.get("target_in_database", True):
-        raise ApplyError(
-            "The succession target is not in the database. Apply the matching "
-            "roster-add / superseded-code change first, then re-approve."
-        )
     succession_model = {
         "organisation": apps.get_model("hospitals", "OrganisationSuccession"),
         "trust": apps.get_model("hospitals", "TrustSuccession"),
