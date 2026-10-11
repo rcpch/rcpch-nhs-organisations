@@ -184,11 +184,41 @@ def _apply_succession(change):
     if succession_model is None:
         raise ApplyError(f"No succession table for level '{change.level}'.")
 
+    # The payload may carry predecessor_ods_code/successor_ods_code directly
+    # (when both entities were in the DB at detect time), or it may carry
+    # event_type + target_ods_code (when the target was not in the DB at
+    # detect time but has since been created). Derive the pair from the
+    # event type if the explicit keys are absent.
+    if "predecessor_ods_code" in payload and "successor_ods_code" in payload:
+        pred_code = payload["predecessor_ods_code"]
+        succ_code = payload["successor_ods_code"]
+    else:
+        ev_type = payload.get("event_type")
+        target_code = payload.get("target_ods_code")
+        if not target_code:
+            raise ApplyError(
+                "Succession payload has no predecessor/successor or target ODS code."
+            )
+        if ev_type == "Successor":
+            # This entity was absorbed into the target — entity is the
+            # predecessor, target is the successor.
+            pred_code = change.ods_code
+            succ_code = target_code
+        else:  # Predecessor
+            # This entity absorbed the target — target is the predecessor,
+            # entity is the successor.
+            pred_code = target_code
+            succ_code = change.ods_code
+
     model = _model_for_level(change.level)
-    pred = model.objects.filter(ods_code=payload["predecessor_ods_code"]).first()
-    succ = model.objects.filter(ods_code=payload["successor_ods_code"]).first()
+    pred = model.objects.filter(ods_code=pred_code).first()
+    succ = model.objects.filter(ods_code=succ_code).first()
     if pred is None or succ is None:
-        raise ApplyError("Predecessor or successor missing from the database.")
+        missing = pred_code if pred is None else succ_code
+        raise ApplyError(
+            f"{missing} is not in the database. Create it first "
+            f"(e.g. mergers --organisations {missing} --create), then re-approve."
+        )
 
     ev_date = change.effective_date
     if ev_date is None:
