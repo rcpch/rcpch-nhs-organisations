@@ -10,7 +10,7 @@
   {# standalone approve / dismiss pages, which have their own forms (the Django #}
   {# admin change form wraps this block in a <form> element, so we cannot nest #}
   {# a second form here). #}
-  <div style="margin-top: 2em; padding: 1.5em; background: #f5f5f5; border: 2px solid #999; border-radius: 6px;">
+  <div style="margin-top: 2em; padding: 1.5em; background: #f5f5f5; border: 2px solid #999; border-radius: 6px; color: #333;">
 
     <h2 style="margin-top: 0;">Review this change</h2>
 
@@ -50,8 +50,8 @@
 
   </div>
   {% elif original and is_terminal %}
-  <div style="margin-top: 2em; padding: 1em; background: #f5f5f5; border: 1px solid #999; border-radius: 4px;">
-    <p style="color: #333; margin: 0;">This change is <strong>{{ original.get_status_display }}</strong> — no further action available.</p>
+  <div style="margin-top: 2em; padding: 1em; background: #f5f5f5; border: 1px solid #999; border-radius: 4px; color: #333;">
+    <p style="margin: 0;">This change is <strong>{{ original.get_status_display }}</strong> — no further action available.</p>
   </div>
   {% endif %}
 {% endblock %}
