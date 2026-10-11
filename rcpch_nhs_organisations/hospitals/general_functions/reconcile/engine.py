@@ -113,6 +113,10 @@ class DetectionResult:
     legacy_skips: int = 0
     # ODS codes we could not deep-fetch (network/404), surfaced in the report.
     fetch_errors: list = field(default_factory=list)
+    # Count of baseline version/membership rows promoted to the temporal
+    # floor (see _promote_baseline). Fills the [floor, installation_day) gap
+    # left by the baseline migration for stable entities.
+    baseline_promotions: int = 0
 
 
 def _model_for_level(level):
@@ -321,6 +325,7 @@ class ReconcileEngine:
             self._diff_successions(level, entity, record, result)
             if level == "trust":
                 self._diff_trust_icb_relationship(entity, record, result)
+            self._promote_baseline(level, entity, record, result)
 
     # ------------------------------------------------------------------
     # Organisation level — closed set, succession-follow only
@@ -341,6 +346,7 @@ class ReconcileEngine:
             self._diff_attributes("organisation", org, record, result)
             self._diff_successions("organisation", org, record, result)
             self._diff_organisation_trust_relationship(org, record, result)
+            self._promote_baseline("organisation", org, record, result)
 
             # Effective status: an org we still hold active but that ODS has
             # effectively closed (Status Inactive OR a past end date — the ODS
@@ -581,6 +587,83 @@ class ReconcileEngine:
                 continue
             return ev
         return None
+
+    # ------------------------------------------------------------------
+    # Baseline promotion — fill the [floor, installation_day) gap
+    # ------------------------------------------------------------------
+
+    def _promote_baseline(self, level, entity, record, result):
+        """Promote the entity's earliest version row's ``valid_from`` back to
+        ``max(legal_start, floor)``, filling the gap left by the baseline
+        migration (which used ``date.today()`` for ``valid_from``).
+
+        The baseline migration created one version row per entity at
+        installation day. For a **stable** entity (no attribute changes since
+        the floor), that row should reach back to ``max(legal_start, floor)``
+        — not installation day — so the snapshot endpoint can serve dates in
+        ``[floor, installation_day)``. Without this, the snapshot returns 404
+        for any date in that window, even though the entity was unambiguously
+        in force.
+
+        For organisations, also promotes the earliest membership rows
+        (trust, LHB, ICB, NHS England region, OPENUK, PDU) to the floor, so
+        the snapshot assembles the full relationship set as of the queried
+        date.
+
+        Idempotent: if the earliest row already starts at or before the target
+        date, it is a no-op. Only writes when ``self.apply`` is True; in a
+        dry run, reports what would be promoted.
+        """
+        start = legal_start(record) or self.floor
+        target = max(start, self.floor)
+        promoted = False
+
+        # --- Version row ---
+        earliest = entity.versions.order_by("valid_from").first()
+        if earliest is not None and earliest.valid_from > target:
+            if self.apply:
+                earliest.valid_from = target
+                earliest.save(update_fields=["valid_from"])
+                promoted = True
+            if self.stdout:
+                self.stdout.write(
+                    f"  {'Promoted' if self.apply else 'Would promote'} "
+                    f"{entity} version baseline: "
+                    f"valid_from {earliest.valid_from} → {target}"
+                )
+
+        # --- Membership rows (organisation level only) ---
+        # The baseline migration created one membership row per relationship
+        # at installation day. For a stable entity those rows should start at
+        # the floor, not installation day, so the snapshot assembles the full
+        # relationship set as of any date in [floor, installation_day).
+        if level == "organisation":
+            for related_name in (
+                "trust_memberships",
+                "local_health_board_memberships",
+                "integrated_care_board_memberships",
+                "nhs_england_region_memberships",
+                "openuk_network_memberships",
+                "paediatric_diabetes_unit_memberships",
+            ):
+                memberships = getattr(entity, related_name, None)
+                if memberships is None:
+                    continue
+                earliest = memberships.order_by("valid_from").first()
+                if earliest is not None and earliest.valid_from > self.floor:
+                    if self.apply:
+                        earliest.valid_from = self.floor
+                        earliest.save(update_fields=["valid_from"])
+                        promoted = True
+                    if self.stdout:
+                        self.stdout.write(
+                            f"  {'Promoted' if self.apply else 'Would promote'} "
+                            f"{entity} {related_name} baseline: "
+                            f"valid_from → {self.floor}"
+                        )
+
+        if promoted:
+            result.baseline_promotions += 1
 
     # ------------------------------------------------------------------
     # Shared diff helpers

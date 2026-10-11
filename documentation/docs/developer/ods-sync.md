@@ -391,6 +391,16 @@ This is the mechanism behind the North Middlesex example above, and the primary
 way to verify a run locally: compare the snapshot at a historical date and at
 today against ODS.
 
+The snapshot requires a version row covering the queried date. The baseline
+migration created version rows at installation day (`date.today()`), so for a
+stable entity the earliest row only covers dates from installation day
+forward — leaving `[floor, installation_day)` empty. `reconcile_ods --mode
+backfill --apply` closes this gap by promoting the earliest version and
+membership rows to `max(legal_start, floor)` (see
+[database_maintenance.md § Baseline promotion](database_maintenance.md#baseline-promotion)).
+Without that promotion, the snapshot returns 404 for any date in that window,
+even though the entity was unambiguously in force.
+
 ## Related docs
 
 - [`temporal-history.md`](temporal-history.md) — the Layer 1–3 schema this

@@ -1235,3 +1235,92 @@ def test_apply_parallel_code_idempotent(trust_a, trust_b):
 
     assert Organisation.objects.filter(ods_code="RAL27").count() == 1
     assert OrganisationSuccession.objects.filter(successor__ods_code="RAL27").count() == 1
+
+
+# ---------------------------------------------------------------------------
+# Baseline promotion — fills the [floor, installation_day) gap
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_promote_baseline_extends_version_row_to_floor(trust_a):
+    """A stable organisation whose earliest version row starts at installation
+    day gets its valid_from promoted to max(legal_start, floor) on --apply."""
+    org = Organisation.objects.create(
+        ods_code="RAA01", name="Org A", trust=trust_a, active=True
+    )
+    # Baseline version row at installation day (as the baseline migration does)
+    OrganisationVersion.objects.create(
+        organisation=org,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Org A",
+        active=True,
+    )
+    # ODS record with legal_start before the floor
+    details = {
+        "RAA01": _detail("RAA01", "Org A", legal_start="2013-04-01",
+                         rels=[_rel("RAA", "2013-04-01")]),
+        "RAA": _detail("RAA", "Trust A"),
+    }
+    roster = {"RO197": [_roster("RAA", "Trust A")]}
+    with _patch_engine(roster, details):
+        engine = ReconcileEngine(["organisation", "trust"], since=None, apply=True)
+        engine.persist(engine.detect())
+    org.refresh_from_db()
+    version = OrganisationVersion.objects.get(organisation=org)
+    assert version.valid_from == FLOOR  # max(2013-04-01, 2020-12-01) = floor
+
+
+@pytest.mark.django_db
+def test_promote_baseline_idempotent(trust_a):
+    """A second run does not re-promote or duplicate — the earliest row already
+    starts at or before the target date."""
+    org = Organisation.objects.create(
+        ods_code="RAA01", name="Org A", trust=trust_a, active=True
+    )
+    OrganisationVersion.objects.create(
+        organisation=org,
+        valid_from=FLOOR,
+        valid_to=None,
+        name="Org A",
+        active=True,
+    )
+    details = {
+        "RAA01": _detail("RAA01", "Org A", legal_start="2013-04-01",
+                         rels=[_rel("RAA", "2013-04-01")]),
+        "RAA": _detail("RAA", "Trust A"),
+    }
+    roster = {"RO197": [_roster("RAA", "Trust A")]}
+    with _patch_engine(roster, details):
+        engine = ReconcileEngine(["organisation", "trust"], since=None, apply=True)
+        result = engine.detect()
+        engine.persist(result)
+    assert result.baseline_promotions == 0
+    assert OrganisationVersion.objects.filter(organisation=org).count() == 1
+
+
+@pytest.mark.django_db
+def test_promote_baseline_dry_run_does_not_write(trust_a):
+    """Without --apply, the baseline promotion reports but does not write."""
+    org = Organisation.objects.create(
+        ods_code="RAA01", name="Org A", trust=trust_a, active=True
+    )
+    OrganisationVersion.objects.create(
+        organisation=org,
+        valid_from=datetime.date(2026, 8, 5),
+        valid_to=None,
+        name="Org A",
+        active=True,
+    )
+    details = {
+        "RAA01": _detail("RAA01", "Org A", legal_start="2013-04-01",
+                         rels=[_rel("RAA", "2013-04-01")]),
+        "RAA": _detail("RAA", "Trust A"),
+    }
+    roster = {"RO197": [_roster("RAA", "Trust A")]}
+    with _patch_engine(roster, details):
+        engine = ReconcileEngine(["organisation", "trust"], since=None, apply=False)
+        result = engine.detect()
+    version = OrganisationVersion.objects.get(organisation=org)
+    assert version.valid_from == datetime.date(2026, 8, 5)  # unchanged

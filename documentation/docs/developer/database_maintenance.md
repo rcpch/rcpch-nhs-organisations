@@ -161,7 +161,10 @@ initialisation step to:
 - auto-apply the attribute-only drift (writing the version rows the backfills
   don't),
 - queue the structural changes (successions, re-parenting, roster-adds) into
-  the `PendingOdsChange` admin review queue, and
+  the `PendingOdsChange` admin review queue,
+- **promote the baseline** version and membership rows for every held entity
+  to `max(legal_start, floor)` (see [Baseline promotion](#baseline-promotion)
+  below), and
 - anchor the `OdsSyncRun` baseline so the monthly incremental window
   (see [Regular maintenance](#regular-maintenance-ongoing)) is self-adjusting
   from this point.
@@ -186,6 +189,32 @@ flooding the queue.
     ICBs are legitimate roster-adds, and any trust → ICB relationship cannot
     be applied until its target ICB exists (created by
     `backfill_successions --entity icb` in step 5).
+
+### Baseline promotion
+
+The baseline migration (`0024_baseline_version_backfill.py`) created one
+`*Version` row per entity with `valid_from = date.today()` (the day the
+migration ran). For a **stable** entity — one that has had no attribute or
+relationship change since the temporal floor (`2020-12-01`) — that row should
+reach back to `max(legal_start, floor)`, not installation day. Without this,
+the snapshot endpoint (`/organisations/{ods_code}/snapshot/?date=…`) returns
+404 for any date in `[floor, installation_day)`, even though the entity was
+unambiguously in force.
+
+`reconcile_ods --mode backfill --apply` promotes the earliest version row
+(and, for organisations, the earliest membership rows) for every held entity
+to `max(legal_start, floor)` when the ODS record exposes a `Legal.Start` /
+`Operational.Start` date, or to the floor otherwise. This is idempotent — a
+re-run is a no-op once the baseline is correct — so it is safe to re-run the
+full backfill sequence at any time.
+
+This does **not** reconstruct pre-floor history. An entity whose code changed
+before the floor (e.g. Princess Royal University Hospital was `RYQ30` under
+South London Healthcare NHS Trust before 2013, then `RJZ30` under King's
+College Hospital) is only reconstructable from the `OrganisationSuccession`
+chain, and only if the predecessor entity is in the database. Pre-floor
+organisation-level successions are out of scope — the floor stays at
+`2020-12-01`. See [temporal-history.md](temporal-history.md) for the design.
 
 ### Regular maintenance (ongoing)
 
@@ -272,7 +301,10 @@ The baseline membership rows created by `mergers --create` are dated today,
 not the ODS operational start date. To recover the full historical trust
 membership (e.g. from 1992 to today), run `backfill_trust_memberships --all`
 afterwards — it will write the historical `OrganisationTrustMembership`
-row from the ODS `RE6` rel's operational start date.
+row from the ODS `RE6` rel's operational start date. The baseline version
+and membership rows are also promoted to `max(legal_start, floor)` by
+`reconcile_ods --mode backfill --apply` (see
+[Baseline promotion](#baseline-promotion)).
 
 For recording mergers (acquisitions, full mergers, splits, PDU mergers, ICB
 successions), see [merger-handling.md](merger-handling.md) and

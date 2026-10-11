@@ -264,6 +264,10 @@ class Command(BaseCommand):
         self.stdout.write(f"  Changes detected: {len(result.changes)}")
         self.stdout.write(f"  Legacy pre-floor skips (collapsed): {result.legacy_skips}")
         self.stdout.write(f"  Fetch errors: {len(result.fetch_errors)}")
+        if result.baseline_promotions:
+            self.stdout.write(
+                G + f"  Baseline promotions: {result.baseline_promotions}" + W
+            )
         self.stdout.write(G + f"  Queued: {counts['queued']}" + W)
         self.stdout.write(f"  Re-queued (refreshed): {counts['requeued']}")
         self.stdout.write(G + f"  Auto-applied: {counts['applied']}" + W)
