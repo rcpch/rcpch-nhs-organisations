@@ -394,12 +394,42 @@ today against ODS.
 The snapshot requires a version row covering the queried date. The baseline
 migration created version rows at installation day (`date.today()`), so for a
 stable entity the earliest row only covers dates from installation day
-forward — leaving `[floor, installation_day)` empty. `reconcile_ods --mode
-backfill --apply` closes this gap by promoting the earliest version and
-membership rows to `max(legal_start, floor)` (see
+forward — leaving `[floor, installation_day)` empty. It also created version
+rows only — no membership rows (Layer 2). `reconcile_ods --mode backfill
+--apply` closes both gaps via `_promote_baseline`: it promotes (or creates, on
+a fresh DB) the earliest version row to `max(legal_start, floor)` and creates
+or promotes the earliest membership rows to the floor (see
 [database_maintenance.md § Baseline promotion](database_maintenance.md#baseline-promotion)).
-Without that promotion, the snapshot returns 404 for any date in that window,
-even though the entity was unambiguously in force.
+Without that pass, the snapshot returns 404 for any date in that window, or
+returns the entity with `null` relationships, even though the entity was
+unambiguously in force.
+
+### Predecessor walk for parallel codes
+
+The snapshot resolves the queried ODS code backwards through
+`OrganisationSuccession` when the queried date is before the entity's history
+or before a succession date. Two cases:
+
+1. **Strict succession** — the successor didn't exist at the queried date
+   (its first `valid_from` is after that date). The walk finds the
+   predecessor that was open then. Example: querying `RJZ30` at 2012 walks
+to `RYQ30` (Princess Royal under South London Healthcare, before the 2013
+   split).
+
+2. **Parallel code** — the successor pre-existed at the queried date, but a
+   succession link records that the predecessor was the live audit code
+   before the succession date (`succession_date > on_date`). The walk returns
+   the predecessor because that was the code the audit would have used at
+   that date. Example: querying `RAL27` (North Middlesex, under Royal Free
+   London `RAL`) at 2020 walks to `RAPNM` (under North Middlesex University
+   Hospital NHS Trust `RAP`), because `RAPNM` was the live code until it
+   closed on 2024-12-31 and followed to `RAL27`. Both codes coexisted from
+   2003 to 2024, but the audit uses the current code (`RAL27`) and expects
+   the historical state (`RAPNM` under `RAP`) at a past date.
+
+The walk only triggers when `on_date < succession_date` — the predecessor was
+still the live code at that date. On or after the succession date, the
+successor is returned directly.
 
 ## Related docs
 

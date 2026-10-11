@@ -201,12 +201,29 @@ the snapshot endpoint (`/organisations/{ods_code}/snapshot/?date=…`) returns
 404 for any date in `[floor, installation_day)`, even though the entity was
 unambiguously in force.
 
-`reconcile_ods --mode backfill --apply` promotes the earliest version row
-(and, for organisations, the earliest membership rows) for every held entity
-to `max(legal_start, floor)` when the ODS record exposes a `Legal.Start` /
-`Operational.Start` date, or to the floor otherwise. This is idempotent — a
-re-run is a no-op once the baseline is correct — so it is safe to re-run the
-full backfill sequence at any time.
+The `0024` migration also created **version rows only** — no membership rows
+(Layer 2). The `backfill_trust_memberships` and `backfill_pdu_successions`
+commands fill the trust and PDU membership gaps from ODS `Rels` and constants
+respectively, but ICB, NHS England region, OPENUK, and LHB memberships at the
+organisation level are never backfilled by any command.
+
+`reconcile_ods --mode backfill --apply` closes both gaps via `_promote_baseline`:
+
+- **Existing baseline** (the `0024` migration ran on a populated DB): promotes
+  the earliest version row's `valid_from` to `max(legal_start, floor)`, and
+  promotes the earliest membership rows' `valid_from` to the floor. Trust and
+  PDU membership rows already dated by the backfill commands are left alone.
+- **Fresh DB** (the `0024` migration ran before `seed`, so no version or
+  membership rows exist): creates a baseline version row at
+  `max(legal_start, floor)` snapshotting the current entity attributes, and
+  creates baseline membership rows at the floor for each non-null denormalised
+  FK on the `Organisation` model.
+
+This is idempotent — a re-run is a no-op once the baselines are correct — so
+it is safe to re-run the full backfill sequence at any time. It runs as the
+final step (`reconcile_ods --mode backfill --apply`, step 9) after `seed` and
+the `backfill_*` commands, so the ODS record is already in hand for
+`legal_start`.
 
 This does **not** reconstruct pre-floor history. An entity whose code changed
 before the floor (e.g. Princess Royal University Hospital was `RYQ30` under

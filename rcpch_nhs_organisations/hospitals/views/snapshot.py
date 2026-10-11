@@ -41,31 +41,58 @@ def _as_of(queryset, on_date):
 
 def _resolve_predecessor(organisation, on_date):
     """
-    If the organisation did not exist on `on_date` (its first valid_from is
-    after that date), walk the OrganisationSuccession chain backwards to find
-    the predecessor that was in force on that date.
-    """
-    first_version = organisation.versions.order_by("valid_from").first()
-    if first_version is None or first_version.valid_from <= on_date:
-        return organisation
+    Walk the OrganisationSuccession chain backwards to find the entity that
+    was in force as the audit code on `on_date`.
 
-    # Walk backwards through succession links.
+    Two cases trigger the walk:
+
+    1. **Strict succession** — the successor did not exist on `on_date` (its
+       first ``valid_from`` is after `on_date`). The walk finds the
+       predecessor that was open then. Example: querying RJZ30 before 2013
+       walks to RYQ30.
+
+    2. **Parallel code** — the successor pre-existed at `on_date` but a
+       succession link records that the predecessor was the live audit code
+       before the succession date (``succession_date > on_date``). The walk
+       returns the predecessor because that was the code the audit would
+       have used at `on_date`. Example: querying RAL27 at 2020 walks to
+       RAPNM, because RAPNM was the live code under RAP trust until it
+       closed on 2024-12-31 and followed to RAL27.
+    """
     current = organisation
     visited = set()
     while current.pk not in visited:
         visited.add(current.pk)
+        first_version = current.versions.order_by("valid_from").first()
+
+        # Did the entity's history start by on_date? (The first version's
+        # valid_from is at or before on_date — the _as_of query will find
+        # the right version row, whether it's this one or a later one.)
+        history_started = (
+            first_version is not None and first_version.valid_from <= on_date
+        )
+
+        # Is there a successor-side link whose succession_date is after
+        # on_date? For parallel codes, the predecessor was the live audit
+        # code before the succession date, so we walk to it.
+        parallel_link = current.succession_successor_links.filter(
+            succession_date__gt=on_date
+        ).first()
+
+        if parallel_link is not None:
+            # Walk to the predecessor — it was the live code at on_date.
+            current = parallel_link.predecessor
+            continue
+
+        if history_started:
+            return current
+
+        # History didn't start by on_date and no parallel link — try the
+        # regular walk (strict succession where the successor didn't exist).
         link = current.succession_successor_links.first()
         if link is None:
             return None
         current = link.predecessor
-        first_version = current.versions.order_by("valid_from").first()
-        if first_version is None:
-            return None
-        if first_version.valid_from <= on_date:
-            # Check the predecessor was still in force on on_date (valid_to
-            # is null or after on_date).
-            if first_version.valid_to is None or first_version.valid_to > on_date:
-                return current
     return None
 
 

@@ -575,3 +575,85 @@ def test_snapshot_lhb_and_icb_name_fall_back_to_current_when_no_version(
     data = response.json()
     assert data["local_health_board"] is None
     assert data["integrated_care_board"] is None
+
+
+@pytest.mark.django_db
+def test_snapshot_walks_parallel_code_to_predecessor(api_client, trust_a, trust_b):
+    """For a parallel code (successor pre-existed, predecessor was the live
+    audit code before the succession date), querying the successor at a date
+    before the succession date walks to the predecessor.
+
+    Mirrors the North Middlesex scenario: RAPNM (under RAP) → RAL27 (under
+    RAL), succession_date 2024-12-31. Both codes were open at 2020, but RAPNM
+    was the live audit code until it closed. Querying RAL27 at 2020 should
+    return RAPNM under RAP.
+    """
+    rapnm = Organisation.objects.create(
+        ods_code="RAPNM",
+        name="North Middlesex Hospital",
+        address1="Sterling Way",
+        active=True,
+        trust=trust_a,  # RAP
+    )
+    ral27 = Organisation.objects.create(
+        ods_code="RAL27",
+        name="North Middlesex Hospital",
+        address1="Sterling Way",
+        active=True,
+        trust=trust_b,  # RAL
+    )
+    # RAPNM: open since 1991, closed 2024-12-31
+    OrganisationVersion.objects.create(
+        organisation=rapnm,
+        valid_from=datetime.date(2020, 12, 1),  # floor
+        valid_to=datetime.date(2024, 12, 31),
+        name="North Middlesex Hospital",
+        address1="Sterling Way",
+        active=True,
+    )
+    # RAL27: open since 2003
+    OrganisationVersion.objects.create(
+        organisation=ral27,
+        valid_from=datetime.date(2020, 12, 1),  # floor
+        valid_to=None,
+        name="North Middlesex Hospital",
+        address1="Sterling Way",
+        active=True,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=rapnm,
+        trust=trust_a,  # RAP
+        valid_from=datetime.date(2020, 12, 1),
+        valid_to=datetime.date(2024, 12, 31),
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=ral27,
+        trust=trust_b,  # RAL
+        valid_from=datetime.date(2020, 12, 1),
+        valid_to=None,
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=rapnm,
+        successor=ral27,
+        succession_date=datetime.date(2024, 12, 31),
+        succession_type="code_change",
+    )
+
+    # Query the successor (RAL27) at 2020 — before the succession date.
+    # Should walk to RAPNM (the live audit code at that date).
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RAL27"})
+    response = api_client.get(url, {"date": "2020-12-30"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RAPNM"
+    assert data["predecessor_ods_code"] == "RAPNM"
+    assert data["trust"]["ods_code"] == "RAA"  # RAP
+
+    # Query the successor (RAL27) after the succession date — should
+    # return RAL27 directly.
+    response = api_client.get(url, {"date": "2025-06-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RAL27"
+    assert data["predecessor_ods_code"] is None
+    assert data["trust"]["ods_code"] == "RBB"  # RAL

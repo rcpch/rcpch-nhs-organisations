@@ -15,6 +15,7 @@ from django.core.management import call_command
 
 from rcpch_nhs_organisations.hospitals.models import (
     IntegratedCareBoard,
+    NHSEnglandRegion,
     OdsSyncRun,
     Organisation,
     OrganisationSuccession,
@@ -1275,9 +1276,14 @@ def test_promote_baseline_extends_version_row_to_floor(trust_a):
 @pytest.mark.django_db
 def test_promote_baseline_idempotent(trust_a):
     """A second run does not re-promote or duplicate — the earliest row already
-    starts at or before the target date."""
+    starts at or before the target date, and all baseline rows exist."""
+    from rcpch_nhs_organisations.hospitals.models import TrustVersion
     org = Organisation.objects.create(
         ods_code="RAA01", name="Org A", trust=trust_a, active=True
+    )
+    # Create all baseline rows at/before the floor so the second run is a no-op.
+    TrustVersion.objects.create(
+        trust=trust_a, valid_from=FLOOR, valid_to=None, name="Trust A",
     )
     OrganisationVersion.objects.create(
         organisation=org,
@@ -1285,6 +1291,9 @@ def test_promote_baseline_idempotent(trust_a):
         valid_to=None,
         name="Org A",
         active=True,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=org, trust=trust_a, valid_from=FLOOR, valid_to=None,
     )
     details = {
         "RAA01": _detail("RAA01", "Org A", legal_start="2013-04-01",
@@ -1298,6 +1307,7 @@ def test_promote_baseline_idempotent(trust_a):
         engine.persist(result)
     assert result.baseline_promotions == 0
     assert OrganisationVersion.objects.filter(organisation=org).count() == 1
+    assert TrustVersion.objects.filter(trust=trust_a).count() == 1
 
 
 @pytest.mark.django_db
@@ -1324,3 +1334,84 @@ def test_promote_baseline_dry_run_does_not_write(trust_a):
         result = engine.detect()
     version = OrganisationVersion.objects.get(organisation=org)
     assert version.valid_from == datetime.date(2026, 8, 5)  # unchanged
+
+
+@pytest.mark.django_db
+def test_promote_baseline_creates_missing_version_row(trust_a):
+    """On a fresh DB (no version rows), _promote_baseline creates a baseline
+    version row at max(legal_start, floor) snapshotting the current attributes."""
+    org = Organisation.objects.create(
+        ods_code="RAA01", name="Org A", trust=trust_a, active=True
+    )
+    # No OrganisationVersion row — simulates a fresh DB where the 0024
+    # migration ran before seed.
+    details = {
+        "RAA01": _detail("RAA01", "Org A", legal_start="2013-04-01",
+                         rels=[_rel("RAA", "2013-04-01")]),
+        "RAA": _detail("RAA", "Trust A"),
+    }
+    roster = {"RO197": [_roster("RAA", "Trust A")]}
+    with _patch_engine(roster, details):
+        engine = ReconcileEngine(["organisation", "trust"], since=None, apply=True)
+        engine.persist(engine.detect())
+    version = OrganisationVersion.objects.get(organisation=org)
+    assert version.valid_from == FLOOR  # max(2013-04-01, 2020-12-01) = floor
+    assert version.valid_to is None
+    assert version.name == "Org A"
+
+
+@pytest.mark.django_db
+def test_promote_baseline_creates_missing_membership_rows(trust_a):
+    """On a fresh DB (no membership rows), _promote_baseline creates baseline
+    membership rows at the floor for each non-null denormalised FK."""
+    from rcpch_nhs_organisations.hospitals.models import (
+        OrganisationIntegratedCareBoardMembership,
+        OrganisationNHSEnglandRegionMembership,
+    )
+    icb = IntegratedCareBoard.objects.create(
+        ods_code="QKK", name="Test ICB", boundary_identifier="E54000001"
+    )
+    from django.contrib.gis.geos import MultiPolygon, Polygon
+    region = NHSEnglandRegion.objects.create(
+        boundary_identifier="E40000001",
+        name="London",
+        bng_e=400000,
+        bng_n=400000,
+        long=-1.0,
+        lat=53.0,
+        globalid="guid",
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (399900, 400100),
+                    (399900, 399900),
+                    (400100, 399900),
+                    (400100, 400100),
+                    (399900, 400100),
+                )
+            )
+        ),
+        region_code="Y56",
+    )
+    org = Organisation.objects.create(
+        ods_code="RAA01", name="Org A", trust=trust_a,
+        integrated_care_board=icb, nhs_england_region=region, active=True,
+    )
+    # No membership rows — simulates a fresh DB.
+    details = {
+        "RAA01": _detail("RAA01", "Org A", legal_start="2013-04-01",
+                         rels=[_rel("RAA", "2013-04-01")]),
+        "RAA": _detail("RAA", "Trust A"),
+    }
+    roster = {"RO197": [_roster("RAA", "Trust A")]}
+    with _patch_engine(roster, details):
+        engine = ReconcileEngine(["organisation", "trust"], since=None, apply=True)
+        engine.persist(engine.detect())
+    icb_row = OrganisationIntegratedCareBoardMembership.objects.get(organisation=org)
+    assert icb_row.valid_from == FLOOR
+    assert icb_row.valid_to is None
+    assert icb_row.integrated_care_board == icb
+    region_row = OrganisationNHSEnglandRegionMembership.objects.get(organisation=org)
+    assert region_row.valid_from == FLOOR
+    assert region_row.valid_to is None
+    assert region_row.nhs_england_region == region

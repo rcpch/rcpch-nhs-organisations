@@ -48,8 +48,21 @@ from rcpch_nhs_organisations.hospitals.general_functions.reconcile.ods_sources i
     ROLE_ORG_SITE,
     TEMPORAL_FLOOR,
 )
+from rcpch_nhs_organisations.hospitals.general_functions.membership import (
+    backfill_organisation_attributes,
+    backfill_trust_attributes,
+    backfill_integrated_care_board_attributes,
+)
 
 logger = logging.getLogger("hospitals")
+
+# Level → version-row backfill helper. LHB has no helper and is handled
+# directly in _promote_baseline (it only carries a name field).
+_VERSION_BACKFILL_HELPERS = {
+    "organisation": backfill_organisation_attributes,
+    "trust": backfill_trust_attributes,
+    "icb": backfill_integrated_care_board_attributes,
+}
 
 
 # Attribute fields to diff per level, as (model_field, ord_field) pairs. The
@@ -593,26 +606,29 @@ class ReconcileEngine:
     # ------------------------------------------------------------------
 
     def _promote_baseline(self, level, entity, record, result):
-        """Promote the entity's earliest version row's ``valid_from`` back to
-        ``max(legal_start, floor)``, filling the gap left by the baseline
-        migration (which used ``date.today()`` for ``valid_from``).
+        """Create or promote the entity's baseline version and membership
+        rows so they reach back to ``max(legal_start, floor)``, filling the
+        gap left by the baseline migration (which used ``date.today()`` for
+        ``valid_from`` and created version rows only — no membership rows).
 
-        The baseline migration created one version row per entity at
-        installation day. For a **stable** entity (no attribute changes since
-        the floor), that row should reach back to ``max(legal_start, floor)``
-        — not installation day — so the snapshot endpoint can serve dates in
-        ``[floor, installation_day)``. Without this, the snapshot returns 404
-        for any date in that window, even though the entity was unambiguously
-        in force.
+        Two cases:
 
-        For organisations, also promotes the earliest membership rows
-        (trust, LHB, ICB, NHS England region, OPENUK, PDU) to the floor, so
-        the snapshot assembles the full relationship set as of the queried
-        date.
+        1. **Existing baseline** (the `0024` migration ran on a populated DB):
+           the earliest version row starts at installation day. Promote its
+           ``valid_from`` to ``max(legal_start, floor)``. For organisations,
+           also promote the earliest membership rows' ``valid_from`` to the
+           floor (trust/PDU rows may already be dated by the backfill
+           commands — those are left alone).
 
-        Idempotent: if the earliest row already starts at or before the target
-        date, it is a no-op. Only writes when ``self.apply`` is True; in a
-        dry run, reports what would be promoted.
+        2. **Fresh DB** (the `0024` migration ran before `seed`, so no
+           version or membership rows exist): create a baseline version row
+           at ``max(legal_start, floor)`` snapshotting the current entity
+           attributes, and create baseline membership rows at the floor for
+           each non-null denormalised FK on the ``Organisation`` model.
+
+        Idempotent: if the earliest row already starts at or before the
+        target date, it is a no-op. Only writes when ``self.apply`` is True;
+        in a dry run, reports what would be created or promoted.
         """
         start = legal_start(record) or self.floor
         target = max(start, self.floor)
@@ -620,7 +636,33 @@ class ReconcileEngine:
 
         # --- Version row ---
         earliest = entity.versions.order_by("valid_from").first()
-        if earliest is not None and earliest.valid_from > target:
+        if earliest is None:
+            # No version row (fresh DB, or the 0024 migration ran before
+            # seed). Create a baseline at max(legal_start, floor).
+            if self.apply:
+                helper = _VERSION_BACKFILL_HELPERS.get(level)
+                if helper is not None:
+                    helper(entity, valid_from=target, valid_to=None)
+                elif level == "lhb":
+                    # No backfill helper for LHB — create directly.
+                    LHBVersion = apps.get_model(
+                        "hospitals", "LocalHealthBoardVersion"
+                    )
+                    LHBVersion.objects.create(
+                        local_health_board=entity,
+                        valid_from=target,
+                        valid_to=None,
+                        name=entity.name,
+                    )
+                promoted = True
+            if self.stdout:
+                self.stdout.write(
+                    f"  {'Created' if self.apply else 'Would create'} "
+                    f"{entity} baseline version: valid_from → {target}"
+                )
+        elif earliest.valid_from > target:
+            # Existing row starts after target (installation day > floor).
+            # Promote it.
             if self.apply:
                 earliest.valid_from = target
                 earliest.save(update_fields=["valid_from"])
@@ -633,24 +675,48 @@ class ReconcileEngine:
                 )
 
         # --- Membership rows (organisation level only) ---
-        # The baseline migration created one membership row per relationship
-        # at installation day. For a stable entity those rows should start at
-        # the floor, not installation day, so the snapshot assembles the full
-        # relationship set as of any date in [floor, installation_day).
+        # The 0024 migration created version rows only — no membership rows.
+        # The backfill commands create trust and PDU memberships (from ODS
+        # Rels and constants respectively), but ICB, NHS England region,
+        # OPENUK, and LHB memberships at the organisation level are never
+        # backfilled. Create a baseline at the floor for each non-null
+        # denormalised FK, and promote existing rows that start after the
+        # floor.
         if level == "organisation":
-            for related_name in (
-                "trust_memberships",
-                "local_health_board_memberships",
-                "integrated_care_board_memberships",
-                "nhs_england_region_memberships",
-                "openuk_network_memberships",
-                "paediatric_diabetes_unit_memberships",
+            for related_name, fk_field in (
+                ("trust_memberships", "trust"),
+                ("local_health_board_memberships", "local_health_board"),
+                ("integrated_care_board_memberships", "integrated_care_board"),
+                ("nhs_england_region_memberships", "nhs_england_region"),
+                ("openuk_network_memberships", "openuk_network"),
+                ("paediatric_diabetes_unit_memberships", "paediatric_diabetes_unit"),
             ):
+                parent = getattr(entity, fk_field, None)
+                if parent is None:
+                    continue
                 memberships = getattr(entity, related_name, None)
                 if memberships is None:
                     continue
                 earliest = memberships.order_by("valid_from").first()
-                if earliest is not None and earliest.valid_from > self.floor:
+                if earliest is None:
+                    # No membership row — create a baseline at the floor.
+                    if self.apply:
+                        memberships.model.objects.create(
+                            **{
+                                fk_field: parent,
+                                "organisation": entity,
+                            },
+                            valid_from=self.floor,
+                            valid_to=None,
+                        )
+                        promoted = True
+                    if self.stdout:
+                        self.stdout.write(
+                            f"  {'Created' if self.apply else 'Would create'} "
+                            f"{entity} {related_name} baseline: "
+                            f"valid_from → {self.floor}"
+                        )
+                elif earliest.valid_from > self.floor:
                     if self.apply:
                         earliest.valid_from = self.floor
                         earliest.save(update_fields=["valid_from"])
