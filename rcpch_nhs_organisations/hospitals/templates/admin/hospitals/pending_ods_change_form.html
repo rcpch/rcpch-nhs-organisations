@@ -1,0 +1,57 @@
+{% extends "admin/change_form.html" %}
+
+{# Suppress the standard Django admin Save buttons — all fields are read-only. #}
+{% block submit_buttons_top %}{% endblock %}
+{% block submit_buttons_bottom %}{% endblock %}
+
+{% block after_field_sets %}
+  {% if original and can_approve %}
+  {# Action panel — shown inline below the read-only fields. Links to the #}
+  {# standalone approve / dismiss pages, which have their own forms (the Django #}
+  {# admin change form wraps this block in a <form> element, so we cannot nest #}
+  {# a second form here). #}
+  <div style="margin-top: 2em; padding: 1.5em; background: #f5f5f5; border: 2px solid #999; border-radius: 6px;">
+
+    <h2 style="margin-top: 0;">Review this change</h2>
+
+    {% if is_parallel_code %}
+    <div style="background: #ffe0b2; border: 2px solid #e65100; border-radius: 6px; padding: 1em; margin-bottom: 1em; color: #333;">
+      <p style="margin-top: 0;"><strong>This is a parallel active code.</strong> The engine has flagged that
+      <code>{{ original.ods_code }}</code> is closed in ODS but has no own successor,
+      and its parent trust was succeeded. The candidate successor codes below are
+      surfaced for review only — they are <strong>never auto-picked</strong> because
+      a postcode is not a unique key.</p>
+
+      {% if candidates %}
+      <p style="margin-bottom: 0;"><strong>Candidate successor code(s):</strong></p>
+      <ul style="margin-top: 0.5em;">
+        {% for c in candidates %}
+          <li><code>{{ c }}</code></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p style="margin-bottom: 0;"><strong>No candidate successor codes were found.</strong> You will need to
+      identify the correct successor code manually — the approve page has a field for
+      entering a custom ODS code.</p>
+      {% endif %}
+
+      <p style="margin-top: 1em;">Click <strong>Approve &amp; apply</strong> to open the
+      approval page, where you can pick the replacement code from the candidate list or
+      type a custom one. If the successor does not exist in the database yet, create it
+      with <code>python manage.py mergers --organisations &lt;code&gt; --create</code>
+      first.</p>
+    </div>
+    {% endif %}
+
+    <div class="submit-row">
+      <a href="{{ approve_url }}" class="default button">Approve &amp; apply</a>
+      <a href="{{ dismiss_url }}" class="button" style="color: #d32f2f; margin-left: 0.5em;">Dismiss…</a>
+    </div>
+
+  </div>
+  {% elif original and is_terminal %}
+  <div style="margin-top: 2em; padding: 1em; background: #f5f5f5; border: 1px solid #999; border-radius: 4px;">
+    <p style="color: #333; margin: 0;">This change is <strong>{{ original.get_status_display }}</strong> — no further action available.</p>
+  </div>
+  {% endif %}
+{% endblock %}

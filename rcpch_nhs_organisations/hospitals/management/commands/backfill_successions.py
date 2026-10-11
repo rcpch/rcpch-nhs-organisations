@@ -629,7 +629,7 @@ class Command(BaseCommand):
             # Read the current name from the ODS record, not the entity row.
             # ODS overwrites the Name in place when a trust is renamed, so the
             # ODS record always has the post-merger name. The entity row may
-            # be stale (if the cron sync hasn't run since the rename), which
+            # be stale (if reconcile_ods hasn't run since the rename), which
             # would cause the prompt to show the pre-merger name as "current"
             # and the operator to enter the same name — producing a backwards
             # or zero-length interval. If the ODS record has no Name, fall
@@ -641,8 +641,8 @@ class Command(BaseCommand):
                 self.stdout.write(
                     O + f"  Note: {successor}'s name in the database "
                     f"('{entity_name}') differs from ODS ('{ods_name}'). "
-                    "Using the ODS name as the current name. Run `cron` to "
-                    "sync the entity row." + W
+                    "Using the ODS name as the current name. Run "
+                    "`reconcile_ods` to sync the entity row." + W
                 )
                 # Update the entity row so the database is consistent with
                 # the version rows we're about to write. Without this, the

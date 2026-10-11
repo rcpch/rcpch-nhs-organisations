@@ -5,6 +5,18 @@ author: Dr Simon Chapman
 
 # Backfilling historical states
 
+> **Superseded by `reconcile_ods`.** The `backfill_successions`,
+> `backfill_trust_memberships`, and `backfill_icb_memberships` commands
+> described here are now a subset of the unified `reconcile_ods` engine (see
+> [`ods-sync.md`](ods-sync.md)). `reconcile_ods` detects the
+> same ODS `Succs`/`Rels` deltas, routes them through the same idempotent
+> temporal helpers, and additionally handles roster/status reconciliation and
+> the review queue. The one-off history bake is now
+> `reconcile_ods --mode backfill --since 2020-12-01` (reviewed, then applied
+> from the `PendingOdsChange` queue). The commands below are retained as
+> backward-compatible entry points and remain correct; prefer `reconcile_ods`
+> for new work.
+
 This document describes how to recover organisational history that was
 overwritten before the temporal history layer was installed — past names,
 past trust affiliations, and merger/succession links. It covers the ODS
@@ -946,8 +958,11 @@ uses the active canonical code:
 ### Adding a new divergent code
 
 1. Confirm the site is still open and still under the same parent trust
-   (the seeded `ParentODSCode` should match the ODS `RE6` target — see the
-   audit script in the project root, `ods_parallel_audit.py`).
+   (the seeded `ParentODSCode` should match the ODS `RE6` target). The
+   `reconcile_ods` engine surfaces exactly this class as a `parallel-code` /
+   relationship mismatch in its dry-run report, so a
+   `reconcile_ods --levels organisation --mode incremental --dry-run` run is
+   the canonical way to check for divergences.
 2. Confirm the consuming software references the seeded code and would
    break if it were treated as closed.
 3. Add an entry to `ODS_DIVERGENT_ORGANISATIONS` in

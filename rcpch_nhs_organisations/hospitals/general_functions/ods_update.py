@@ -69,36 +69,6 @@ def extract_ods_code(org_link: str):
     return ods_code[1]
 
 
-def match_organisation(ods_code):
-    """
-    Accepts ODS code and checks if it exists in the Organisation model
-    If there is a match, the object is returned.
-    If no match, None is returned.
-    """
-    Organisation = apps.get_model("hospitals", "Organisation")
-    try:
-        organisation = Organisation.objects.get(ods_code=ods_code)
-    except Organisation.DoesNotExist:
-        return None
-
-    return organisation
-
-
-def match_trust(ods_code):
-    """
-    Accepts ODS code and checks if it exists in the Organisation model
-    If there is a match, the object is returned.
-    If no match, None is returned.
-    """
-    Trust = apps.get_model("hospitals", "Trust")
-    try:
-        trust = Trust.objects.get(ods_code=ods_code)
-    except Trust.DoesNotExist:
-        return None
-
-    return trust
-
-
 def _extract_ord_fields(ord_record):
     """
     Extract the mutable fields we care about from an ORD organisation record.
@@ -283,9 +253,15 @@ def _extract_icb_membership_info(ord_record):
 
     Returns a list of dicts, one per RE5/RE8 rel pointing at an ICB, ordered
     by start date:
-        {"icb_ods_code": "QKS", "valid_from": "2020-04-01", "valid_to": None}
+        {"icb_ods_code": "QKS", "valid_from": "2020-04-01", "valid_to": None,
+         "rel_id": "RE8", "status": "Active"}
     ``valid_to`` is ``None`` if the rel is still active (the open interval).
-    Returns an empty list if the record has no ``Rels`` block or no ICB rels.
+    ``rel_id`` is the ODS relationship id (``RE5`` legacy commissioning, which
+    ODS never closes, vs ``RE8`` maintained geographic/partner). ``status`` is
+    the ODS ``Status`` (``Active``/``Inactive``). Both are needed by
+    :func:`build_trust_icb_timeline` to resolve the single current ICB when a
+    trust carries several concurrent ICB rels. Returns an empty list if the
+    record has no ``Rels`` block or no ICB rels.
     """
     rels = ord_record.get("Rels", {}).get("Rel", [])
     if isinstance(rels, dict):
@@ -326,6 +302,8 @@ def _extract_icb_membership_info(ord_record):
                 "icb_ods_code": icb_ods_code,
                 "valid_from": valid_from,
                 "valid_to": valid_to,
+                "rel_id": rel.get("id"),
+                "status": rel.get("Status"),
             }
         )
 
@@ -344,39 +322,136 @@ def _parse_ods_date(date_str):
         return None
 
 
-def _recent_succession_events(succession_events, time_frame, reference_date=None):
-    """Filter succession events to only those whose legal date falls within
-    the ``time_frame`` window ending at ``reference_date`` (default: today).
+# ICB-rel precedence used when collapsing a trust's overlapping ODS ICB rels
+# into a single current ICB. RE8 is the maintained geographic/partner rel and
+# is kept up to date across reorganisations; RE5 is the legacy "is commissioned
+# by" rel that ODS opens once (at 2020-04-01) and never closes, so it must only
+# win when no RE8 rel is active.
+_ICB_REL_RANK = {"RE8": 0, "RE5": 1}
 
-    A succession event that happened 12 years ago is part of the entity's
-    permanent ODS record — it will appear on every fetch of that entity, even
-    for a routine website update in 2026. Gating every change on every
-    succession event would force the operator to review routine updates that
-    have nothing to do with a merger that happened over a decade ago.
 
-    This filter restricts the review-gating to succession events whose legal
-    date is within the ``time_frame`` window (e.g. the last 185 days), so only
-    plausibly-related mergers trigger the review. The dry-run report still
-    surfaces *all* succession events for context.
+def _icb_rel_rank(rel_id):
+    return _ICB_REL_RANK.get(rel_id, 2)
+
+
+def _choose_current_icb(active, previous_icb):
+    """Pick the single current ICB from the rels active in one period.
+
+    ``active`` is a list of parsed rels (dicts with ``icb``, ``start``,
+    ``rel_id``). Precedence: maintained RE8 over legacy RE5, then the latest
+    operational start (a later reorganisation supersedes an earlier one), then
+    continuity with the previous period, then the alphabetically-first ICB code
+    for determinism.
     """
-    if reference_date is None:
-        reference_date = timezone.now().date()
-    window_start = reference_date - timezone.timedelta(days=time_frame)
-    recent = []
-    for ev in succession_events:
-        ev_date = ev["date"]
-        if ev_date is None:
+    best_rank = min(_icb_rel_rank(p["rel_id"]) for p in active)
+    candidates = [p for p in active if _icb_rel_rank(p["rel_id"]) == best_rank]
+    latest_start = max(p["start"] for p in candidates)
+    candidates = [p for p in candidates if p["start"] == latest_start]
+    icb_codes = {p["icb"] for p in candidates}
+    if previous_icb in icb_codes:
+        return previous_icb
+    return sorted(icb_codes)[0]
+
+
+def build_trust_icb_timeline(memberships):
+    """Collapse the raw ICB rels of an ODS trust record into a clean timeline.
+
+    ``memberships`` is the output of :func:`_extract_icb_membership_info`. ODS
+    carries several *concurrent* ICB rels for a single trust:
+
+    - a legacy ``RE5`` "is commissioned by" rel that points at the trust's
+      original (2020) ICB and is **never closed** (stays open forever), and
+    - one or more maintained ``RE8`` geographic/partner rels that track the
+      current ICB across the 2022/2023/2026 reorganisations — occasionally
+      several open at once during an overlap window.
+
+    Writing those verbatim leaves multiple ``valid_to IS NULL`` rows per trust,
+    which violates the "one current ICB" invariant the audit chain
+    (organisation → trust → ICB → region → country) depends on, and makes the
+    reconcile detector pick an arbitrary open row.
+
+    This resolves, for every distinct period, the single current ICB via
+    :func:`_choose_current_icb`, then merges adjacent equal-ICB periods. The
+    result is a list of ``{"icb_ods_code", "valid_from" (date),
+    "valid_to" (date|None)}`` ordered by ``valid_from``, non-overlapping, with
+    at most one open row.
+    """
+    parsed = []
+    for m in memberships:
+        start = _parse_ods_date(m["valid_from"])
+        if start is None:
             continue
-        if isinstance(ev_date, str):
-            try:
-                ev_date = datetime.date.fromisoformat(ev_date)
-            except ValueError:
-                continue
-        elif not isinstance(ev_date, datetime.date):
+        end = _parse_ods_date(m["valid_to"])
+        # A rel ODS marks Inactive but leaves open is treated as closed at its
+        # start (defensive — real data always carries an explicit End date).
+        if end is None and m.get("status") == "Inactive":
             continue
-        if window_start <= ev_date <= reference_date:
-            recent.append(ev)
-    return recent
+        parsed.append(
+            {
+                "icb": m["icb_ods_code"],
+                "start": start,
+                "end": end,
+                "rel_id": m.get("rel_id"),
+            }
+        )
+    if not parsed:
+        return []
+
+    # Period boundaries are every start and every (finite) end date. Each
+    # boundary opens a window running to the next boundary (or to None).
+    boundaries = sorted(
+        {p["start"] for p in parsed}
+        | {p["end"] for p in parsed if p["end"] is not None}
+    )
+    segments = []
+    previous_icb = None
+    for index, window_start in enumerate(boundaries):
+        window_end = (
+            boundaries[index + 1] if index + 1 < len(boundaries) else None
+        )
+        active = [
+            p
+            for p in parsed
+            if p["start"] <= window_start
+            and (p["end"] is None or p["end"] > window_start)
+        ]
+        if not active:
+            continue
+        chosen = _choose_current_icb(active, previous_icb)
+        segments.append({"icb": chosen, "from": window_start, "to": window_end})
+        previous_icb = chosen
+
+    merged = []
+    for segment in segments:
+        if (
+            merged
+            and merged[-1]["icb"] == segment["icb"]
+            and merged[-1]["to"] == segment["from"]
+        ):
+            merged[-1]["to"] = segment["to"]
+        else:
+            merged.append(dict(segment))
+
+    return [
+        {
+            "icb_ods_code": s["icb"],
+            "valid_from": s["from"],
+            "valid_to": s["to"],
+        }
+        for s in merged
+    ]
+
+
+def current_trust_icb_code(memberships):
+    """Return the ODS code of a trust's single current ICB, or None.
+
+    Resolves the overlapping RE5/RE8 rels via :func:`build_trust_icb_timeline`
+    and returns the ICB of the open (``valid_to is None``) segment.
+    """
+    for segment in build_trust_icb_timeline(memberships):
+        if segment["valid_to"] is None:
+            return segment["icb_ods_code"]
+    return None
 
 
 def _diff_fields(current, new, fields):
@@ -391,363 +466,6 @@ def _diff_fields(current, new, fields):
         if new_value is not None and (old_value or None) != (new_value or None):
             changes[field] = (old_value, new_value)
     return changes
-
-
-def _review_succession_change(
-    review_callback,
-    *,
-    entity_type,
-    ods_code,
-    name,
-    changes,
-    succession_events,
-    ods_change_date,
-    effective_date,
-):
-    """Invoke the review callback for a merger-driven change.
-
-    If ``review_callback`` is None (e.g. running from a script or the GitHub
-    Action), return False so the change is skipped — merger-driven changes
-    must not be applied without human review.
-
-    If the callback returns True, the change is applied as a forward-looking
-    change (effective today). If it returns False, the change is skipped
-    with a warning, so the operator can handle it via the merger workflow or
-    the ``backfill_*`` helpers.
-    """
-    if review_callback is None:
-        return False
-    return review_callback(
-        {
-            "entity_type": entity_type,
-            "ods_code": ods_code,
-            "name": name,
-            "changes": changes,
-            "succession_events": succession_events,
-            "ods_change_date": ods_change_date,
-            "effective_date": effective_date,
-        }
-    )
-
-
-def update_organisation_model_with_ORD_changes(
-    dry_run=False, stdout=None, time_frame=30, review_callback=None
-):
-    """
-    Calls ORD API for updates in the last `time_frame` days.
-    Iterates the response and searches the database for organisation and trust
-    matches against ODS code. If matches, updates with new details.
-
-    When dry_run is False, attribute changes are routed through the temporal
-    helpers (update_organisation_attributes / update_trust_attributes) so that
-    the previous state is recorded in the *Version tables before being
-    overwritten. This is the sanctioned write path into the temporal layer.
-
-    When dry_run is True, no writes occur. A markdown report of what *would*
-    change is written to `stdout` (or the logger if stdout is None), listing
-    per affected entity the field, old value, new value, the ODS last change
-    date (when the change actually happened, surfaced from the /sync
-    endpoint), and the effective date that would be applied (today). This is
-    used by the GitHub Action for ODS change detection (see
-    documentation/docs/developer/temporal-history.md) and by the `--time-frame`
-    backfill workflow (see documentation/docs/developer/backfill.md).
-
-    When a change has ODS succession events (merger / acquisition / split)
-    and dry_run is False, the change is **not applied automatically**. Instead
-    `review_callback` is invoked with a dict describing the entity, the
-    changes, and the succession events. If the callback returns True the
-    change is applied as a forward-looking change (effective today); if it
-    returns False (or if review_callback is None) the change is skipped with
-    a warning, so the operator can handle it via the merger workflow or the
-    `backfill_*` helpers. Changes without succession events are applied
-    automatically as before.
-
-    Returns True if any changes were found (or would be applied), False
-    otherwise. In dry-run mode this lets the caller decide whether to open a
-    GitHub issue.
-    """
-    from .membership import (
-        update_organisation_attributes,
-        update_trust_attributes,
-    )
-
-    ord_updated_list = fetch_updated_organisations(time_frame=time_frame)
-
-    report_lines = []
-    changes_found = False
-    effective_date = timezone.now().date()
-
-    for org_link in ord_updated_list:
-        ods_code = extract_ods_code(org_link=org_link["OrgLink"])
-        organisation = match_organisation(ods_code=ods_code)
-        if organisation:
-            ord_record = get_organisation(org_link["OrgLink"])
-            # LastChangeDate is on the full organisation record (fetched via
-            # get_organisation), NOT on the /sync list item (which only has
-            # OrgLink). Surface it in the dry-run report so operators can
-            # decide whether to apply the change as forward-looking (effective
-            # today) or as a backfill (effective on the LastChangeDate). See
-            # backfill.md.
-            ods_change_date = ord_record.get("LastChangeDate")
-            # Succession (merger / acquisition / split) info from the Succs
-            # block. Surfaced in the dry-run report so operators can see
-            # whether a name/active change is the consequence of a merger.
-            succession_events = _extract_succession_info(ord_record)
-            new_fields = _extract_ord_fields(ord_record)
-            changes = _diff_fields(
-                organisation,
-                new_fields,
-                [
-                    "name",
-                    "address1",
-                    "address2",
-                    "address3",
-                    "city",
-                    "county",
-                    "postcode",
-                    "telephone",
-                    "website",
-                ],
-            )
-            if not changes:
-                continue
-            changes_found = True
-            # Parse the ODS LastChangeDate for use as the backfill valid_from.
-            ods_change_date_parsed = _parse_ods_date(ods_change_date)
-            if dry_run:
-                report_lines.append(
-                    f"### Organisation {ods_code} ({organisation.name})"
-                )
-                report_lines.append("")
-                report_lines.append(
-                    f"ODS last change date: {ods_change_date or 'unknown'}"
-                )
-                # For non-merger changes, the change will be backfilled at the
-                # ODS date. For merger-driven changes, it would be applied at
-                # today (forward-looking) if the operator agrees.
-                recent_succession_events = _recent_succession_events(
-                    succession_events, time_frame, reference_date=effective_date
-                )
-                if recent_succession_events:
-                    report_lines.append(
-                        f"Effective date if applied: {effective_date.isoformat()} "
-                        "(forward-looking — merger-driven change requires review)"
-                    )
-                else:
-                    applied_date = ods_change_date_parsed or effective_date
-                    report_lines.append(
-                        f"Effective date applied: {applied_date.isoformat()} "
-                        "(backfilled at ODS change date)"
-                    )
-                if succession_events:
-                    report_lines.append("")
-                    report_lines.append(
-                        "**This organisation has succession events "
-                        "(merger/acquisition/split) recorded in ODS:**"
-                    )
-                    for ev in succession_events:
-                        report_lines.append(
-                            f"- {ev['type']} → {ev['target_ods_code']} "
-                            f"(legal date: {ev['date'] or 'unknown'})"
-                        )
-                    report_lines.append(
-                        "If the change above is the consequence of this "
-                        "succession, record it via the admin or the "
-                        "`backfill_*` helpers, not the forward-looking sync."
-                    )
-                report_lines.append("")
-                report_lines.append("| Field | Old | New |")
-                report_lines.append("|---|---|---|")
-                for field, (old, new) in changes.items():
-                    report_lines.append(f"| {field} | {old} | {new} |")
-                report_lines.append("")
-            else:
-                # Only gate on succession events whose legal date falls
-                # within the time_frame window. A merger that happened 12
-                # years ago is part of the entity's permanent ODS record and
-                # will appear on every fetch; gating routine website updates
-                # on it would force the operator to review every change.
-                recent_succession_events = _recent_succession_events(
-                    succession_events, time_frame, reference_date=effective_date
-                )
-                if recent_succession_events:
-                    # Merger-driven change: do not apply automatically.
-                    # Prompt the operator via the review callback; skip if
-                    # they refuse or if no callback is provided (e.g. running
-                    # from a script). If accepted, apply at today's date
-                    # (forward-looking) — the operator should use the
-                    # backfill_* helpers if the historical date matters.
-                    apply = _review_succession_change(
-                        review_callback,
-                        entity_type="Organisation",
-                        ods_code=ods_code,
-                        name=organisation.name,
-                        changes=changes,
-                        succession_events=recent_succession_events,
-                        ods_change_date=ods_change_date,
-                        effective_date=effective_date,
-                    )
-                    if not apply:
-                        logger.warning(
-                            "Organisation %s has recent succession events; "
-                            "change skipped. Handle via the admin or the "
-                            "backfill_* helpers.",
-                            ods_code,
-                        )
-                        continue
-                    update_organisation_attributes(
-                        organisation, effective_date=effective_date, **{
-                            k: v[1] for k, v in changes.items()
-                        }
-                    )
-                else:
-                    # Non-merger change (address, website, telephone, etc.):
-                    # apply at the ODS LastChangeDate so the version row records
-                    # when the change actually happened, not today. We use the
-                    # forward-looking update_*_attributes helper (which updates
-                    # the entity row in place and closes/opens version rows) but
-                    # with effective_date set to the ODS date.
-                    applied_date = ods_change_date_parsed or effective_date
-                    update_organisation_attributes(
-                        organisation, effective_date=applied_date, **{
-                            k: v[1] for k, v in changes.items()
-                        }
-                    )
-                logger.info("Organisation %s details have been updated.", ods_code)
-        else:
-            trust = match_trust(ods_code=ods_code)
-            if trust:
-                ord_record = get_organisation(org_link["OrgLink"])
-                ods_change_date = ord_record.get("LastChangeDate")
-                succession_events = _extract_succession_info(ord_record)
-                # Trust uses address_line_1 / address_line_2 / town rather than
-                # address1 / address2 / city. Map the ORD fields across.
-                new_fields = _extract_ord_fields(ord_record)
-                trust_new = {
-                    "name": new_fields.get("name"),
-                    "address_line_1": new_fields.get("address1"),
-                    "address_line_2": new_fields.get("address2"),
-                    "town": new_fields.get("city"),
-                    "postcode": new_fields.get("postcode"),
-                    "telephone": new_fields.get("telephone"),
-                    "website": new_fields.get("website"),
-                }
-                changes = _diff_fields(
-                    trust,
-                    trust_new,
-                    [
-                        "name",
-                        "address_line_1",
-                        "address_line_2",
-                        "town",
-                        "postcode",
-                        "telephone",
-                        "website",
-                    ],
-                )
-                if not changes:
-                    continue
-                changes_found = True
-                ods_change_date_parsed = _parse_ods_date(ods_change_date)
-                if dry_run:
-                    report_lines.append(
-                        f"### Trust {ods_code} ({trust.name})"
-                    )
-                    report_lines.append("")
-                    report_lines.append(
-                        f"ODS last change date: {ods_change_date or 'unknown'}"
-                    )
-                    recent_succession_events = _recent_succession_events(
-                        succession_events, time_frame, reference_date=effective_date
-                    )
-                    if recent_succession_events:
-                        report_lines.append(
-                            f"Effective date if applied: {effective_date.isoformat()} "
-                            "(forward-looking — merger-driven change requires review)"
-                        )
-                    else:
-                        applied_date = ods_change_date_parsed or effective_date
-                        report_lines.append(
-                            f"Effective date applied: {applied_date.isoformat()} "
-                            "(backfilled at ODS change date)"
-                        )
-                    if succession_events:
-                        report_lines.append("")
-                        report_lines.append(
-                            "**This trust has succession events "
-                            "(merger/acquisition/split) recorded in ODS:**"
-                        )
-                        for ev in succession_events:
-                            report_lines.append(
-                                f"- {ev['type']} → {ev['target_ods_code']} "
-                                f"(legal date: {ev['date'] or 'unknown'})"
-                            )
-                        report_lines.append(
-                            "If the change above is the consequence of this "
-                            "succession, record it via the admin or the "
-                            "`backfill_*` helpers, not the forward-looking sync."
-                        )
-                    report_lines.append("")
-                    report_lines.append("| Field | Old | New |")
-                    report_lines.append("|---|---|---|")
-                    for field, (old, new) in changes.items():
-                        report_lines.append(f"| {field} | {old} | {new} |")
-                    report_lines.append("")
-                else:
-                    recent_succession_events = _recent_succession_events(
-                        succession_events, time_frame, reference_date=effective_date
-                    )
-                    if recent_succession_events:
-                        apply = _review_succession_change(
-                            review_callback,
-                            entity_type="Trust",
-                            ods_code=ods_code,
-                            name=trust.name,
-                            changes=changes,
-                            succession_events=recent_succession_events,
-                            ods_change_date=ods_change_date,
-                            effective_date=effective_date,
-                        )
-                        if not apply:
-                            logger.warning(
-                                "Trust %s has recent succession events; "
-                                "change skipped. Handle via the admin or "
-                                "the backfill_* helpers.",
-                                ods_code,
-                            )
-                            continue
-                        update_trust_attributes(
-                            trust, effective_date=effective_date, **{
-                                k: v[1] for k, v in changes.items()
-                            }
-                        )
-                    else:
-                        # Non-merger change: apply at the ODS LastChangeDate.
-                        applied_date = ods_change_date_parsed or effective_date
-                        update_trust_attributes(
-                            trust, effective_date=applied_date, **{
-                                k: v[1] for k, v in changes.items()
-                            }
-                        )
-                    logger.info("Trust %s details have been updated.", ods_code)
-
-    if dry_run:
-        report = "\n".join(report_lines)
-        if stdout is not None:
-            stdout.write(report)
-        else:
-            logger.info("Dry-run report:\n%s", report)
-    else:
-        if changes_found:
-            logger.info(
-                "Updates have been made to existing records in the RCPCH database."
-            )
-        else:
-            logger.info(
-                "No updates have been made to existing records in the RCPCH database."
-            )
-
-    return changes_found
 
 
 def check_organisation_has_location_data():

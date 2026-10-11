@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django import forms
+from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
@@ -14,6 +15,7 @@ from .models import (
     LocalHealthBoardVersion,
     NHSEnglandRegion,
     NHSEnglandRegionVersion,
+    OdsSyncRun,
     Organisation,
     OrganisationIntegratedCareBoardMembership,
     OrganisationLocalHealthBoardMembership,
@@ -32,6 +34,7 @@ from .models import (
     PaediatricDiabetesUnitNetworkMembership,
     PaediatricDiabetesUnitSuccession,
     PaediatricDiabetesUnitVersion,
+    PendingOdsChange,
     Trust,
     TrustIntegratedCareBoardMembership,
     TrustNHSEnglandRegionMembership,
@@ -50,6 +53,7 @@ from .general_functions.membership import (
     backfill_organisation_attributes,
     backfill_trust_attributes,
 )
+from .general_functions.reconcile.apply import apply_pending_change, ApplyError
 
 
 # ---------------------------------------------------------------------------
@@ -2025,6 +2029,529 @@ class IntegratedCareBoardSuccessionAdmin(admin.ModelAdmin):
 
 
 # ---------------------------------------------------------------------------
+# ODS reconciliation review queue
+# ---------------------------------------------------------------------------
+
+
+class DismissForm(forms.Form):
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=True,
+        help_text="Required. Why is this change being dismissed?",
+    )
+
+
+class ApproveParallelCodeForm(forms.Form):
+    """Intermediate form for approving a parallel-code change.
+
+    The engine surfaces ``candidate_successors`` in the payload (active sites at
+    the closed code's postcode already parented on the successor trust), but
+    never auto-picks one — a postcode is not a unique key. The reviewer confirms
+    the surviving code here before the apply handler flags the old code as
+    diverged.
+    """
+
+    replacement_ods_code = forms.ChoiceField(
+        required=False,
+        choices=[],
+        help_text=(
+            "Pick the active ODS code that replaces the closed code, or leave "
+            "blank to flag the old code as diverged without a replacement. "
+            "The candidates are surfaced by the engine for review only — they "
+            "are not auto-picked because a postcode is not a unique key."
+        ),
+    )
+    custom_replacement = forms.CharField(
+        required=False,
+        max_length=10,
+        help_text=(
+            "If the correct successor is not in the candidate list, type its "
+            "ODS code here. It overrides the dropdown selection."
+        ),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text="Optional notes recorded on the change row.",
+    )
+
+    def __init__(self, *args, candidates=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if candidates is not None:
+            self.fields["replacement_ods_code"].choices = [("", "---")] + [
+                (c, c) for c in candidates
+            ]
+
+    def clean(self):
+        cleaned = super().clean()
+        custom = (cleaned.get("custom_replacement") or "").strip().upper()
+        picked = cleaned.get("replacement_ods_code") or ""
+        if custom:
+            return {"replacement_ods_code": custom}
+        if picked:
+            return {"replacement_ods_code": picked}
+        return {"replacement_ods_code": ""}
+
+
+class ReconciliationStatusFilter(admin.SimpleListFilter):
+    """Filter for the reconciliation state of a PendingOdsChange.
+
+    Defaults to "Pending only" so the changelist shows the review queue at a
+    glance. Reviewers can switch to "Reconciled" to audit past decisions, or
+    "All" to see everything.
+    """
+    title = "reconciliation status"
+    parameter_name = "reconciliation"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("pending", "Pending only (default)"),
+            ("reconciled", "Reconciled (applied/dismissed)"),
+            ("all", "All"),
+        )
+
+    def value(self):
+        # Default to "pending" when no parameter is supplied.
+        val = super().value()
+        return val if val is not None else "pending"
+
+    def queryset(self, request, queryset):
+        val = self.value()
+        if val == "pending":
+            return queryset.filter(status=PendingOdsChange.STATUS_PENDING)
+        if val == "reconciled":
+            return queryset.filter(status__in=PendingOdsChange.TERMINAL_STATUSES)
+        return queryset
+
+
+# Priority order for change_class in the changelist — structural changes
+# (which need human review) first, attribute changes (usually auto-applied) last.
+_CHANGE_CLASS_PRIORITY = {
+    PendingOdsChange.CLASS_PARALLEL_CODE: 0,
+    PendingOdsChange.CLASS_RELATIONSHIP: 1,
+    PendingOdsChange.CLASS_SUCCESSION: 2,
+    PendingOdsChange.CLASS_SUPERSEDED_CODE: 3,
+    PendingOdsChange.CLASS_ROSTER_ADD: 4,
+    PendingOdsChange.CLASS_RETIRE: 5,
+    PendingOdsChange.CLASS_ATTRIBUTE: 6,
+}
+
+
+class PendingOdsChangeAdmin(admin.ModelAdmin):
+    list_display = (
+        "ods_code",
+        "level",
+        "change_class",
+        "status",
+        "effective_date",
+        "summary_preview",
+        "detected_at",
+    )
+    list_filter = (ReconciliationStatusFilter, "level", "change_class")
+    search_fields = ("ods_code",)
+    ordering = ()
+    date_hierarchy = "detected_at"
+    readonly_fields = (
+        "level",
+        "ods_code",
+        "change_class",
+        "effective_date",
+        "payload_pretty",
+        "status",
+        "detected_at",
+        "source_run",
+        "reviewed_by",
+        "applied_at",
+    )
+    exclude = ("payload",)
+    actions = ("approve_and_apply", "dismiss_changes")
+    change_form_template = "admin/hospitals/pending_ods_change_form.html"
+    change_list_template = "admin/hospitals/pending_ods_change_changelist.html"
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["parallel_code_count"] = PendingOdsChange.objects.filter(
+            status=PendingOdsChange.STATUS_PENDING,
+            change_class=PendingOdsChange.CLASS_PARALLEL_CODE,
+        ).count()
+        return super().changelist_view(request, extra_context)
+
+    def get_queryset(self, request):
+        """Order the changelist by level, then change-class priority (structural
+        changes that need human review first, attribute changes last), then
+        ODS code — so the review queue surfaces the most important items at
+        the top instead of being drowned in attribute changes.
+
+        Bypasses super().get_queryset() because that calls get_ordering()
+        (which returns the annotation field) before the annotation is added.
+        """
+        from django.db.models import Case, IntegerField, Value, When
+        qs = self.model._default_manager.all()
+        priority_cases = [
+            When(change_class=cls, then=Value(priority))
+            for cls, priority in _CHANGE_CLASS_PRIORITY.items()
+        ]
+        return qs.annotate(
+            _change_class_order=Case(
+                *priority_cases, default=Value(99), output_field=IntegerField()
+            )
+        ).order_by("level", "_change_class_order", "ods_code")
+
+    def get_ordering(self, request, queryset=None):
+        """Return the priority ordering. The _change_class_order annotation
+        is always on the queryset because get_queryset adds it, so this is
+        safe to return unconditionally. Django admin's ChangeList calls this
+        without the queryset parameter (model_admin.get_ordering(request)),
+        so we cannot check for the annotation here — but it is always present
+        in the changelist path.
+        """
+        return ("level", "_change_class_order", "ods_code")
+
+    def summary_preview(self, obj):
+        summary = obj.payload.get("summary") if isinstance(obj.payload, dict) else None
+        if summary:
+            return summary
+        # Fall back to a compact rendering of the payload.
+        return ", ".join(f"{k}={v}" for k, v in (obj.payload or {}).items())[:80]
+
+    summary_preview.short_description = "Summary"
+
+    def payload_pretty(self, obj):
+        import json
+        from django.utils.html import format_html
+
+        return format_html(
+            "<pre style='white-space:pre-wrap'>{}</pre>",
+            json.dumps(obj.payload, indent=2, default=str),
+        )
+
+    payload_pretty.short_description = "Payload"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/approve/",
+                self.admin_site.admin_view(self.approve_view),
+                name="hospitals_pendingodschange_approve",
+            ),
+            path(
+                "<path:object_id>/dismiss/",
+                self.admin_site.admin_view(self.dismiss_view),
+                name="hospitals_pendingodschange_dismiss",
+            ),
+        ]
+        return custom_urls + urls
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        if object_id is not None:
+            change = PendingOdsChange.objects.filter(pk=object_id).first()
+            if change is not None and not change.is_terminal:
+                extra_context["can_approve"] = True
+                extra_context["can_dismiss"] = True
+                if change.change_class == PendingOdsChange.CLASS_PARALLEL_CODE:
+                    candidates = change.payload.get("candidate_successors", [])
+                    extra_context["is_parallel_code"] = True
+                    extra_context["candidates"] = candidates
+                    extra_context["approve_form"] = ApproveParallelCodeForm(
+                        candidates=candidates
+                    )
+                    extra_context["approve_url"] = reverse(
+                        "admin:hospitals_pendingodschange_approve", args=[change.pk]
+                    )
+                else:
+                    extra_context["is_parallel_code"] = False
+                    extra_context["approve_url"] = reverse(
+                        "admin:hospitals_pendingodschange_approve", args=[change.pk]
+                    )
+                extra_context["dismiss_url"] = reverse(
+                    "admin:hospitals_pendingodschange_dismiss", args=[change.pk]
+                )
+            elif change is not None:
+                extra_context["is_terminal"] = True
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+    def _apply_change(self, request, change, extra_payload=None):
+        """Apply a single change, stamp it, and return a description (or raise)."""
+        if extra_payload:
+            change.payload = {**change.payload, **extra_payload}
+            change.save(update_fields=["payload", "updated_at"])
+        description = apply_pending_change(change, user=request.user)
+        change.status = PendingOdsChange.STATUS_APPLIED
+        change.applied_at = timezone.now()
+        change.reviewed_by = request.user
+        if description:
+            change.reviewer_notes = (
+                (change.reviewer_notes + "\n" if change.reviewer_notes else "")
+                + description
+            )
+        change.save(
+            update_fields=[
+                "status",
+                "applied_at",
+                "reviewed_by",
+                "reviewer_notes",
+                "updated_at",
+            ]
+        )
+        return description
+
+    def approve_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+
+        change = get_object_or_404(PendingOdsChange, pk=object_id)
+        opts = self.model._meta
+
+        if change.is_terminal:
+            self.message_user(
+                request,
+                f"{change} is already {change.get_status_display()} — no action taken.",
+                level=messages.WARNING,
+            )
+            return redirect("admin:hospitals_pendingodschange_changelist")
+
+        # For parallel-code changes, show an intermediate form so the reviewer
+        # can confirm the replacement code from the candidate list.
+        if change.change_class == PendingOdsChange.CLASS_PARALLEL_CODE:
+            candidates = change.payload.get("candidate_successors", [])
+            if request.method == "POST":
+                form = ApproveParallelCodeForm(
+                    request.POST, candidates=candidates
+                )
+                if form.is_valid():
+                    replacement = form.cleaned_data.get("replacement_ods_code", "")
+                    notes = form.cleaned_data.get("notes", "")
+                    extra = {}
+                    if replacement:
+                        extra["replacement_ods_code"] = replacement
+                    if notes:
+                        change.reviewer_notes = (
+                            (change.reviewer_notes + "\n" if change.reviewer_notes else "")
+                            + notes
+                        )
+                    try:
+                        self._apply_change(request, change, extra_payload=extra)
+                    except ApplyError as exc:
+                        self.message_user(
+                            request, f"{change.ods_code}: {exc}",
+                            level=messages.WARNING,
+                        )
+                        return redirect(
+                            "admin:hospitals_pendingodschange_change", object_id
+                        )
+                    self.message_user(
+                        request,
+                        f"Approved & applied: {change.ods_code} "
+                        f"({change.get_change_class_display()}).",
+                    )
+                    return redirect("admin:hospitals_pendingodschange_changelist")
+            else:
+                form = ApproveParallelCodeForm(candidates=candidates)
+            return render(
+                request,
+                "admin/hospitals/approve_pending_ods_change.html",
+                {
+                    "change": change,
+                    "form": form,
+                    "opts": opts,
+                    "candidates": candidates,
+                },
+            )
+
+        # All other change classes: apply directly (no intermediate form).
+        if request.method == "POST":
+            try:
+                self._apply_change(request, change)
+            except ApplyError as exc:
+                self.message_user(
+                    request, f"{change.ods_code}: {exc}",
+                    level=messages.WARNING,
+                )
+                return redirect("admin:hospitals_pendingodschange_change", object_id)
+            self.message_user(
+                request,
+                f"Approved & applied: {change.ods_code} "
+                f"({change.get_change_class_display()}).",
+            )
+            return redirect("admin:hospitals_pendingodschange_changelist")
+
+        # GET: show a confirmation page for non-parallel-code changes.
+        return render(
+            request,
+            "admin/hospitals/approve_pending_ods_change.html",
+            {"change": change, "opts": opts, "form": None},
+        )
+
+    def dismiss_view(self, request, object_id):
+        from django.shortcuts import get_object_or_404
+
+        change = get_object_or_404(PendingOdsChange, pk=object_id)
+        opts = self.model._meta
+
+        if change.is_terminal:
+            self.message_user(
+                request,
+                f"{change} is already {change.get_status_display()} — no action taken.",
+                level=messages.WARNING,
+            )
+            return redirect("admin:hospitals_pendingodschange_changelist")
+
+        if request.method == "POST":
+            form = DismissForm(request.POST)
+            if form.is_valid():
+                reason = form.cleaned_data["reason"]
+                change.status = PendingOdsChange.STATUS_DISMISSED
+                change.reviewer_notes = reason
+                change.reviewed_by = request.user
+                change.save(
+                    update_fields=[
+                        "status",
+                        "reviewer_notes",
+                        "reviewed_by",
+                        "updated_at",
+                    ]
+                )
+                self.message_user(
+                    request, f"Dismissed: {change.ods_code}.", level=messages.INFO
+                )
+                return redirect("admin:hospitals_pendingodschange_changelist")
+        else:
+            form = DismissForm()
+        return render(
+            request,
+            "admin/hospitals/dismiss_pending_ods_change.html",
+            {"change": change, "form": form, "opts": opts},
+        )
+
+    @admin.action(description="Approve & apply selected changes")
+    def approve_and_apply(self, request, queryset):
+        applied = 0
+        skipped = 0
+        failed = 0
+        needs_individual_review = []
+        for change in queryset:
+            if change.status == PendingOdsChange.STATUS_APPLIED:
+                skipped += 1
+                continue
+            if change.status == PendingOdsChange.STATUS_DISMISSED:
+                skipped += 1
+                continue
+            # parallel-code changes need the per-row approve form so the
+            # reviewer can confirm the replacement code. The bulk action
+            # cannot show this form, so it skips them with a warning.
+            if change.change_class == PendingOdsChange.CLASS_PARALLEL_CODE:
+                needs_individual_review.append(change.ods_code)
+                continue
+            try:
+                description = apply_pending_change(change, user=request.user)
+            except ApplyError as exc:
+                failed += 1
+                self.message_user(
+                    request,
+                    f"{change.ods_code} ({change.change_class}): {exc}",
+                    level=messages.WARNING,
+                )
+                continue
+            change.status = PendingOdsChange.STATUS_APPLIED
+            change.applied_at = timezone.now()
+            change.reviewed_by = request.user
+            if description:
+                change.reviewer_notes = (
+                    (change.reviewer_notes + "\n" if change.reviewer_notes else "")
+                    + description
+                )
+            change.save(
+                update_fields=[
+                    "status",
+                    "applied_at",
+                    "reviewed_by",
+                    "reviewer_notes",
+                    "updated_at",
+                ]
+            )
+            applied += 1
+        msg = (
+            f"Applied {applied}, skipped {skipped} (already terminal), "
+            f"{failed} needed review."
+        )
+        if needs_individual_review:
+            msg += (
+                f" {len(needs_individual_review)} parallel-code change(s) need "
+                "individual review (open the row and use Approve & apply to "
+                "confirm the replacement code): "
+                + ", ".join(needs_individual_review)
+            )
+        self.message_user(
+            request,
+            msg,
+            level=messages.WARNING if (failed or needs_individual_review) else messages.INFO,
+        )
+
+    @admin.action(description="Dismiss selected changes (with a reason)")
+    def dismiss_changes(self, request, queryset):
+        # Intermediate page: collect a required reason, then dismiss.
+        if "apply" in request.POST:
+            form = DismissForm(request.POST)
+            if form.is_valid():
+                reason = form.cleaned_data["reason"]
+                count = 0
+                for change in queryset:
+                    if change.is_terminal:
+                        continue
+                    change.status = PendingOdsChange.STATUS_DISMISSED
+                    change.reviewer_notes = reason
+                    change.reviewed_by = request.user
+                    change.save(
+                        update_fields=[
+                            "status",
+                            "reviewer_notes",
+                            "reviewed_by",
+                            "updated_at",
+                        ]
+                    )
+                    count += 1
+                self.message_user(
+                    request, f"Dismissed {count} change(s).", level=messages.INFO
+                )
+                return None
+        else:
+            form = DismissForm()
+        return render(
+            request,
+            "admin/hospitals/dismiss_pending_ods_changes.html",
+            {
+                "changes": queryset,
+                "form": form,
+                "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
+                "title": "Dismiss ODS changes",
+            },
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class OdsSyncRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "started_at",
+        "mode",
+        "levels",
+        "dry_run",
+        "status",
+        "changes_detected",
+        "synced_through",
+    )
+    list_filter = ("mode", "status", "dry_run")
+    date_hierarchy = "started_at"
+    ordering = ("-started_at",)
+    readonly_fields = [f.name for f in OdsSyncRun._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
 
@@ -2048,6 +2575,9 @@ admin.site.register(
 admin.site.register(
     IntegratedCareBoardSuccession, IntegratedCareBoardSuccessionAdmin
 )
+
+admin.site.register(PendingOdsChange, PendingOdsChangeAdmin)
+admin.site.register(OdsSyncRun, OdsSyncRunAdmin)
 
 admin.site.site_header = "RCPCH NHS Organisations"
 admin.site.site_title = "RCPCH NHS Organisations admin"

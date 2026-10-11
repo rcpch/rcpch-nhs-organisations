@@ -10,12 +10,14 @@ PZ_CODES = [
     {"ods_code": "RAL26", "npda_code": "PZ012", "active": 1},
     {"ods_code": "RALC7", "npda_code": "PZ014", "active": 1},
     {
-        "ods_code": "RM325",
+        "ods_code": "R0A07",
         "npda_code": "PZ015",
         "active": 1,
-    },  # WYTHENSHAWE HOSPITAL (RM325 - parent UNIVERSITY HOSPITAL OF SOUTH MANCHESTER NHS FOUNDATION TRUST - RM2): this is the correct affiliation
-    #  Note that it  has two ODS codes on the spine: the other is R0A07, parent Northern Care Alliance. This is incorrect. Note that Wythenshawe Hospital has a PZ code of PZ015,
-    # which is different to the parent organisation ROA (whose children have PZ codes of PZ136)
+    },  # WYTHENSHAWE HOSPITAL (R0A07 - parent MANCHESTER UNIVERSITY NHS FOUNDATION TRUST - R0A).
+    #  Note that Wythenshawe Hospital has a PZ code of PZ015, which is different to the parent
+    #  organisation R0A (whose children have PZ codes of PZ136). The site has a parallel ODS
+    #  code RM325 (parent Northern Care Alliance, RM3); the audit uses R0A07, which matches
+    #  the PDU history in pdu_history.py.
     {"ods_code": "RP5BA", "npda_code": "PZ016", "active": 1},
     {"ods_code": "RBD01", "npda_code": "PZ017", "active": 1},
     {"ods_code": "RYR18", "npda_code": "PZ018", "active": 1},
@@ -123,8 +125,8 @@ PZ_CODES = [
         "npda_code": "PZ136",
         "active": 1,
     },  # MANCHESTER UNIVERSITY NHS FOUNDATION TRUST is R0A.
-    #  It's child organisations include MANCHESTER LOCAL CARE ORGANISATION (COX3P), NORTH MANCHESTER GENERAL HOSPITAL (R0A66),
-    #  ROYAL MANCHESTER CHILDREN'S HOSPITAL (R0A03), TRAFFORD LOCAL CARE ORGANISATION (Q3K9W), WYTHENSHAWE HOSPITAL (RM325)
+    #  It's child organisations include NORTH MANCHESTER GENERAL HOSPITAL (R0A66),
+    #  ROYAL MANCHESTER CHILDREN'S HOSPITAL (R0A03), TRAFFORD LOCAL CARE ORGANISATION (Q3K9W), WYTHENSHAWE HOSPITAL (R0A07)
     # Note that Wythenshawe Hospital has a PZ code of PZ015, which is different to the parent organisation
     {
         "ods_code": "RH5A8",
@@ -412,8 +414,7 @@ PZ_CODES_NETWORKS = [
         "network_name": "London & South East",
         "network_code": "PN05",
     },
-    {
-        "ods_code": "RM325",
+    {"ods_code": "R0A07",
         "npda_code": "PZ015",
         "network_name": "North West",
         "network_code": "PN11",

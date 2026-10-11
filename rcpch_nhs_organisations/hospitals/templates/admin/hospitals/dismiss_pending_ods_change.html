@@ -1,0 +1,43 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label='hospitals' %}">Hospitals</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_pendingodschange_changelist' %}">Pending ODS changes</a> &rsaquo;
+  Dismiss…
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Dismiss ODS change</h1>
+
+<div style="background: #e3f2fd; border: 2px solid #1565c0; border-radius: 6px; padding: 1em; margin-bottom: 1em;">
+  <p style="margin-top: 0;"><strong>{{ change.ods_code }}</strong> — {{ change.get_level_display }} /
+    {{ change.get_change_class_display }}</p>
+  <p style="margin-bottom: 0;">{{ change.payload.summary }}</p>
+</div>
+
+<p>You are about to <strong>dismiss</strong> this change. A reason is required and
+is recorded against the row.</p>
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <fieldset style="background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1em; margin-bottom: 1em;">
+    <div>
+      <label for="id_reason" style="display: block; font-weight: bold; margin-bottom: 0.3em;">
+        Reason:
+      </label>
+      {{ form.reason }}
+    </div>
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" name="apply" value="Dismiss change" class="default">
+    <a href="{% url 'admin:hospitals_pendingodschange_change' change.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

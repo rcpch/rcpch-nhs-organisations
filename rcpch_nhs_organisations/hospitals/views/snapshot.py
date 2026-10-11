@@ -41,31 +41,58 @@ def _as_of(queryset, on_date):
 
 def _resolve_predecessor(organisation, on_date):
     """
-    If the organisation did not exist on `on_date` (its first valid_from is
-    after that date), walk the OrganisationSuccession chain backwards to find
-    the predecessor that was in force on that date.
-    """
-    first_version = organisation.versions.order_by("valid_from").first()
-    if first_version is None or first_version.valid_from <= on_date:
-        return organisation
+    Walk the OrganisationSuccession chain backwards to find the entity that
+    was in force as the audit code on `on_date`.
 
-    # Walk backwards through succession links.
+    Two cases trigger the walk:
+
+    1. **Strict succession** — the successor did not exist on `on_date` (its
+       first ``valid_from`` is after `on_date`). The walk finds the
+       predecessor that was open then. Example: querying RJZ30 before 2013
+       walks to RYQ30.
+
+    2. **Parallel code** — the successor pre-existed at `on_date` but a
+       succession link records that the predecessor was the live audit code
+       before the succession date (``succession_date > on_date``). The walk
+       returns the predecessor because that was the code the audit would
+       have used at `on_date`. Example: querying RAL27 at 2020 walks to
+       RAPNM, because RAPNM was the live code under RAP trust until it
+       closed on 2024-12-31 and followed to RAL27.
+    """
     current = organisation
     visited = set()
     while current.pk not in visited:
         visited.add(current.pk)
+        first_version = current.versions.order_by("valid_from").first()
+
+        # Did the entity's history start by on_date? (The first version's
+        # valid_from is at or before on_date — the _as_of query will find
+        # the right version row, whether it's this one or a later one.)
+        history_started = (
+            first_version is not None and first_version.valid_from <= on_date
+        )
+
+        # Is there a successor-side link whose succession_date is after
+        # on_date? For parallel codes, the predecessor was the live audit
+        # code before the succession date, so we walk to it.
+        parallel_link = current.succession_successor_links.filter(
+            succession_date__gt=on_date
+        ).first()
+
+        if parallel_link is not None:
+            # Walk to the predecessor — it was the live code at on_date.
+            current = parallel_link.predecessor
+            continue
+
+        if history_started:
+            return current
+
+        # History didn't start by on_date and no parallel link — try the
+        # regular walk (strict succession where the successor didn't exist).
         link = current.succession_successor_links.first()
         if link is None:
             return None
         current = link.predecessor
-        first_version = current.versions.order_by("valid_from").first()
-        if first_version is None:
-            return None
-        if first_version.valid_from <= on_date:
-            # Check the predecessor was still in force on on_date (valid_to
-            # is null or after on_date).
-            if first_version.valid_to is None or first_version.valid_to > on_date:
-                return current
     return None
 
 
@@ -168,19 +195,43 @@ def organisation_snapshot(organisation, on_date):
 
 class OrganisationSnapshotView(APIView):
     """
+    **Give me everything about this organisation as it was on date X.**
+
     Returns a snapshot of an organisation and all its relationships as they
-    were on a given date. If the organisation did not exist on that date but a
-    predecessor (linked via OrganisationSuccession) did, the predecessor's
-    state is returned with `predecessor_ods_code` populated.
+    were on a given date — its name/address/active state plus every parent
+    relationship (trust, Local Health Board, Integrated Care Board, NHS
+    England region, OPEN UK network, Paediatric Diabetes Unit) as they were
+    on that date.
 
-    This is the endpoint used by national audits to report longitudinal data
-    against the organisational geography that was in force at the time the
-    data was collected.
+    This is the endpoint used by national audits to compare current
+    performance against past performance: the audit queries the **current**
+    ODS code with a historical date and gets back the organisational
+    geography that was in force when the historical data was collected.
 
-    See documentation/docs/developer/temporal-history.md for the design.
+    **Predecessor walk.** If the queried ODS code was not the live audit code
+    on that date (because of a merger, split, or parallel-code succession),
+    the endpoint walks the `OrganisationSuccession` chain backwards to the
+    predecessor that was in force then, and returns that predecessor's state
+    with `predecessor_ods_code` populated. Two cases:
+
+    1. *Strict succession* — the successor did not exist at the queried date
+       (e.g. querying `RJZ30` at 2012 walks to `RYQ30`, Princess Royal under
+       South London Healthcare before the 2013 split).
+    2. *Parallel code* — the successor pre-existed at the queried date, but a
+       succession link records that the predecessor was the live audit code
+       before the succession date (e.g. querying `RAL27` at 2020 walks to
+       `RAPNM`, North Middlesex under North Middlesex University Hospital
+       NHS Trust `RAP` before it closed on 2024-12-31 and followed to `RAL27`).
+
+    Returns 404 if no entity (the queried code or any predecessor) covered
+    the date, or if the queried ODS code does not exist in the database.
+
+    See documentation/docs/developer/temporal-history.md for the design and
+    documentation/docs/developer/ods-sync.md for the predecessor walk.
     """
 
     @extend_schema(
+        summary="Snapshot of an organisation as it was on a given date",
         tags=["Organisations"],
         parameters=[
             OpenApiParameter(
@@ -189,19 +240,33 @@ class OrganisationSnapshotView(APIView):
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "The date to snapshot. If omitted, returns the current "
-                    "state. Format: YYYY-MM-DD."
+                    "The date to snapshot the organisation at. Returns the "
+                    "organisation's name/address/active state and every parent "
+                    "relationship (trust, LHB, ICB, NHS England region, OPENUK, "
+                    "PDU) as they were on that date. If the queried ODS code "
+                    "was not the live audit code on that date, walks the "
+                    "succession chain backwards to the predecessor that was. "
+                    "If omitted, returns the current state. Format: YYYY-MM-DD."
                 ),
             ),
         ],
         responses={
             200: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                description="Organisation snapshot",
+                description=(
+                    "Everything about this organisation as it was on the "
+                    "given date — its attributes plus every parent "
+                    "relationship. If a predecessor was returned, "
+                    "`predecessor_ods_code` is populated."
+                ),
             ),
             404: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
-                description="Organisation not found, or no state exists for the given date.",
+                description=(
+                    "The organisation (or any predecessor in the succession "
+                    "chain) did not exist on the given date, or the queried "
+                    "ODS code is not in the database."
+                ),
             ),
         },
     )

@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label='hospitals' %}">Hospitals</a> &rsaquo;
+  <a href="{% url 'admin:hospitals_pendingodschange_changelist' %}">Pending ODS changes</a> &rsaquo;
+  Dismiss…
+</div>
+{% endblock %}
+
+{% block content %}
+<p>You are about to <strong>dismiss</strong> the following {{ changes|length }}
+change(s). A reason is required and is recorded against each row.</p>
+
+<ul>
+  {% for change in changes %}
+    <li><strong>{{ change.ods_code }}</strong> — {{ change.get_level_display }} /
+      {{ change.get_change_class_display }} ({{ change.get_status_display }})</li>
+  {% endfor %}
+</ul>
+
+{% if form.non_field_errors %}
+  <div class="errornote">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  {% for change in changes %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ change.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="dismiss_changes">
+  <table>
+    {{ form.as_table }}
+  </table>
+  <div class="submit-row">
+    <input type="submit" name="apply" value="Dismiss changes" class="default">
+    <a href="{% url 'admin:hospitals_pendingodschange_changelist' %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

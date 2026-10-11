@@ -23,9 +23,19 @@ name: ODS change detection
 # with a meaningful error — no issue is posted. The job's console logs
 # in the Azure portal have the error details.
 #
-# The job runs `python manage.py ods_change_report`, which runs the three
-# dry-run checks (ODS sync, trust successions, ICB successions) and prints
-# the combined report between the markers.
+# The job runs `python manage.py reconcile_ods --mode incremental --dry-run
+# --queue --upload-blob`, the unified reconciliation engine. It detects ODS
+# deltas across the organisation/trust/LHB/ICB levels, fills the
+# PendingOdsChange review queue in the production database (--queue), and
+# prints + uploads the combined categorised report between the markers
+# (--upload-blob). (It replaced the legacy `ods_change_report` command, which
+# ran three separate dry-run checks and has been removed.)
+#
+# The command the job runs is NOT baked into the Azure job definition alone
+# (which is out-of-band state the repo cannot see): a dedicated step below
+# re-asserts it with `az containerapp job update --command` on every run, so
+# this workflow is the source of truth for the monthly command and a job that
+# predates the reconcile_ods migration is healed automatically.
 #
 # Prerequisites and one-off job setup are documented in
 # documentation/docs/developer/ods-change-detection.md. In particular, the
@@ -66,6 +76,22 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Enforce the incremental reconcile_ods command on the job
+        run: |
+          set -eu
+          # Keep the monthly command under version control: re-assert that the
+          # Container Apps Job runs the unified incremental reconciliation,
+          # regardless of how the job was originally created (a job predating
+          # the reconcile_ods migration would otherwise still run the legacy
+          # ods_change_report). Setting the same command is a no-op, so this is
+          # safe to run every month. The token sequence mirrors the documented
+          # `az containerapp job create --command` in ods-change-detection.md.
+          az containerapp job update \
+            --name "$AZURE_JOB_NAME" \
+            --resource-group "$AZURE_JOB_RESOURCE_GROUP" \
+            --command "python" "manage.py" "reconcile_ods" \
+              "--mode" "incremental" "--dry-run" "--queue" "--upload-blob"
 
       - name: Start ODS change detection job
         id: start

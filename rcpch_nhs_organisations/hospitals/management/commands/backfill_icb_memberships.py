@@ -9,7 +9,7 @@ from django.db import transaction
 from rcpch_nhs_organisations.hospitals.general_functions.ods_update import (
     get_organisation,
     _extract_icb_membership_info,
-    _parse_ods_date,
+    build_trust_icb_timeline,
 )
 from rcpch_nhs_organisations.hospitals.general_functions.membership import (
     backfill_trust_icb_membership,
@@ -38,13 +38,18 @@ DEFAULT_SINCE = datetime.date(2020, 4, 1)
 
 class Command(BaseCommand):
     help = (
-        "Backfill historical TrustIntegratedCareBoardMembership rows from "
-        "the ODS Rels block for every trust in the database. The ODS "
+        "Backfill and repair TrustIntegratedCareBoardMembership rows from the "
+        "ODS Rels block for every trust in the database. The ODS "
         "/organisations/{ods_code} endpoint returns the complete Rels "
         "history regardless of when a relationship ended, so this recovers "
         "ICB memberships that were overwritten before the temporal layer "
         "was installed. Only RO261 (ICB) targets are recovered — CCG "
-        "(RO210) and STP (RO132) targets are ignored. See "
+        "(RO210) and STP (RO132) targets are ignored.\n\n"
+        "ODS carries several concurrent ICB rels per trust (a legacy RE5 rel "
+        "it never closes, plus maintained RE8 rels). This command collapses "
+        "them into a single-ICB timeline with exactly one current (open) row, "
+        "and repairs any trust left with duplicate or overlapping open rows by "
+        "an earlier run. Re-running is safe and idempotent. See "
         "documentation/docs/developer/icb-history.md."
     )
 
@@ -136,6 +141,7 @@ class Command(BaseCommand):
 
         found_count = 0
         created_count = 0
+        removed_count = 0
         skipped_count = 0
         trusts_with_rels = 0
 
@@ -157,105 +163,138 @@ class Command(BaseCommand):
 
             trusts_with_rels += 1
 
-            for m in memberships:
-                icb_ods_code = m["icb_ods_code"]
-                valid_from_str = m["valid_from"]
-                valid_to_str = m["valid_to"]
+            # Collapse ODS's overlapping RE5/RE8 rels into a clean single-ICB
+            # timeline (at most one open row). This is what repairs trusts that
+            # an earlier verbatim run left with duplicate/overlapping open rows.
+            timeline = build_trust_icb_timeline(memberships)
 
-                valid_from = _parse_ods_date(valid_from_str)
-                valid_to = _parse_ods_date(valid_to_str)
+            # Apply the --since window: drop segments that ended before it.
+            if since_date is not None:
+                timeline = [
+                    s
+                    for s in timeline
+                    if s["valid_to"] is None or s["valid_to"] >= since_date
+                ]
 
-                if valid_from is None:
-                    continue
-
-                # Apply the --since window.
-                if since_date is not None and valid_to is not None:
-                    if valid_to < since_date:
-                        continue
-
-                # Look up the target ICB in our database. If it is not
-                # present, the operator should run backfill_successions
-                # --entity icb first (which creates missing ICB rows).
+            # Resolve the target ICBs. A missing ICB (typically a brand-new
+            # 2026 reorganisation code) means backfill_successions --entity icb
+            # has not been run yet; skip that segment and warn.
+            resolved = []
+            for segment in timeline:
+                icb_ods_code = segment["icb_ods_code"]
                 icb = IntegratedCareBoard.objects.filter(
                     ods_code=icb_ods_code
                 ).first()
                 if icb is None:
                     self.stdout.write(
                         O + f"  {ods_code}: RE5/RE8 → {icb_ods_code} "
-                        f"({valid_from_str} → {valid_to_str or 'now'}) — "
+                        f"({segment['valid_from']} → "
+                        f"{segment['valid_to'] or 'now'}) — "
                         "ICB not in database, skipping. Run "
                         "backfill_successions --entity icb first." + W
                     )
                     skipped_count += 1
                     continue
-
-                # Idempotency: skip if a membership row already exists.
-                existing = TrustIntegratedCareBoardMembership.objects.filter(
-                    trust=trust,
-                    integrated_care_board=icb,
-                    valid_from=valid_from,
-                    valid_to=valid_to,
-                ).exists()
-                if existing:
-                    continue
-
-                found_count += 1
-
-                self.stdout.write("")
-                self.stdout.write(B + f"  {ods_code} ({trust.name})" + W)
-                self.stdout.write(
-                    f"  was managed by {icb_ods_code} ({icb.name})"
-                )
-                self.stdout.write(
-                    f"  Operational interval: {valid_from_str} → "
-                    f"{valid_to_str or 'now'}"
+                resolved.append(
+                    (icb, segment["valid_from"], segment["valid_to"])
                 )
 
-                if dry_run:
-                    self.stdout.write(
-                        O + "  [dry-run] would backfill membership row" + W
+            # Reconcile the existing rows against the resolved timeline:
+            # create the segments we are missing, and delete stale/overlapping
+            # rows no longer in the timeline. The membership table is entirely
+            # ODS-derived (never hand-curated), so pruning machine-generated
+            # rows here is the sanctioned repair path.
+            existing = list(
+                TrustIntegratedCareBoardMembership.objects.filter(trust=trust)
+            )
+            target_keys = {
+                (icb.id, valid_from, valid_to)
+                for icb, valid_from, valid_to in resolved
+            }
+            existing_keys = {
+                (r.integrated_care_board_id, r.valid_from, r.valid_to)
+                for r in existing
+            }
+            to_create = [
+                (icb, valid_from, valid_to)
+                for icb, valid_from, valid_to in resolved
+                if (icb.id, valid_from, valid_to) not in existing_keys
+            ]
+            to_delete = [
+                r
+                for r in existing
+                if (r.integrated_care_board_id, r.valid_from, r.valid_to)
+                not in target_keys
+            ]
+
+            if not to_create and not to_delete:
+                continue
+
+            found_count += 1
+            self.stdout.write("")
+            self.stdout.write(B + f"  {ods_code} ({trust.name})" + W)
+            for icb, valid_from, valid_to in to_create:
+                self.stdout.write(
+                    f"  + {icb.ods_code} ({icb.name}): "
+                    f"{valid_from} → {valid_to or 'now'}"
+                )
+            for r in to_delete:
+                self.stdout.write(
+                    O + f"  - {r.integrated_care_board.ods_code}: "
+                    f"{r.valid_from} → {r.valid_to or 'now'} "
+                    "(stale/overlapping)" + W
+                )
+
+            if dry_run:
+                self.stdout.write(
+                    O + "  [dry-run] would apply the changes above" + W
+                )
+                continue
+
+            if auto_yes:
+                answer = "y"
+            else:
+                try:
+                    answer = input(
+                        f"  Apply {len(to_create)} add(s) and "
+                        f"{len(to_delete)} removal(s) for {ods_code}? "
+                        "[y/n/s=skip] "
                     )
+                except EOFError:
+                    self.stdout.write(O + "  No input — skipping." + W)
+                    skipped_count += 1
                     continue
 
-                if auto_yes:
-                    answer = "y"
-                else:
-                    try:
-                        answer = input(
-                            f"  Backfill membership {ods_code} → {icb_ods_code} "
-                            f"({valid_from_str} → {valid_to_str or 'now'})? "
-                            "[y/n/s=skip] "
-                        )
-                    except EOFError:
-                        self.stdout.write(O + "  No input — skipping." + W)
-                        skipped_count += 1
-                        continue
+            answer = answer.strip().lower()
+            if answer != "y":
+                self.stdout.write(O + "  Skipped." + W)
+                skipped_count += 1
+                continue
 
-                answer = answer.strip().lower()
-                if answer == "y":
-                    with transaction.atomic():
-                        backfill_trust_icb_membership(
-                            trust,
-                            integrated_care_board=icb,
-                            valid_from=valid_from,
-                            valid_to=valid_to,
-                        )
+            with transaction.atomic():
+                for r in to_delete:
+                    r.delete()
+                    removed_count += 1
+                for icb, valid_from, valid_to in to_create:
+                    backfill_trust_icb_membership(
+                        trust,
+                        integrated_care_board=icb,
+                        valid_from=valid_from,
+                        valid_to=valid_to,
+                    )
                     created_count += 1
-                    self.stdout.write(G + "  Backfilled." + W)
-                elif answer == "n":
-                    self.stdout.write(O + "  Not backfilled." + W)
-                    skipped_count += 1
-                else:
-                    self.stdout.write(O + "  Skipped." + W)
-                    skipped_count += 1
+            self.stdout.write(G + "  Applied." + W)
 
         self.stdout.write("")
         self.stdout.write(B + "Summary:" + W)
         self.stdout.write(f"  Trusts processed: {total}")
         self.stdout.write(f"  Trusts with ICB rels: {trusts_with_rels}")
-        self.stdout.write(f"  Found (missing): {found_count}")
+        self.stdout.write(f"  Trusts changed: {found_count}")
         if not dry_run:
-            self.stdout.write(G + f"  Backfilled: {created_count}" + W)
-            self.stdout.write(O + f"  Skipped/refused: {skipped_count}" + W)
+            self.stdout.write(G + f"  Rows created: {created_count}" + W)
+            self.stdout.write(
+                O + f"  Rows removed (stale/overlapping): {removed_count}" + W
+            )
+            self.stdout.write(O + f"  Trusts skipped/refused: {skipped_count}" + W)
         self.stdout.write("done.")
         rcpch_ascii_art()

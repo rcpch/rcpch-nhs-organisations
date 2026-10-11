@@ -26,7 +26,7 @@ is served by MkDocs. The most important docs:
 | `temporal-history.md` | The temporal layer schema (Layer 1 version tables, Layer 2 membership tables, Layer 3 succession tables), write/read paths, admin interface, and the GitHub Action. |
 | `merger-handling.md` | Trust and PDU merger types (acquisition, full merger, split, closure), the forward-looking admin workflow, and the `mergers` command. |
 | `backfill.md` | ODS-driven trust backfill (`backfill_successions`, `backfill_trust_memberships`), the `backfill_*` helpers, and `KNOWN_ACQUISITIONS`. |
-| `ods-change-detection.md` | The monthly ODS change-detection job (Azure Container Apps Job + GitHub workflow), `ods_change_report`, and the one-off job setup. |
+| `ods-change-detection.md` | The monthly ODS change-detection job (Azure Container Apps Job + GitHub workflow), `reconcile_ods --upload-blob`, and the one-off job setup. |
 | `pdu-history.md` | PDU history backfill from `Master_PDU_Lookup.xlsx` (`backfill_pdu_successions`). |
 | `icb-history.md` | ICB succession backfill from the ODS API (`backfill_successions --entity icb`). |
 | `ods-api.md` | The NHS ODS REST API reference — endpoints, `Rels`/`Succs` block semantics, the 185-day limit. |
@@ -83,6 +83,20 @@ metadata linking predecessor → successor):
 `TrustSuccession`, `OrganisationSuccession`,
 `PaediatricDiabetesUnitSuccession`, `IntegratedCareBoardSuccession`.
 
+### ODS reconciliation models
+
+Two operational models support the `reconcile_ods` engine (not geography —
+they record the detection/apply workflow):
+
+- `OdsSyncRun` — one row per `reconcile_ods` run (mode, levels, window,
+  `synced_through`, dry-run flag, counts, status, report). Drives the
+  self-adjusting incremental window via `last_successful(mode=...)`.
+- `PendingOdsChange` — the review queue. One upserted row per detected
+  structural delta (`level`, `ods_code`, `change_class`, `effective_date`,
+  `payload`, `status`, audit stamps), unique on
+  `(level, ods_code, change_class, effective_date)` for idempotency. Applied
+  or dismissed from the admin.
+
 ### Helper functions
 
 All temporal writes go through helpers in
@@ -115,12 +129,20 @@ port 8003.
 | `/nhs_england_regions/` | NHS England region list/detail |
 | `/paediatric_diabetes_units/` | PDU list/detail |
 | `/paediatric_diabetes_units/sibling-organisations/{ods_code}/` | PDU for a given organisation with parent |
-| `/organisations/{ods_code}/snapshot/?date=YYYY-MM-DD` | Temporal snapshot of an organisation at a given date |
+| `/organisations/{ods_code}/snapshot/?date=YYYY-MM-DD` | **Give me everything about this organisation as it was on date X.** Temporal snapshot of an organisation at a given date — its name/address/active state (Layer 1) plus every parent relationship (trust, LHB, ICB, NHS England region, OPENUK, PDU) as they were on that date (Layer 2). For a date before the queried ODS code was the live audit code, walks the `OrganisationSuccession` chain backwards to the predecessor that was in force then (Layer 3). Returns 404 if no entity (predecessor or queried) covered the date. If omitted, `date` defaults to today (current state). |
 | `/schema/` | OpenAPI schema |
 | `/swagger-ui/` | Swagger UI |
 
-The snapshot endpoint is the read path for audit reports — it assembles
-the entity version plus every relationship as of the given date.
+The snapshot endpoint is the read path for audit reports — it answers
+"what was this ODS code's full geography on date X?" by assembling the
+entity version plus every relationship as of that date. When the queried
+code was not the live code on that date (because of a merger, split, or
+parallel-code succession), it walks the `OrganisationSuccession` chain
+backwards to the predecessor that was in force then, and returns that
+predecessor's state with `predecessor_ods_code` populated. This is what
+lets audits compare current performance against past performance using
+the current ODS code as the query key, even across mergers and
+code changes.
 
 ## Management commands
 
@@ -128,15 +150,14 @@ All commands are in `rcpch_nhs_organisations/hospitals/management/commands/`.
 
 | Command | Purpose |
 |---|---|
+| `reconcile_ods [--levels ...] [--mode incremental\|backfill] [--since YYYY-MM-DD] [--dry-run] [--apply] [--queue] [--report-file PATH] [--check-overlaps] [--rate N]` | **Unified ODS reconciliation engine** (see `ods-sync.md`). Treats ODS as source of truth across organisation/trust/LHB/ICB levels, detecting attribute, relationship, succession, roster, and status changes. Plain `--dry-run` writes nothing; `--dry-run --queue` fills the `PendingOdsChange` review queue; `--apply` auto-applies attribute-only changes and queues structural ones. |
 | `seed --level all` | Seed the database from constants (trusts, organisations, PDUs, networks, abstraction levels). |
-| `cron --service organisations [--dry-run] [--time-frame N]` | ODS sync — fetches changes from the ODS `/sync` endpoint and applies them through the temporal helpers. |
 | `mergers --organisations <codes> --create/--delete [--dry-run]` | Create or delete organisations from the ODS Spine. |
 | `backfill_successions --entity trust/organisation/icb [--dry-run] [--yes]` | Backfill succession rows from the ODS `Succs` block. |
 | `backfill_trust_memberships [--dry-run] [--yes]` | Backfill `OrganisationTrustMembership` rows from the ODS `Rels` block. |
 | `backfill_icb_memberships [--dry-run] [--yes]` | Backfill `TrustIntegratedCareBoardMembership` rows from the ODS `Rels` block (RE5/RE8 → RO261). |
 | `backfill_pdu_lead_organisations [--dry-run] [--yes]` | Set `lead_organisation` FK and `name_source` on PDUs. |
 | `backfill_pdu_successions [--dry-run] [--yes]` | Backfill PDU history from `Master_PDU_Lookup.xlsx` (via generated constants). |
-| `ods_change_report` | Run all three ODS change-detection dry-run checks, print a combined report between sentinel markers, and upload it to blob storage (used by the Container Apps job). |
 
 ## Scripts
 
@@ -185,14 +206,13 @@ All tests live in `rcpch_nhs_organisations/hospitals/tests/`. There are
 | `test_mergers_command.py` | The `mergers` management command. |
 | `test_admin.py` | Admin interface (reassign actions, history inlines, succession pages). |
 | `test_snapshot_api.py` | The `GET /organisations/{ods_code}/snapshot` endpoint. |
-| `test_cron_report_file.py` | The `--report-file` flag used by the GitHub Action. |
 | `test_merger_workflows.py` | End-to-end integration tests for full merger workflows. |
 | `test_backfill_successions.py` | `backfill_successions --entity trust/organisation`. |
 | `test_backfill_trust_memberships.py` | `backfill_trust_memberships`. |
 | `test_backfill_icb_successions.py` | `backfill_successions --entity icb`. |
 | `test_backfill_icb_memberships.py` | `backfill_icb_memberships`. |
 | `test_backfill_pdu_successions.py` | `backfill_pdu_successions`. |
-| `test_ods_change_report.py` | `ods_change_report` (combined change-detection report) and the `--report-file` flag on `backfill_successions`. |
+| `test_reconcile_ods.py` | The unified `reconcile_ods` engine, command, apply path, overlap detector, rate limiter, idempotency/interval parity, and categorised report. |
 | `test_viewsets.py` | API viewset smoke tests. |
 
 ### ODS API mocking
@@ -241,7 +261,7 @@ truth for seeding and backfill:
 
 | Workflow | Schedule | What it does |
 |---|---|---|
-| `ods-change-detection.yml` | Monthly (1st of month) | Starts the Azure Container Apps ODS check job (which runs the three dry-run checks against the production DB) and opens a GitHub issue if changes are detected. |
+| `ods-change-detection.yml` | Monthly (1st of month) | Enforces and starts the Azure Container Apps ODS check job — which runs `reconcile_ods --mode incremental --dry-run --queue --upload-blob` against the production DB, filling the `PendingOdsChange` review queue — and opens a GitHub issue if changes are detected. |
 | `main_rcpch-nhs-organisations.yml` | On push/PR | CI — builds and tests. |
 | `pr.yml` | On PR | PR checks. |
 
