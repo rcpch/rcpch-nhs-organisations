@@ -8354,7 +8354,7 @@ RCPCH_ORGANISATIONS = [
     },
     {
         "OrganisationID": "",
-        "OrganisationCode": "RM325",
+        "OrganisationCode": "R0A07",
         "OrganisationType": "",
         "SubType": "",
         "Sector": "",
