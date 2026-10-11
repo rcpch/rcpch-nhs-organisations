@@ -123,7 +123,7 @@ PZ_CODES = [
         "npda_code": "PZ136",
         "active": 1,
     },  # MANCHESTER UNIVERSITY NHS FOUNDATION TRUST is R0A.
-    #  It's child organisations include MANCHESTER LOCAL CARE ORGANISATION (COX3P), NORTH MANCHESTER GENERAL HOSPITAL (R0A66),
+    #  It's child organisations include NORTH MANCHESTER GENERAL HOSPITAL (R0A66),
     #  ROYAL MANCHESTER CHILDREN'S HOSPITAL (R0A03), TRAFFORD LOCAL CARE ORGANISATION (Q3K9W), WYTHENSHAWE HOSPITAL (RM325)
     # Note that Wythenshawe Hospital has a PZ code of PZ015, which is different to the parent organisation
     {
