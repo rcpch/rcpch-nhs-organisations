@@ -315,6 +315,9 @@ def _apply_superseded_code(change):
             )
         if pred.active:
             m.update_organisation_attributes(pred, effective_date=ev_date, active=False)
+        # Inherit the predecessor's non-trust memberships and baseline version
+        # row to the successor, and close the predecessor's memberships.
+        m.inherit_organisation_state(pred, successor, effective_date=ev_date)
     verb = "created" if created else "linked existing"
     return (
         f"Followed {change.ods_code} → {successor_code} ({verb} successor), "
@@ -434,6 +437,9 @@ def _apply_parallel_code(change):
         pred.diverged_from_ods = True
         pred.ods_replacement_code = replacement
         pred.save(update_fields=["diverged_from_ods", "ods_replacement_code", "updated_at"])
+        # Inherit the predecessor's non-trust memberships and baseline version
+        # row to the successor, and close the predecessor's memberships.
+        m.inherit_organisation_state(pred, successor, effective_date=ev_date)
 
     verb = "created" if created else "linked existing"
     return (
