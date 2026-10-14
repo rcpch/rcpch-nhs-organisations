@@ -164,7 +164,7 @@ PZ_CODES = [
         "active": 1,
     },  # broomfield formerly RQ8L0 to 31/3/2020
     {"ods_code": "RWG02", "npda_code": "PZ172", "active": 1},
-    {"ods_code": "RA430", "npda_code": "PZ173", "active": 1},
+    {"ods_code": "RH5O4", "npda_code": "PZ173", "active": 1},
     {"ods_code": "RNQ51", "npda_code": "PZ174", "active": 1},
     {"ods_code": "RTK01", "npda_code": "PZ176", "active": 1},
     {"ods_code": "RMC01", "npda_code": "PZ177", "active": 1},
@@ -1110,7 +1110,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN06",
     },
     {
-        "ods_code": "RA430",
+        "ods_code": "RH5O4",
         "npda_code": "PZ173",
         "network_name": "South West",
         "network_code": "PN02",
