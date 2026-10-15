@@ -19,6 +19,7 @@ import logging
 
 from django.apps import apps
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 logger = logging.getLogger("hospitals")
@@ -1031,6 +1032,131 @@ def backfill_organisation_trust_membership(
         "created" if created else "updated",
     )
     return obj
+
+
+# ---------------------------------------------------------------------------
+# Succession: transfer state from predecessor to successor
+# ---------------------------------------------------------------------------
+
+# Non-trust organisation memberships to inherit on a code-change succession.
+# Each entry is (membership_model_name, child_field, parent_field, fk_attr).
+# Trust is handled separately (reassign_organisation_trust opens the
+# successor's trust row; this helper closes the predecessor's).
+_INHERITABLE_MEMBERSHIPS = [
+    ("OrganisationLocalHealthBoardMembership", "organisation", "local_health_board", "local_health_board"),
+    ("OrganisationIntegratedCareBoardMembership", "organisation", "integrated_care_board", "integrated_care_board"),
+    ("OrganisationNHSEnglandRegionMembership", "organisation", "nhs_england_region", "nhs_england_region"),
+    ("OrganisationOPENUKNetworkMembership", "organisation", "openuk_network", "openuk_network"),
+    ("OrganisationPaediatricDiabetesUnitMembership", "organisation", "paediatric_diabetes_unit", "paediatric_diabetes_unit"),
+    ("OrganisationLondonBoroughMembership", "organisation", "london_borough", "london_borough"),
+    ("OrganisationLocalAuthorityDistrictMembership", "organisation", "local_authority_district", "local_authority_district"),
+    ("OrganisationLowerLayerSuperOutputAreaMembership", "organisation", "lower_layer_super_output_area", "lower_layer_super_output_area"),
+]
+
+
+def inherit_organisation_state(predecessor, successor, effective_date=None):
+    """Complete the successor's temporal state after a code-change succession.
+
+    Called after the successor ``Organisation`` row has been created (or
+    linked) and its trust membership opened via ``reassign_organisation_trust``.
+    The physical site does not move, so the successor inherits the
+    predecessor's non-trust relationships (ICB, NHS England region, OPEN UK
+    network, PDU, London borough, LAD, LSOA) rather than taking them from the
+    new parent trust. See ``merger-handling.md`` § "Cross-boundary mergers" for
+    why organisation-level ICB can differ from the trust's host ICB.
+
+    This helper:
+
+    1. Creates a baseline ``OrganisationVersion`` for the successor (idempotent
+       via ``_backfill_version_row``).
+    2. For each non-trust membership, reads the predecessor's row in force on
+       ``effective_date``, opens an identical row for the successor, and closes
+       the predecessor's open row.
+    3. Closes the predecessor's ``OrganisationTrustMembership`` (the
+       successor's is already open via ``reassign_organisation_trust``).
+    4. Sets the denormalised FKs on the successor (PDU, ICB, region, OPEN UK,
+       geographic memberships, country).
+    5. If the predecessor was the ``lead_organisation`` of the inherited PDU,
+       repoints the PDU's ``lead_organisation`` to the successor.
+
+    All writes are idempotent: re-running over already-transferred state adds
+    no duplicate rows.
+    """
+    effective_date = _effective_date(effective_date)
+
+    with transaction.atomic():
+        # 1. Baseline OrganisationVersion for the successor.
+        OrganisationVersion = apps.get_model("hospitals", "OrganisationVersion")
+        snapshot = _snapshot_entity_fields(OrganisationVersion, successor)
+        _backfill_version_row(
+            OrganisationVersion,
+            parent_field="organisation",
+            parent=successor,
+            valid_from=effective_date,
+            valid_to=None,
+            snapshot=snapshot,
+        )
+
+        # 2. Inherit non-trust memberships from the predecessor.
+        fk_updates = {}
+        for model_name, child_field, parent_field, fk_attr in _INHERITABLE_MEMBERSHIPS:
+            MembershipModel = apps.get_model("hospitals", model_name)
+            # Read the predecessor's membership in force on effective_date.
+            pred_row = (
+                MembershipModel.objects.filter(
+                    **{child_field: predecessor, "valid_from__lte": effective_date},
+                )
+                .filter(Q(valid_to__gt=effective_date) | Q(valid_to__isnull=True))
+                .first()
+            )
+            if pred_row is not None:
+                parent = getattr(pred_row, parent_field)
+                if parent is not None:
+                    # Open the successor's baseline membership (idempotent).
+                    MembershipModel.objects.get_or_create(
+                        **{
+                            child_field: successor,
+                            parent_field: parent,
+                            "valid_from": effective_date,
+                            "valid_to": None,
+                        },
+                    )
+                    fk_updates[fk_attr] = parent
+            # Close the predecessor's open membership(s) at effective_date.
+            MembershipModel.objects.filter(
+                **{child_field: predecessor, "valid_to__isnull": True}
+            ).update(valid_to=effective_date)
+
+        # 3. Close the predecessor's trust membership.
+        OrganisationTrustMembership = apps.get_model(
+            "hospitals", "OrganisationTrustMembership"
+        )
+        OrganisationTrustMembership.objects.filter(
+            organisation=predecessor, valid_to__isnull=True
+        ).update(valid_to=effective_date)
+
+        # 4. Set denormalised FKs on the successor.
+        # Country is a non-temporal FK — copy it from the predecessor.
+        if predecessor.country_id and not successor.country_id:
+            fk_updates["country"] = predecessor.country
+        for fk_attr, parent in fk_updates.items():
+            setattr(successor, fk_attr, parent)
+        if fk_updates:
+            successor.save(update_fields=list(fk_updates.keys()))
+
+        # 5. Repoint the PDU's lead_organisation if the predecessor was the lead.
+        pdu = fk_updates.get("paediatric_diabetes_unit")
+        if pdu is not None and pdu.lead_organisation_id == predecessor.pk:
+            pdu.lead_organisation = successor
+            pdu.save(update_fields=["lead_organisation"])
+
+    logger.info(
+        "Inherited organisation state %s → %s (effective %s): %s",
+        predecessor.ods_code,
+        successor.ods_code,
+        effective_date,
+        ", ".join(fk_updates.keys()) if fk_updates else "no non-trust memberships",
+    )
 
 
 def backfill_trust_icb_membership(trust, integrated_care_board, valid_from, valid_to):

@@ -3814,6 +3814,18 @@ PDU_HISTORY = [
         "states": [
             {
                 "first_audit_year": '2003-04',
+                "last_audit_year": '2022-23',
+                "active": False,
+                "ods_site": 'RA430',
+                "ods_trust": 'RA4',
+                "icb_lhb": 'England - NHS Somerset Integrated Care Board',
+                "regional_network": 'South West',
+                "nhs_england_region": 'South West',
+                "country": 'England',
+                "reason_for_change": 'Trust acquisition: Yeovil District Hospital NHS Foundation Trust (RA4) acquired by Somerset NHS Foundation Trust (RH5) on 2023-04-01; site re-coded RA430 -> RH5O4',
+            },
+            {
+                "first_audit_year": '2023-24',
                 "last_audit_year": None,
                 "active": True,
                 "ods_site": 'RH5O4',
@@ -3822,7 +3834,7 @@ PDU_HISTORY = [
                 "regional_network": 'South West',
                 "nhs_england_region": 'South West',
                 "country": 'England',
-                "reason_for_change": None,
+                "reason_for_change": 'Trust acquisition: Yeovil District Hospital NHS Foundation Trust (RA4) acquired by Somerset NHS Foundation Trust (RH5) on 2023-04-01; site re-coded RA430 -> RH5O4',
             },
         ],
         "replaced_by": None,
