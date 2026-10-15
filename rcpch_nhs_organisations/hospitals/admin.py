@@ -16,6 +16,7 @@ from .models import (
     NHSEnglandRegion,
     NHSEnglandRegionVersion,
     OdsSyncRun,
+    OPENUKNetwork,
     Organisation,
     OrganisationIntegratedCareBoardMembership,
     OrganisationLocalHealthBoardMembership,
@@ -43,6 +44,9 @@ from .models import (
 )
 from .general_functions.membership import (
     reassign_organisation_trust,
+    reassign_organisation_integrated_care_board,
+    reassign_organisation_nhs_england_region,
+    reassign_organisation_openuk_network,
     reassign_organisation_paediatric_diabetes_unit,
     reassign_paediatric_diabetes_unit_network,
     rename_paediatric_diabetes_unit,
@@ -1809,6 +1813,72 @@ class ReassignTrustForm(forms.Form):
     )
 
 
+# Maps a relationship key to (model, helper, field label, verbose name) for the
+# generic organisation-reassignment view. Trust is included so the existing
+# reassign_trust action can share the generic view; the others cover the
+# non-trust relationships the snapshot endpoint reads from the membership
+# tables (which the old trust-only action could not reach).
+_REASSIGN_RELATIONSHIPS = {
+    "trust": (Trust, reassign_organisation_trust, "New trust", "trust"),
+    "icb": (
+        IntegratedCareBoard,
+        reassign_organisation_integrated_care_board,
+        "New Integrated Care Board",
+        "Integrated Care Board",
+    ),
+    "nhs_england_region": (
+        NHSEnglandRegion,
+        reassign_organisation_nhs_england_region,
+        "New NHS England region",
+        "NHS England region",
+    ),
+    "openuk_network": (
+        OPENUKNetwork,
+        reassign_organisation_openuk_network,
+        "New OPEN UK network",
+        "OPEN UK network",
+    ),
+    "paediatric_diabetes_unit": (
+        PaediatricDiabetesUnit,
+        reassign_organisation_paediatric_diabetes_unit,
+        "New Paediatric Diabetes Unit",
+        "Paediatric Diabetes Unit",
+    ),
+}
+
+
+class ReassignRelationshipForm(forms.Form):
+    """Generic reassignment form for an organisation parent relationship.
+
+    The ``new_parent`` ModelChoiceField queryset and label are set in
+    ``__init__`` from the relationship key, so one form serves trust, ICB,
+    NHS England region, OPEN UK network, and PDU reassignments.
+    """
+
+    new_parent = forms.ModelChoiceField(
+        queryset=None,
+        label="New parent",
+        help_text="The parent the selected organisations will be reassigned to.",
+    )
+    effective_date = forms.DateField(
+        initial=timezone.now,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Effective date",
+        help_text="The date the reassignment takes effect.",
+    )
+    ids = forms.CharField(widget=forms.HiddenInput, required=False)
+    relationship = forms.CharField(widget=forms.HiddenInput, required=False)
+
+    def __init__(self, *args, relationship=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        config = _REASSIGN_RELATIONSHIPS.get(relationship)
+        if config is None:
+            return
+        model, _helper, label, _verbose = config
+        self.fields["new_parent"].queryset = model.objects.all()
+        self.fields["new_parent"].label = label
+
+
 class OrganisationAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin, DeactivateAdminMixin, BackfillAttributesAdminMixin, BackfillTrustMembershipAdminMixin, admin.ModelAdmin):
     version_model = OrganisationVersion
     from .general_functions.membership import update_organisation_attributes
@@ -1821,7 +1891,13 @@ class OrganisationAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin
     list_filter = ("active",)
     ordering = ("-active", "-name")
     list_per_page = 20
-    actions = ["reassign_trust"]
+    actions = [
+        "reassign_trust",
+        "reassign_integrated_care_board",
+        "reassign_nhs_england_region",
+        "reassign_openuk_network",
+        "reassign_paediatric_diabetes_unit",
+    ]
     inlines = [
         OrganisationVersionInline,
         OrganisationTrustMembershipInline,
@@ -1838,6 +1914,11 @@ class OrganisationAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin
                 "reassign-trust/",
                 self.admin_site.admin_view(self.reassign_trust_view),
                 name="hospitals_organisation_reassign_trust",
+            ),
+            path(
+                "reassign-relationship/",
+                self.admin_site.admin_view(self.reassign_relationship_view),
+                name="hospitals_organisation_reassign_relationship",
             ),
         ]
         return custom_urls + urls
@@ -1881,6 +1962,94 @@ class OrganisationAdmin(HideEmptySuccessionInlinesMixin, AttributeEditAdminMixin
             request,
             "admin/hospitals/organisation/reassign_trust.html",
             {"form": form, "ids": ids, "opts": self.model._meta},
+        )
+
+    # ------------------------------------------------------------------
+    # Generic reassignment for ICB / NHS England region / OPEN UK / PDU.
+    # Each changelist action redirects to reassign-relationship/?ids=…&relationship=…
+    # which the generic view dispatches to the right helper. Trust is also
+    # routed through here (the relationship key is "trust"), so the new
+    # actions share one form, one view, and one template.
+    # ------------------------------------------------------------------
+
+    def _reassign_redirect(self, request, queryset, relationship):
+        selected = queryset.values_list("pk", flat=True)
+        from django.http import HttpResponseRedirect
+        from urllib.parse import urlencode
+
+        url = reverse("admin:hospitals_organisation_reassign_relationship")
+        return HttpResponseRedirect(
+            f"{url}?{urlencode({'ids': ','.join(str(pk) for pk in selected), 'relationship': relationship})}"
+        )
+
+    def reassign_integrated_care_board(self, request, queryset):
+        """Reassign the selected organisations to a new Integrated Care Board."""
+        return self._reassign_redirect(request, queryset, "icb")
+
+    reassign_integrated_care_board.short_description = "Reassign to a new Integrated Care Board"
+
+    def reassign_nhs_england_region(self, request, queryset):
+        """Reassign the selected organisations to a new NHS England region."""
+        return self._reassign_redirect(request, queryset, "nhs_england_region")
+
+    reassign_nhs_england_region.short_description = "Reassign to a new NHS England region"
+
+    def reassign_openuk_network(self, request, queryset):
+        """Reassign the selected organisations to a new OPEN UK network."""
+        return self._reassign_redirect(request, queryset, "openuk_network")
+
+    reassign_openuk_network.short_description = "Reassign to a new OPEN UK network"
+
+    def reassign_paediatric_diabetes_unit(self, request, queryset):
+        """Reassign the selected organisations to a new Paediatric Diabetes Unit."""
+        return self._reassign_redirect(request, queryset, "paediatric_diabetes_unit")
+
+    reassign_paediatric_diabetes_unit.short_description = "Reassign to a new Paediatric Diabetes Unit"
+
+    def reassign_relationship_view(self, request):
+        from django.shortcuts import get_object_or_404
+
+        relationship = request.GET.get("relationship") or request.POST.get("relationship")
+        config = _REASSIGN_RELATIONSHIPS.get(relationship)
+        if config is None:
+            # Unknown relationship key — fall back to the changelist.
+            return redirect("admin:hospitals_organisation_changelist")
+        model, helper, _label, verbose_name = config
+
+        if request.method == "POST":
+            form = ReassignRelationshipForm(request.POST, relationship=relationship)
+            if form.is_valid():
+                new_parent = form.cleaned_data["new_parent"]
+                effective_date = form.cleaned_data["effective_date"]
+                ids = request.POST.get("ids", "").split(",")
+                organisations = Organisation.objects.filter(pk__in=ids)
+                count = 0
+                for org in organisations:
+                    helper(org, new_parent, effective_date=effective_date)
+                    count += 1
+                self.message_user(
+                    request,
+                    f"Reassigned {count} organisation(s) to {new_parent} "
+                    f"(effective {effective_date}).",
+                )
+                return redirect("admin:hospitals_organisation_changelist")
+        else:
+            ids = request.GET.get("ids", "")
+            form = ReassignRelationshipForm(
+                initial={"ids": ids, "relationship": relationship},
+                relationship=relationship,
+            )
+
+        return render(
+            request,
+            "admin/hospitals/organisation/reassign_relationship.html",
+            {
+                "form": form,
+                "ids": ids,
+                "relationship": relationship,
+                "verbose_name": verbose_name,
+                "opts": self.model._meta,
+            },
         )
 
 
