@@ -168,8 +168,19 @@ class Command(BaseCommand):
                 fk_updates["openuk_network"] = network
 
         # 6. Set country.
-        if new_trust is not None and new_trust.country_id and not succ.country_id:
-            fk_updates["country"] = new_trust.country
+        # Trust.country is a CharField (a string like "ENGLAND"), not a
+        # ForeignKey, so look up the matching Country row by name.
+        if (
+            new_trust is not None
+            and new_trust.country
+            and not succ.country_id
+        ):
+            Country = apps.get_model("hospitals", "Country")
+            country_obj = Country.objects.filter(
+                name__iexact=new_trust.country
+            ).first()
+            if country_obj is not None:
+                fk_updates["country"] = country_obj
 
         # 7. Apply denormalised FKs.
         for fk_attr, parent in fk_updates.items():
