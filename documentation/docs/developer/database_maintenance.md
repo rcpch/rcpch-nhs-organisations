@@ -326,3 +326,121 @@ and membership rows are also promoted to `max(legal_start, floor)` by
 For recording mergers (acquisitions, full mergers, splits, PDU mergers, ICB
 successions), see [merger-handling.md](merger-handling.md) and
 [icb-history.md](icb-history.md).
+
+### Completing half-applied parallel-code successions
+
+Some organisation code changes (where ODS closed a site's code and issued a
+new one under a successor trust) were half-applied before the
+`inherit_organisation_state` fix: the successor `Organisation` row was
+created and its trust reparented, but the baseline `OrganisationVersion` and
+non-trust membership rows (ICB, NHS England region, OPEN UK network, PDU)
+were never created, and the predecessor's memberships were never closed.
+This left successors like RW155, RW1YH, and RBN52 with null ICB / region /
+OPEN UK / PDU on the direct endpoint and on the snapshot, while the trusts
+endpoint listed them (it reads the denormalised `trust` FK), masking the
+gap.
+
+The curated `KNOWN_PARALLEL_ORGANISATIONS` constant (in
+`constants/known_parallel_organisations.py`) lists every such mapping. The
+`apply_parallel_successions` command sweeps that list and completes each
+half-applied succession in one pass:
+
+```bash
+# Dry-run to see what would be done
+python manage.py apply_parallel_successions --dry-run
+
+# Apply all
+python manage.py apply_parallel_successions --yes
+
+# Apply one entry
+python manage.py apply_parallel_successions --predecessor RVY02 --yes
+
+# Override the effective date (derived from the TrustSuccession otherwise)
+python manage.py apply_parallel_successions --effective-date 2023-07-01 --yes
+```
+
+For each entry the command takes one of three paths, depending on what
+is in the database:
+
+1. **Both predecessor and successor absent** — the entry is skipped. The
+   successor must be created first (e.g. via `mergers --organisations <code>
+   --create`), then re-run.
+2. **Predecessor present** (the normal case) — the command:
+   1. creates the successor `Organisation` if missing (deep-fetched from ODS);
+   2. ensures the successor has a trust membership (reassign to the successor
+      trust);
+   3. creates the `OrganisationSuccession` link if missing (predecessor →
+      successor, type `code_change`);
+   4. inherits the predecessor's non-trust state (baseline version +
+      memberships, closes the predecessor's open memberships) via
+      `inherit_organisation_state`;
+   5. flags the predecessor `diverged_from_ods` with `ods_replacement_code`.
+3. **Predecessor absent, successor present** (e.g. RBN52, where the
+   predecessor RYV02 was removed from the seed) — the command cannot call
+   `inherit_organisation_state` (no predecessor to read from), so it derives
+   the successor's geography from the **successor trust's** memberships
+   instead:
+   - ICB and NHS England region from the trust's current
+     `TrustIntegratedCareBoardMembership` / `TrustNHSEnglandRegionMembership`;
+   - OPEN UK network from the `OPEN_UK_NETWORKS_TRUSTS` constant for the
+     trust;
+   - country by looking up the `Country` row matching the trust's `country`
+     string (`Trust.country` is a `CharField`, not a `ForeignKey`);
+   - a baseline `OrganisationVersion` for the successor if missing.
+
+   This path does **not** create an `OrganisationSuccession` link (there is
+   no predecessor row to link from) and does **not** flag any predecessor as
+   diverged. If the predecessor is later added (e.g. via `mergers --create`),
+   the succession link and divergence flag would need to be created
+   separately.
+
+   This is less precise than inheriting from the predecessor (the trust's
+   host ICB may differ from the site's commissioning ICB in a cross-boundary
+   merger), but it is the best available source when the predecessor is gone.
+
+PDU is inherited from the predecessor in the normal path (via
+`inherit_organisation_state`); the trust-derived path does **not** set a PDU,
+because PDU is a site-specific relationship, not a trust-level one. If the
+successor needs a PDU and the predecessor is absent, set it manually via the
+admin (see [Merger](#merger) above) after running the command.
+
+### Auditing organisations for missing memberships
+
+The snapshot endpoint reads parent relationships from the **membership tables**
+(`OrganisationTrustMembership`, `OrganisationIntegratedCareBoardMembership`,
+`OrganisationNHSEnglandRegionMembership`, `OrganisationOPENUKNetworkMembership`),
+not the denormalised FKs on the `Organisation` row. An organisation with a
+denormalised `trust` FK but no `OrganisationTrustMembership` row appears
+under its trust in the trusts endpoint but returns null trust (and null ICB /
+region / OPEN UK) on the snapshot.
+
+The `audit_organisation_relationships` command scans every active
+`Organisation` and flags those missing current membership rows or a baseline
+`OrganisationVersion`:
+
+```bash
+# Audit all active organisations
+python manage.py audit_organisation_relationships
+
+# Also audit inactive organisations (predecessors etc.)
+python manage.py audit_organisation_relationships --include-inactive
+
+# Filter to one country
+python manage.py audit_organisation_relationships --country England
+
+# Only report organisations missing a specific relationship
+python manage.py audit_organisation_relationships --missing trust
+python manage.py audit_organisation_relationships --missing icb
+python manage.py audit_organisation_relationships --missing version
+```
+
+It checks for each active `Organisation`:
+
+- a baseline `OrganisationVersion` (valid_to IS NULL) — needed by the snapshot walk;
+- a current `OrganisationTrustMembership`;
+- a current `OrganisationIntegratedCareBoardMembership`;
+- a current `OrganisationNHSEnglandRegionMembership`;
+- a current `OrganisationOPENUKNetworkMembership`.
+
+PDU is **not** audited because not every site has a PDU. Use the snapshot
+endpoint or the PDU constants for that check.
