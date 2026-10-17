@@ -75,6 +75,108 @@ class Command(BaseCommand):
             help="Only process the entry with this predecessor ODS code.",
         )
 
+    def _derive_from_trust(self, succ, succ_trust_code, ev):
+        """Complete a successor's geography when the predecessor is absent.
+
+        When the predecessor Organisation row has been removed from the seed
+        (e.g. RYV02 was dropped when Cambridgeshire Community Services was
+        reorganised), inherit_organisation_state cannot run because there is
+        no predecessor to read from. In that case, derive the successor's ICB
+        and NHS England region from the successor trust's memberships, and the
+        OPEN UK network from the trust's network mapping.
+
+        This is less precise than inheriting from the predecessor (the trust's
+        host ICB may differ from the site's commissioning ICB in a
+        cross-boundary merger), but it is the best available source when the
+        predecessor is gone, and it populates the snapshot endpoint's
+        relationships so the successor is not a bare row with null geography.
+        """
+        OrganisationVersion = apps.get_model("hospitals", "OrganisationVersion")
+        TrustIntegratedCareBoardMembership = apps.get_model(
+            "hospitals", "TrustIntegratedCareBoardMembership"
+        )
+        TrustNHSEnglandRegionMembership = apps.get_model(
+            "hospitals", "TrustNHSEnglandRegionMembership"
+        )
+        IntegratedCareBoard = apps.get_model("hospitals", "IntegratedCareBoard")
+        NHSEnglandRegion = apps.get_model("hospitals", "NHSEnglandRegion")
+        OPENUKNetwork = apps.get_model("hospitals", "OPENUKNetwork")
+        Trust = apps.get_model("hospitals", "Trust")
+
+        # 1. Baseline OrganisationVersion if missing.
+        if not OrganisationVersion.objects.filter(
+            organisation=succ, valid_to__isnull=True
+        ).exists():
+            m.backfill_organisation_attributes(
+                succ, valid_from=ev, valid_to=None
+            )
+
+        # 2. Ensure trust membership.
+        new_trust = Trust.objects.filter(ods_code=succ_trust_code).first()
+        if new_trust is not None and succ.trust_id != new_trust.pk:
+            m.reassign_organisation_trust(succ, new_trust, effective_date=ev)
+
+        fk_updates = {}
+
+        # 3. ICB from the trust's membership.
+        icb_row = (
+            TrustIntegratedCareBoardMembership.objects.filter(
+                trust=new_trust, valid_to__isnull=True
+            ).first()
+            if new_trust
+            else None
+        )
+        if icb_row is not None:
+            icb = icb_row.integrated_care_board
+            m.reassign_organisation_integrated_care_board(
+                succ, icb, effective_date=ev
+            )
+            fk_updates["integrated_care_board"] = icb
+
+        # 4. NHS England region from the trust's membership.
+        region_row = (
+            TrustNHSEnglandRegionMembership.objects.filter(
+                trust=new_trust, valid_to__isnull=True
+            ).first()
+            if new_trust
+            else None
+        )
+        if region_row is not None:
+            region = region_row.nhs_england_region
+            m.reassign_organisation_nhs_england_region(
+                succ, region, effective_date=ev
+            )
+            fk_updates["nhs_england_region"] = region
+
+        # 5. OPEN UK network from the constant.
+        from rcpch_nhs_organisations.hospitals.constants.open_uk_networks import (
+            OPEN_UK_NETWORKS_TRUSTS,
+        )
+
+        network_row = next(
+            (r for r in OPEN_UK_NETWORKS_TRUSTS if r.get("ods trust code") == succ_trust_code),
+            None,
+        )
+        if network_row:
+            network = OPENUKNetwork.objects.filter(
+                boundary_identifier=network_row["OPEN UK Network Code"]
+            ).first()
+            if network is not None:
+                m.reassign_organisation_openuk_network(
+                    succ, network, effective_date=ev
+                )
+                fk_updates["openuk_network"] = network
+
+        # 6. Set country.
+        if new_trust is not None and new_trust.country_id and not succ.country_id:
+            fk_updates["country"] = new_trust.country
+
+        # 7. Apply denormalised FKs.
+        for fk_attr, parent in fk_updates.items():
+            setattr(succ, fk_attr, parent)
+        if fk_updates:
+            succ.save(update_fields=list(fk_updates.keys()))
+
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
         skip_confirm = options["yes"]
@@ -132,18 +234,6 @@ class Command(BaseCommand):
                 ev = ts.succession_date if ts else timezone.now().date()
 
             pred = Organisation.objects.filter(ods_code=pred_code).first()
-            if pred is None:
-                actions.append(
-                    {
-                        "pred": pred_code,
-                        "succ": succ_code,
-                        "ev": ev,
-                        "action": "skip (predecessor not in DB)",
-                        "error": True,
-                    }
-                )
-                continue
-
             succ = Organisation.objects.filter(ods_code=succ_code).first()
             has_version = (
                 OrganisationVersion.objects.filter(
@@ -153,6 +243,47 @@ class Command(BaseCommand):
                 else False
             )
 
+            if pred is None and succ is None:
+                actions.append(
+                    {
+                        "pred": pred_code,
+                        "succ": succ_code,
+                        "ev": ev,
+                        "action": "skip (predecessor and successor both missing)",
+                        "error": True,
+                    }
+                )
+                continue
+
+            if pred is None:
+                # Predecessor is not in the database (e.g. it was removed
+                # from the seed when the seed was updated, or was never
+                # seeded). We cannot inherit from it, but the successor
+                # exists and needs its non-trust memberships completed.
+                # Derive ICB / NHS England region from the successor trust's
+                # memberships (the trust's geography is the best available
+                # source when the site's own history is gone), and OPEN UK
+                # network from the trust's network mapping.
+                actions.append(
+                    {
+                        "pred": pred_code,
+                        "succ": succ_code,
+                        "ev": ev,
+                        "action": (
+                            f"derive {succ_code} memberships from successor trust "
+                            f"(predecessor {pred_code} not in DB) + flag"
+                        ),
+                        "error": False,
+                        "pred_obj": None,
+                        "succ_obj": succ,
+                        "has_version": has_version,
+                        "succ_trust": succ_trust,
+                        "derive_from_trust": True,
+                    }
+                )
+                continue
+
+            # Predecessor exists — normal inherit path.
             if succ is None:
                 action_label = f"create {succ_code} + inherit + flag"
             elif not has_version:
@@ -174,6 +305,7 @@ class Command(BaseCommand):
                     "succ_obj": succ,
                     "has_version": has_version,
                     "succ_trust": succ_trust,
+                    "derive_from_trust": False,
                 }
             )
 
@@ -235,8 +367,64 @@ class Command(BaseCommand):
             succ_code = a["succ"]
             succ_trust_code = a["succ_trust"]
             has_version = a["has_version"]
+            derive_from_trust = a.get("derive_from_trust", False)
 
             try:
+                if derive_from_trust:
+                    # Predecessor is not in the database — derive the
+                    # successor's geography from the successor trust's
+                    # memberships and the OPEN UK network constant.
+                    if succ is None:
+                        # Create the successor from ODS.
+                        record = deep_fetch(succ_code)
+                        if record is None:
+                            self.stderr.write(
+                                f"{R}ERROR: could not fetch {succ_code} from ODS — "
+                                f"create it with `mergers --organisations {succ_code} "
+                                f"--create` first, then re-run.{W}"
+                            )
+                            error_count += 1
+                            continue
+                        fields = _extract_ord_fields(record)
+                        with transaction.atomic():
+                            succ, _created = Organisation.objects.get_or_create(
+                                ods_code=succ_code,
+                                defaults={
+                                    "name": fields.get("name"),
+                                    "address1": fields.get("address1"),
+                                    "address2": fields.get("address2"),
+                                    "address3": fields.get("address3"),
+                                    "city": fields.get("city"),
+                                    "county": fields.get("county"),
+                                    "postcode": fields.get("postcode"),
+                                    "telephone": fields.get("telephone"),
+                                    "website": fields.get("website"),
+                                    "active": True,
+                                },
+                            )
+
+                    self._derive_from_trust(succ, succ_trust_code, ev)
+
+                    # Flag the predecessor as diverged if it somehow appears
+                    # later (idempotent — no-op if predecessor is absent).
+                    if pred is not None:
+                        pred.diverged_from_ods = True
+                        pred.ods_replacement_code = succ_code
+                        pred.save(
+                            update_fields=[
+                                "diverged_from_ods",
+                                "ods_replacement_code",
+                                "updated_at",
+                            ]
+                        )
+
+                    success_count += 1
+                    self.stdout.write(
+                        f"{G}  {a['pred']} → {succ_code}: completed (derived from trust){W}"
+                    )
+                    continue
+
+                # --- Normal inherit path (predecessor exists) ---
                 # Create the successor if missing (deep-fetch from ODS).
                 if succ is None:
                     record = deep_fetch(succ_code)
@@ -290,21 +478,10 @@ class Command(BaseCommand):
                         },
                     )
 
-                    if not has_version:
-                        # Full inheritance: baseline version + memberships +
-                        # close predecessor.
-                        m.inherit_organisation_state(
-                            pred, succ, effective_date=ev
-                        )
-                    else:
-                        # Successor already has a baseline version. Still
-                        # call inherit_organisation_state to add any missing
-                        # non-trust memberships (it is idempotent via
-                        # get_or_create) and close the predecessor's open
-                        # memberships.
-                        m.inherit_organisation_state(
-                            pred, succ, effective_date=ev
-                        )
+                    # Inherit the predecessor's non-trust state (idempotent).
+                    m.inherit_organisation_state(
+                        pred, succ, effective_date=ev
+                    )
 
                     # Flag the predecessor as diverged.
                     pred.diverged_from_ods = True
