@@ -99,7 +99,7 @@ PZ_CODES = [
     {"ods_code": "RR7EN", "npda_code": "PZ107", "active": 1},
     {"ods_code": "RQ301", "npda_code": "PZ108", "active": 1},
     {"ods_code": "RHM01", "npda_code": "PZ109", "active": 1},
-    {"ods_code": "RVY02", "npda_code": "PZ110", "active": 1},
+    {"ods_code": "RBN52", "npda_code": "PZ110", "active": 1},
     {"ods_code": "RLQ01", "npda_code": "PZ111", "active": 1},
     {"ods_code": "RCBCA", "npda_code": "PZ112", "active": 1},
     {"ods_code": "RCB55", "npda_code": "PZ114", "active": 1},
@@ -834,7 +834,7 @@ PZ_CODES_NETWORKS = [
         "network_code": "PN03",
     },
     {
-        "ods_code": "RVY02",
+        "ods_code": "RBN52",
         "npda_code": "PZ110",
         "network_name": "North West",
         "network_code": "PN11",

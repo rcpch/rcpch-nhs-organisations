@@ -32,15 +32,17 @@ codes" for the workflow.
 
 KNOWN_PARALLEL_ORGANISATIONS = [
     {
-        "predecessor_ods_code": "RYV02",
+        "predecessor_ods_code": "RVY02",
         "successor_ods_code": "RBN52",
-        "predecessor_trust": "RYV",
+        "predecessor_trust": "RVY",
         "successor_trust": "RBN",
         "name": "Ormskirk and District General Hospital",
         "notes": (
-            "RYV02 was closed in ODS and succeeded by RBN52 under a "
-            "successor trust. The engine's candidate-successor detection "
-            "did not surface RBN52, so the mapping is curated here."
+            "RVY02 was closed in ODS and succeeded by RBN52 under a "
+            "successor trust (Southport and Ormskirk Hospital NHS Trust "
+            "RVY acquired by Mersey and West Lancashire Teaching Hospitals "
+            "NHS Trust RBN on 2023-07-01). The engine's candidate-successor "
+            "detection did not surface RBN52, so the mapping is curated here."
         ),
     },
     {
