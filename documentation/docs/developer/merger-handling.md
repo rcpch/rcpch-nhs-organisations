@@ -105,6 +105,16 @@ When an organisation succession occurs:
 5. The new organisation's `OrganisationTrustMembership` points to the successor
    trust (RJZ), not the dissolved one (RYQ).
 
+The succession chain is exposed on the API:
+
+- `/organisations/{ods_code}/` returns `predecessors` and `successors` arrays
+  populated from `OrganisationSuccession`.
+- `/organisations/{ods_code}/snapshot/?date=…` walks the chain (backward or
+  forward) to the entity in force on the queried date, and returns
+  `predecessor_ods_code` / `successor_ods_code` describing the resolved
+  entity's immediate neighbours. See
+  [temporal-history.md § Succession walk](temporal-history.md#succession-walk).
+
 ## Cross-boundary mergers
 
 Most mergers happen within a single ICB and NHS England region, in which case

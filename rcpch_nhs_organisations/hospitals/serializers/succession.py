@@ -14,7 +14,8 @@ organisations, ICBs; `pz_code` for PDUs), so the serializer is parameterised
 by `code_field` and resolves the related entity's name at serialization
 time.
 
-See documentation/docs/developer/succession-chain-fields.md for the design.
+See documentation/docs/developer/temporal-history.md § Succession walk
+for the design.
 """
 from rest_framework import serializers
 

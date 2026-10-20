@@ -444,3 +444,34 @@ It checks for each active `Organisation`:
 
 PDU is **not** audited because not every site has a PDU. Use the snapshot
 endpoint or the PDU constants for that check.
+
+### Snapshot endpoint — succession walk and chain fields
+
+The snapshot endpoint walks the `OrganisationSuccession` chain in both
+directions to resolve the entity in force on the queried date:
+
+- **Backward** — successor queried before `succession_date` walks to the
+  predecessor (strict succession or parallel code).
+- **Forward** — predecessor queried after `succession_date` walks to the
+  successor. Only walks if there is exactly one successor — a split
+  returns 404 because walking to an arbitrary successor would return the
+  wrong site's geography.
+
+The response carries two scalar chain fields describing the **resolved**
+entity's immediate neighbours, regardless of whether a walk happened:
+
+- `predecessor_ods_code` — the resolved entity's predecessor (null if
+  none, or if multiple).
+- `successor_ods_code` — the resolved entity's successor (null if none,
+  or if multiple — use the detail endpoint's `successors` array).
+
+The consumer detects a walk by comparing `ods_code` in the response to
+the queried code. See [temporal-history.md § Succession walk](temporal-history.md#succession-walk)
+for the design.
+
+The detail endpoints (`/trusts/{ods_code}/`, `/organisations/{ods_code}/`,
+`/integrated_care_boards/{ods_code}/`, `/paediatric_diabetes_units/{pz_code}/`,
+`/local_health_boards/{ods_code}/`) also expose `predecessors` and
+`successors` arrays populated from the `*Succession` tables. LHBs have no
+succession table, so their arrays are always empty (included for API
+consistency).

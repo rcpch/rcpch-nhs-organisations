@@ -404,32 +404,53 @@ Without that pass, the snapshot returns 404 for any date in that window, or
 returns the entity with `null` relationships, even though the entity was
 unambiguously in force.
 
-### Predecessor walk for parallel codes
+### Succession walk for the snapshot read path
 
-The snapshot resolves the queried ODS code backwards through
-`OrganisationSuccession` when the queried date is before the entity's history
-or before a succession date. Two cases:
+The snapshot resolves the queried ODS code through `OrganisationSuccession`
+when the queried date does not match the entity's own history. Three
+cases, two directions:
 
-1. **Strict succession** — the successor didn't exist at the queried date
-   (its first `valid_from` is after that date). The walk finds the
-   predecessor that was open then. Example: querying `RJZ30` at 2012 walks
-to `RYQ30` (Princess Royal under South London Healthcare, before the 2013
-   split).
+1. **Backward — strict succession** — the successor didn't exist at the
+   queried date (its first `valid_from` is after that date). The walk
+   finds the predecessor that was open then. Example: querying `RJZ30`
+   at 2012 walks to `RYQ30` (Princess Royal under South London
+   Healthcare, before the 2013 split).
 
-2. **Parallel code** — the successor pre-existed at the queried date, but a
-   succession link records that the predecessor was the live audit code
-   before the succession date (`succession_date > on_date`). The walk returns
-   the predecessor because that was the code the audit would have used at
-   that date. Example: querying `RAL27` (North Middlesex, under Royal Free
-   London `RAL`) at 2020 walks to `RAPNM` (under North Middlesex University
+2. **Backward — parallel code** — the successor pre-existed at the
+   queried date, but a succession link records that the predecessor
+   was the live audit code before the succession date
+   (`succession_date > on_date`). The walk returns the predecessor
+   because that was the code the audit would have used at `on_date`.
+   Example: querying `RAL27` (North Middlesex, under Royal Free London
+   `RAL`) at 2020 walks to `RAPNM` (under North Middlesex University
    Hospital NHS Trust `RAP`), because `RAPNM` was the live code until it
-   closed on 2024-12-31 and followed to `RAL27`. Both codes coexisted from
-   2003 to 2024, but the audit uses the current code (`RAL27`) and expects
-   the historical state (`RAPNM` under `RAP`) at a past date.
+   closed on 2024-12-31 and followed to `RAL27`.
 
-The walk only triggers when `on_date < succession_date` — the predecessor was
-still the live code at that date. On or after the succession date, the
-successor is returned directly.
+3. **Forward** — the predecessor's history ended before `on_date` (no
+   version row covers `on_date`) and a succession link records that the
+   successor took over on or before `on_date` (`succession_date <=
+   on_date`). The walk returns the successor because that is the code
+   the audit would use at `on_date`. Example: querying `RVY02` (Ormskirk,
+   under Southport and Ormskirk `RVY`) at today walks to `RBN52` (under
+   Mersey and West Lancashire `RBN`), because `RVY02` closed on
+   2023-07-01 and was succeeded by `RBN52`. Only walks if there is
+   exactly one successor — a split (multiple successors) returns 404
+   because walking to an arbitrary successor would return the wrong
+   site's geography.
+
+The backward walk only triggers when `on_date < succession_date` — the
+predecessor was still the live code at that date. The forward walk only
+triggers when `on_date >= succession_date` and the predecessor has no
+version row covering `on_date`. On or after the succession date with the
+successor's history covering the date, the successor is returned
+directly.
+
+The snapshot response carries `predecessor_ods_code` and
+`successor_ods_code` describing the **resolved** entity's immediate
+neighbours, regardless of whether a walk happened. The consumer detects
+a walk by comparing `ods_code` in the response to the queried code. See
+[temporal-history.md § Succession walk](temporal-history.md#succession-walk)
+for the design.
 
 ## Related docs
 

@@ -227,6 +227,23 @@ fields are left as `None` (they are now nullable). A baseline
 `TrustSuccessionAdmin` — list display, filter, search, date hierarchy,
 and the shared succession change templates.
 
+### API exposure
+
+The ICB succession chain is exposed on the ICB detail endpoint:
+
+```
+GET /integrated_care_boards/{ods_code}/
+```
+
+The response includes `predecessors` and `successors` arrays populated
+from `IntegratedCareBoardSuccession`. Each entry is
+`{ods_code, name, succession_date, succession_type}`. Closures
+(`successor=None`) are excluded from `successors`. See
+[temporal-history.md § API](temporal-history.md#api) for the design.
+
+ICBs have no snapshot endpoint (only organisations do), so the chain
+is navigated via these arrays rather than via a date-parameterised walk.
+
 ## Running the backfill
 
 ```bash
