@@ -5,6 +5,11 @@ from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 from ..models import IntegratedCareBoard
+from .succession import SuccessionLinkSerializer
+
+IntegratedCareBoardSuccession = apps.get_model(
+    "hospitals", "IntegratedCareBoardSuccession"
+)
 
 
 @extend_schema_serializer(
@@ -58,12 +63,17 @@ class IntegratedCareBoardGeoJSONSerializer(GeoFeatureModelSerializer):
                 "lat": "51.3987",
                 "ods_code": "QKK",
                 "publication_date": "15/03/2023",
+                "predecessors": [],
+                "successors": [],
             },
             response_only=True,
         )
     ]
 )
 class IntegratedCareBoardSerializer(serializers.ModelSerializer):
+    predecessors = serializers.SerializerMethodField()
+    successors = serializers.SerializerMethodField()
+
     class Meta:
         model = IntegratedCareBoard
         fields = [
@@ -75,7 +85,25 @@ class IntegratedCareBoardSerializer(serializers.ModelSerializer):
             "lat",
             "ods_code",
             "publication_date",
+            "predecessors",
+            "successors",
         ]
+
+    def get_predecessors(self, obj):
+        links = obj.succession_successor_links.select_related(
+            "predecessor"
+        ).order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="ods_code", related_attr="predecessor"
+        ).data
+
+    def get_successors(self, obj):
+        links = obj.succession_predecessor_links.filter(
+            successor__isnull=False
+        ).select_related("successor").order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="ods_code", related_attr="successor"
+        ).data
 
 
 @extend_schema_serializer(

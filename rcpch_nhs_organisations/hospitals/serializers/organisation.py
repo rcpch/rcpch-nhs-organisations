@@ -36,6 +36,7 @@ from .openuk_network import OPENUKNetworkSerializer
 from .paediatric_diabetes_unit import (
     PaediatricDiabetesUnitWIthNestedPaediatricDiabetesNetworkSerializer,
 )
+from .succession import SuccessionLinkSerializer
 from .trust import TrustSerializer, LimitedTrustSerializer
 
 
@@ -101,6 +102,8 @@ class OrganisationSerializer(serializers.ModelSerializer):
     country = CountryLimitedSerializer()
     lower_layer_super_output_area = LowerLayerSuperOutputAreaSerializer()
     local_authority_district = LocalAuthorityDistrictSerializer()
+    predecessors = serializers.SerializerMethodField()
+    successors = serializers.SerializerMethodField()
 
     class Meta:
         model = Organisation
@@ -130,8 +133,26 @@ class OrganisationSerializer(serializers.ModelSerializer):
             "openuk_network",
             "london_borough",
             "country",
+            "predecessors",
+            "successors",
         ]
         depth = 1
+
+    def get_predecessors(self, obj):
+        links = obj.succession_successor_links.select_related(
+            "predecessor"
+        ).order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="ods_code", related_attr="predecessor"
+        ).data
+
+    def get_successors(self, obj):
+        links = obj.succession_predecessor_links.filter(
+            successor__isnull=False
+        ).select_related("successor").order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="ods_code", related_attr="successor"
+        ).data
 
 
 @extend_schema_serializer(
@@ -339,7 +360,12 @@ class OrganisationWithLSOAAndLADSerializer(serializers.ModelSerializer):
     examples=[
         OpenApiExample(
             "/paediatric_diabetes_unit/1/organisations",
-            value={"pz_code": "", "organisations": []},
+            value={
+                "pz_code": "",
+                "organisations": [],
+                "predecessors": [],
+                "successors": [],
+            },
             response_only=True,
         )
     ]
@@ -350,10 +376,36 @@ class PaediatricDiabetesUnitWithNestedOrganisationSerializer(
     organisations = OrganisationWithLSOAAndLADSerializer(
         many=True, read_only=True
     )
+    predecessors = serializers.SerializerMethodField()
+    successors = serializers.SerializerMethodField()
 
     class Meta:
         model = PaediatricDiabetesUnit
-        fields = ["pz_code", "organisations", "active", "updated_at", "name"]
+        fields = [
+            "pz_code",
+            "organisations",
+            "active",
+            "updated_at",
+            "name",
+            "predecessors",
+            "successors",
+        ]
+
+    def get_predecessors(self, obj):
+        links = obj.succession_successor_links.select_related(
+            "predecessor"
+        ).order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="pz_code", related_attr="predecessor"
+        ).data
+
+    def get_successors(self, obj):
+        links = obj.succession_predecessor_links.filter(
+            successor__isnull=False
+        ).select_related("successor").order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="pz_code", related_attr="successor"
+        ).data
 
 
 # Returns an organisation with its parent LHB or Trust details
