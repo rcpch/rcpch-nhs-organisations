@@ -325,13 +325,15 @@ def test_dissolution_with_split_workflow():
     # and return RYQ as the trust.
     snapshot_2012 = organisation_snapshot(rjz30, datetime.date(2012, 6, 1))
     assert snapshot_2012["ods_code"] == "RYQ30"
-    assert snapshot_2012["predecessor_ods_code"] == "RYQ30"
+    assert snapshot_2012["predecessor_ods_code"] is None
+    assert snapshot_2012["successor_ods_code"] == "RJZ30"
     assert snapshot_2012["trust"]["ods_code"] == "RYQ"
 
     # Audit query: query the successor (RJZ30) after the merger.
     snapshot_2014 = organisation_snapshot(rjz30, datetime.date(2014, 6, 1))
     assert snapshot_2014["ods_code"] == "RJZ30"
-    assert snapshot_2014["predecessor_ods_code"] is None
+    assert snapshot_2014["predecessor_ods_code"] == "RYQ30"
+    assert snapshot_2014["successor_ods_code"] is None
     assert snapshot_2014["trust"]["ods_code"] == "RJZ"
 
     # Same for Queen Elizabeth Woolwich.
