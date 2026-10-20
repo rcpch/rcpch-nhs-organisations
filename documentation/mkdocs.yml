@@ -145,6 +145,7 @@ nav:
     - 'developer/ods-change-detection.md'
     - 'developer/pdu-history.md'
     - 'developer/icb-history.md'
+    - 'developer/succession-chain-fields.md'
     - 'developer/shapes.md'
     - 'developer/boundaries.md'
     - 'developer/seeding.md'
