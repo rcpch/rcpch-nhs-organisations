@@ -319,6 +319,153 @@ class OrganisationSnapshotView(APIView):
                     "immediate neighbours in the OrganisationSuccession "
                     "chain."
                 ),
+                examples=[
+                    OpenApiExample(
+                        "No walk — current code at today",
+                        summary="Query the live audit code at today",
+                        description=(
+                            "The resolved entity is the queried code. "
+                            "`predecessor_ods_code` is populated if the "
+                            "entity succeeded another; `successor_ods_code` "
+                            "is null (the entity is still live)."
+                        ),
+                        value={
+                            "ods_code": "RBN52",
+                            "snapshot_date": "2026-10-20",
+                            "name": "ORMSKIRK AND DISTRICT GENERAL HOSPITAL",
+                            "address1": "WIGAN ROAD",
+                            "address2": None,
+                            "address3": None,
+                            "telephone": None,
+                            "city": "ORMSKIRK",
+                            "county": "LANCASHIRE",
+                            "postcode": "L39 2AZ",
+                            "latitude": None,
+                            "longitude": None,
+                            "active": True,
+                            "published_at": None,
+                            "trust": {
+                                "ods_code": "RBN",
+                                "name": "MERSEY AND WEST LANCASHIRE TEACHING HOSPITALS NHS TRUST",
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": {
+                                "ods_code": "QYG",
+                                "name": "NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD",
+                            },
+                            "nhs_england_region": {
+                                "region_code": "Y62",
+                                "name": "North West",
+                            },
+                            "openuk_network": {
+                                "boundary_identifier": "EPIC",
+                                "name": "Mersey and North Wales network 'Epilepsy In Childhood' interest group",
+                            },
+                            "paediatric_diabetes_unit": {"pz_code": "PZ110"},
+                            "predecessor_ods_code": "RVY02",
+                            "successor_ods_code": None,
+                        },
+                        response_only=True,
+                    ),
+                    OpenApiExample(
+                        "Backward walk — successor queried before succession date",
+                        summary="Query the current code at a date before the succession",
+                        description=(
+                            "The resolved entity is the predecessor. "
+                            "`predecessor_ods_code` is null (the resolved "
+                            "predecessor has no predecessor of its own); "
+                            "`successor_ods_code` is the queried code. "
+                            "The consumer detects a walk by comparing "
+                            "`ods_code` to the queried code."
+                        ),
+                        value={
+                            "ods_code": "RVY02",
+                            "snapshot_date": "2022-01-01",
+                            "name": "ORMSKIRK & DISTRICT GENERAL HOSPITAL",
+                            "address1": "WIGAN ROAD",
+                            "address2": None,
+                            "address3": None,
+                            "telephone": None,
+                            "city": "ORMSKIRK",
+                            "county": "LANCASHIRE",
+                            "postcode": "L39 2AZ",
+                            "latitude": None,
+                            "longitude": None,
+                            "active": True,
+                            "published_at": None,
+                            "trust": {
+                                "ods_code": "RVY",
+                                "name": "SOUTHPORT AND ORMSKIRK HOSPITAL NHS TRUST",
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": {
+                                "ods_code": "QYG",
+                                "name": "NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD",
+                            },
+                            "nhs_england_region": {
+                                "region_code": "Y62",
+                                "name": "North West",
+                            },
+                            "openuk_network": {
+                                "boundary_identifier": "EPIC",
+                                "name": "Mersey and North Wales network 'Epilepsy In Childhood' interest group",
+                            },
+                            "paediatric_diabetes_unit": {"pz_code": "PZ110"},
+                            "predecessor_ods_code": None,
+                            "successor_ods_code": "RBN52",
+                        },
+                        response_only=True,
+                    ),
+                    OpenApiExample(
+                        "Forward walk — predecessor queried after succession date",
+                        summary="Query the old code at a date after the succession",
+                        description=(
+                            "The resolved entity is the successor. "
+                            "`predecessor_ods_code` is the queried code; "
+                            "`successor_ods_code` is null (the resolved "
+                            "successor is still live). The consumer detects "
+                            "a walk by comparing `ods_code` to the queried "
+                            "code."
+                        ),
+                        value={
+                            "ods_code": "RBN52",
+                            "snapshot_date": "2024-01-01",
+                            "name": "ORMSKIRK AND DISTRICT GENERAL HOSPITAL",
+                            "address1": "WIGAN ROAD",
+                            "address2": None,
+                            "address3": None,
+                            "telephone": None,
+                            "city": "ORMSKIRK",
+                            "county": "LANCASHIRE",
+                            "postcode": "L39 2AZ",
+                            "latitude": None,
+                            "longitude": None,
+                            "active": True,
+                            "published_at": None,
+                            "trust": {
+                                "ods_code": "RBN",
+                                "name": "MERSEY AND WEST LANCASHIRE TEACHING HOSPITALS NHS TRUST",
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": {
+                                "ods_code": "QYG",
+                                "name": "NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD",
+                            },
+                            "nhs_england_region": {
+                                "region_code": "Y62",
+                                "name": "North West",
+                            },
+                            "openuk_network": {
+                                "boundary_identifier": "EPIC",
+                                "name": "Mersey and North Wales network 'Epilepsy In Childhood' interest group",
+                            },
+                            "paediatric_diabetes_unit": {"pz_code": "PZ110"},
+                            "predecessor_ods_code": "RVY02",
+                            "successor_ods_code": None,
+                        },
+                        response_only=True,
+                    ),
+                ],
             ),
             404: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,

@@ -842,3 +842,62 @@ def test_snapshot_forward_walk_404_on_split(api_client, trust_a, trust_b):
     assert data["predecessor_ods_code"] is None
     # Two successors → scalar is null (use the detail endpoint's array).
     assert data["successor_ods_code"] is None
+
+
+@pytest.mark.django_db
+def test_snapshot_schema_documents_chain_fields_and_walk_examples(api_client):
+    """The OpenAPI schema for the snapshot endpoint must document the
+    `predecessor_ods_code` and `successor_ods_code` fields and the three
+    walk examples (no walk, backward walk, forward walk).
+
+    Guards against accidental removal of the @extend_schema examples that
+    help consumers discover the succession-walk behaviour.
+    """
+    response = api_client.get("/schema/")
+    assert response.status_code == status.HTTP_200_OK
+    schema = response.json()
+    op = schema["paths"]["/organisations/{ods_code}/snapshot/"]["get"]
+    resp200 = op["responses"]["200"]
+
+    # The description mentions both chain fields.
+    description = resp200.get("description", "")
+    assert "predecessor_ods_code" in description
+    assert "successor_ods_code" in description
+
+    # drf-spectacular emits examples under content/application/json/examples
+    # when OpenApiExample is used on an OpenApiResponse.
+    examples = (
+        resp200.get("content", {})
+        .get("application/json", {})
+        .get("examples", {})
+    )
+    assert examples, (
+        "expected the snapshot 200 response to expose the three walk examples"
+    )
+
+    # The three walk cases are present (keyed by the OpenApiExample name,
+    # sanitized by drf-spectacular — spaces removed, punctuation kept).
+    example_keys = set(examples.keys())
+    assert any("NoWalk" in k for k in example_keys), (
+        f"missing 'No walk' example; got {example_keys}"
+    )
+    assert any("BackwardWalk" in k for k in example_keys), (
+        f"missing 'Backward walk' example; got {example_keys}"
+    )
+    assert any("ForwardWalk" in k for k in example_keys), (
+        f"missing 'Forward walk' example; got {example_keys}"
+    )
+
+    # Each example value carries both chain fields.
+    for name, example in examples.items():
+        value = example.get("value", {})
+        assert "predecessor_ods_code" in value, (
+            f"example {name!r} missing predecessor_ods_code"
+        )
+        assert "successor_ods_code" in value, (
+            f"example {name!r} missing successor_ods_code"
+        )
+
+    # The 404 description mentions the split case (ambiguous forward walk).
+    resp404 = op["responses"]["404"]
+    assert "split" in resp404.get("description", "")
