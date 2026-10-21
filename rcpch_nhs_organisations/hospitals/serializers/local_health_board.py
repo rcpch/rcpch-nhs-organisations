@@ -21,6 +21,8 @@ from ..models import LocalHealthBoard
                 "bng_n": "",
                 "long": "",
                 "lat": "",
+                "predecessors": [],
+                "successors": [],
             },
             response_only=True,
         )
@@ -28,6 +30,14 @@ from ..models import LocalHealthBoard
 )
 class LocalHealthBoardSerializer(serializers.ModelSerializer):
     # returns local health boards and boundary data
+    #
+    # LocalHealthBoard has no succession table (Welsh LHB reorganisations are
+    # not modelled in Layer 3), so predecessors / successors are always empty.
+    # The fields are included for API consistency with the other entity detail
+    # endpoints.
+    predecessors = serializers.SerializerMethodField()
+    successors = serializers.SerializerMethodField()
+
     class Meta:
         model = LocalHealthBoard
         fields = [
@@ -40,7 +50,15 @@ class LocalHealthBoardSerializer(serializers.ModelSerializer):
             "bng_n",
             "long",
             "lat",
+            "predecessors",
+            "successors",
         ]
+
+    def get_predecessors(self, obj):
+        return []
+
+    def get_successors(self, obj):
+        return []
 
 
 class LocalHealthBoardGeoJSONSerializer(GeoFeatureModelSerializer):

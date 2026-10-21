@@ -39,25 +39,38 @@ def _as_of(queryset, on_date):
     ).filter(Q(valid_to__gt=on_date) | Q(valid_to__isnull=True))
 
 
-def _resolve_predecessor(organisation, on_date):
+def _resolve_as_of(organisation, on_date):
     """
-    Walk the OrganisationSuccession chain backwards to find the entity that
-    was in force as the audit code on `on_date`.
+    Walk the OrganisationSuccession chain to find the entity that was in
+    force as the audit code on `on_date`. Walks backwards (to a predecessor)
+    or forwards (to a successor) as needed.
 
-    Two cases trigger the walk:
+    Three cases trigger a walk:
 
-    1. **Strict succession** — the successor did not exist on `on_date` (its
-       first ``valid_from`` is after `on_date`). The walk finds the
-       predecessor that was open then. Example: querying RJZ30 before 2013
-       walks to RYQ30.
+    1. **Backward — strict succession** — the successor did not exist on
+       `on_date` (its first ``valid_from`` is after `on_date`). The walk
+       finds the predecessor that was open then. Example: querying RJZ30
+       before 2013 walks to RYQ30.
 
-    2. **Parallel code** — the successor pre-existed at `on_date` but a
-       succession link records that the predecessor was the live audit code
-       before the succession date (``succession_date > on_date``). The walk
-       returns the predecessor because that was the code the audit would
-       have used at `on_date`. Example: querying RAL27 at 2020 walks to
-       RAPNM, because RAPNM was the live code under RAP trust until it
-       closed on 2024-12-31 and followed to RAL27.
+    2. **Backward — parallel code** — the successor pre-existed at
+       `on_date` but a succession link records that the predecessor was
+       the live audit code before the succession date
+       (``succession_date > on_date``). The walk returns the predecessor
+       because that was the code the audit would have used at `on_date`.
+       Example: querying RAL27 at 2020 walks to RAPNM, because RAPNM was
+       the live code under RAP trust until it closed on 2024-12-31 and
+       followed to RAL27.
+
+    3. **Forward** — the predecessor's history ended before `on_date` (no
+       version row covers `on_date`) and a succession link records that
+       the successor took over on or before `on_date`
+       (``succession_date <= on_date``). The walk returns the successor
+       because that is the code the audit would use at `on_date`. Example:
+       querying RVY02 at today walks to RBN52, because RVY02 closed on
+       2023-07-01 and was succeeded by RBN52. Only walks if there is
+       exactly one successor — a split (multiple successors) returns
+       None because walking to an arbitrary successor would return the
+       wrong site's geography.
     """
     current = organisation
     visited = set()
@@ -72,27 +85,45 @@ def _resolve_predecessor(organisation, on_date):
             first_version is not None and first_version.valid_from <= on_date
         )
 
-        # Is there a successor-side link whose succession_date is after
-        # on_date? For parallel codes, the predecessor was the live audit
-        # code before the succession date, so we walk to it.
+        # Backward walk — parallel code: the predecessor was the live audit
+        # code before the succession date, so walk to it.
         parallel_link = current.succession_successor_links.filter(
             succession_date__gt=on_date
         ).first()
-
         if parallel_link is not None:
-            # Walk to the predecessor — it was the live code at on_date.
             current = parallel_link.predecessor
             continue
 
-        if history_started:
+        if not history_started:
+            # Backward walk — strict succession: the successor didn't exist
+            # at on_date. Walk to the predecessor.
+            link = current.succession_successor_links.first()
+            if link is None:
+                return None
+            current = link.predecessor
+            continue
+
+        # History started by on_date. Check whether a version row actually
+        # covers on_date. If not, the entity's history ended before on_date
+        # — try the forward walk.
+        if _as_of(current.versions, on_date).exists():
             return current
 
-        # History didn't start by on_date and no parallel link — try the
-        # regular walk (strict succession where the successor didn't exist).
-        link = current.succession_successor_links.first()
-        if link is None:
-            return None
-        current = link.predecessor
+        # Forward walk: the entity's history ended before on_date. Walk to
+        # the successor if there is exactly one (excluding closures, which
+        # have successor=None).
+        forward_links = current.succession_predecessor_links.filter(
+            succession_date__lte=on_date,
+            successor__isnull=False,
+        )
+        if forward_links.count() == 1:
+            current = forward_links.first().successor
+            continue
+
+        # Multiple successors (a split) or no successor (a closure with no
+        # version covering on_date) — cannot resolve.
+        return None
+
     return None
 
 
@@ -102,7 +133,7 @@ def organisation_snapshot(organisation, on_date):
     as they were on `on_date`. Returns None if the organisation (or any
     predecessor) did not exist on that date.
     """
-    resolved = _resolve_predecessor(organisation, on_date)
+    resolved = _resolve_as_of(organisation, on_date)
     if resolved is None:
         return None
 
@@ -137,6 +168,16 @@ def organisation_snapshot(organisation, on_date):
         _as_of(integrated_care_board.versions, on_date).first()
         if integrated_care_board
         else None
+    )
+
+    # Chain fields: the resolved entity's immediate neighbours in the
+    # OrganisationSuccession chain, regardless of whether a walk happened.
+    # Scalar — null if zero or multiple links (a split or a closure).
+    # The consumer detects a walk by comparing `ods_code` to their
+    # queried code.
+    predecessor_links = resolved.succession_successor_links.all()
+    successor_links = resolved.succession_predecessor_links.filter(
+        successor__isnull=False
     )
 
     return {
@@ -186,8 +227,13 @@ def organisation_snapshot(organisation, on_date):
             "pz_code": paediatric_diabetes_unit.pz_code,
         } if paediatric_diabetes_unit else None,
         "predecessor_ods_code": (
-            resolved.ods_code
-            if resolved.pk != organisation.pk
+            predecessor_links.first().predecessor.ods_code
+            if predecessor_links.count() == 1
+            else None
+        ),
+        "successor_ods_code": (
+            successor_links.first().successor.ods_code
+            if successor_links.count() == 1
             else None
         ),
     }
@@ -208,20 +254,31 @@ class OrganisationSnapshotView(APIView):
     ODS code with a historical date and gets back the organisational
     geography that was in force when the historical data was collected.
 
-    **Predecessor walk.** If the queried ODS code was not the live audit code
+    **Succession walk.** If the queried ODS code was not the live audit code
     on that date (because of a merger, split, or parallel-code succession),
-    the endpoint walks the `OrganisationSuccession` chain backwards to the
-    predecessor that was in force then, and returns that predecessor's state
-    with `predecessor_ods_code` populated. Two cases:
+    the endpoint walks the `OrganisationSuccession` chain to the entity that
+    was in force then, and returns that entity's state. The walk goes in
+    either direction:
 
-    1. *Strict succession* — the successor did not exist at the queried date
-       (e.g. querying `RJZ30` at 2012 walks to `RYQ30`, Princess Royal under
-       South London Healthcare before the 2013 split).
-    2. *Parallel code* — the successor pre-existed at the queried date, but a
-       succession link records that the predecessor was the live audit code
-       before the succession date (e.g. querying `RAL27` at 2020 walks to
-       `RAPNM`, North Middlesex under North Middlesex University Hospital
-       NHS Trust `RAP` before it closed on 2024-12-31 and followed to `RAL27`).
+    1. *Backward — strict succession* — the successor did not exist at the
+       queried date (e.g. querying `RJZ30` at 2012 walks to `RYQ30`, Princess
+       Royal under South London Healthcare before the 2013 split).
+    2. *Backward — parallel code* — the successor pre-existed at the queried
+       date, but a succession link records that the predecessor was the live
+       audit code before the succession date (e.g. querying `RAL27` at 2020
+       walks to `RAPNM`, North Middlesex under North Middlesex University
+       Hospital NHS Trust `RAP` before it closed on 2024-12-31 and followed
+       to `RAL27`).
+    3. *Forward* — the predecessor's history ended before the queried date
+       (e.g. querying `RVY02` at today walks to `RBN52`, because RVY02
+       closed on 2023-07-01 and was succeeded by RBN52). Only walks if
+       there is exactly one successor — a split returns 404.
+
+    **Chain fields.** `predecessor_ods_code` and `successor_ods_code` are
+    the resolved entity's immediate neighbours in the `OrganisationSuccession`
+    chain, regardless of whether a walk happened. Both are scalars (null if
+    zero or multiple links). The consumer detects a walk by comparing
+    `ods_code` in the response to the queried code.
 
     Returns 404 if no entity (the queried code or any predecessor) covered
     the date, or if the queried ODS code does not exist in the database.
@@ -245,8 +302,9 @@ class OrganisationSnapshotView(APIView):
                     "relationship (trust, LHB, ICB, NHS England region, OPENUK, "
                     "PDU) as they were on that date. If the queried ODS code "
                     "was not the live audit code on that date, walks the "
-                    "succession chain backwards to the predecessor that was. "
-                    "If omitted, returns the current state. Format: YYYY-MM-DD."
+                    "succession chain (backward or forward) to the entity that "
+                    "was. If omitted, returns the current state. "
+                    "Format: YYYY-MM-DD."
                 ),
             ),
         ],
@@ -256,16 +314,167 @@ class OrganisationSnapshotView(APIView):
                 description=(
                     "Everything about this organisation as it was on the "
                     "given date — its attributes plus every parent "
-                    "relationship. If a predecessor was returned, "
-                    "`predecessor_ods_code` is populated."
+                    "relationship. `predecessor_ods_code` and "
+                    "`successor_ods_code` are the resolved entity's "
+                    "immediate neighbours in the OrganisationSuccession "
+                    "chain."
                 ),
+                examples=[
+                    OpenApiExample(
+                        "No walk — current code at today",
+                        summary="Query the live audit code at today",
+                        description=(
+                            "The resolved entity is the queried code. "
+                            "`predecessor_ods_code` is populated if the "
+                            "entity succeeded another; `successor_ods_code` "
+                            "is null (the entity is still live)."
+                        ),
+                        value={
+                            "ods_code": "RBN52",
+                            "snapshot_date": "2026-10-20",
+                            "name": "ORMSKIRK AND DISTRICT GENERAL HOSPITAL",
+                            "address1": "WIGAN ROAD",
+                            "address2": None,
+                            "address3": None,
+                            "telephone": None,
+                            "city": "ORMSKIRK",
+                            "county": "LANCASHIRE",
+                            "postcode": "L39 2AZ",
+                            "latitude": None,
+                            "longitude": None,
+                            "active": True,
+                            "published_at": None,
+                            "trust": {
+                                "ods_code": "RBN",
+                                "name": "MERSEY AND WEST LANCASHIRE TEACHING HOSPITALS NHS TRUST",
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": {
+                                "ods_code": "QYG",
+                                "name": "NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD",
+                            },
+                            "nhs_england_region": {
+                                "region_code": "Y62",
+                                "name": "North West",
+                            },
+                            "openuk_network": {
+                                "boundary_identifier": "EPIC",
+                                "name": "Mersey and North Wales network 'Epilepsy In Childhood' interest group",
+                            },
+                            "paediatric_diabetes_unit": {"pz_code": "PZ110"},
+                            "predecessor_ods_code": "RVY02",
+                            "successor_ods_code": None,
+                        },
+                        response_only=True,
+                    ),
+                    OpenApiExample(
+                        "Backward walk — successor queried before succession date",
+                        summary="Query the current code at a date before the succession",
+                        description=(
+                            "The resolved entity is the predecessor. "
+                            "`predecessor_ods_code` is null (the resolved "
+                            "predecessor has no predecessor of its own); "
+                            "`successor_ods_code` is the queried code. "
+                            "The consumer detects a walk by comparing "
+                            "`ods_code` to the queried code."
+                        ),
+                        value={
+                            "ods_code": "RVY02",
+                            "snapshot_date": "2022-01-01",
+                            "name": "ORMSKIRK & DISTRICT GENERAL HOSPITAL",
+                            "address1": "WIGAN ROAD",
+                            "address2": None,
+                            "address3": None,
+                            "telephone": None,
+                            "city": "ORMSKIRK",
+                            "county": "LANCASHIRE",
+                            "postcode": "L39 2AZ",
+                            "latitude": None,
+                            "longitude": None,
+                            "active": True,
+                            "published_at": None,
+                            "trust": {
+                                "ods_code": "RVY",
+                                "name": "SOUTHPORT AND ORMSKIRK HOSPITAL NHS TRUST",
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": {
+                                "ods_code": "QYG",
+                                "name": "NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD",
+                            },
+                            "nhs_england_region": {
+                                "region_code": "Y62",
+                                "name": "North West",
+                            },
+                            "openuk_network": {
+                                "boundary_identifier": "EPIC",
+                                "name": "Mersey and North Wales network 'Epilepsy In Childhood' interest group",
+                            },
+                            "paediatric_diabetes_unit": {"pz_code": "PZ110"},
+                            "predecessor_ods_code": None,
+                            "successor_ods_code": "RBN52",
+                        },
+                        response_only=True,
+                    ),
+                    OpenApiExample(
+                        "Forward walk — predecessor queried after succession date",
+                        summary="Query the old code at a date after the succession",
+                        description=(
+                            "The resolved entity is the successor. "
+                            "`predecessor_ods_code` is the queried code; "
+                            "`successor_ods_code` is null (the resolved "
+                            "successor is still live). The consumer detects "
+                            "a walk by comparing `ods_code` to the queried "
+                            "code."
+                        ),
+                        value={
+                            "ods_code": "RBN52",
+                            "snapshot_date": "2024-01-01",
+                            "name": "ORMSKIRK AND DISTRICT GENERAL HOSPITAL",
+                            "address1": "WIGAN ROAD",
+                            "address2": None,
+                            "address3": None,
+                            "telephone": None,
+                            "city": "ORMSKIRK",
+                            "county": "LANCASHIRE",
+                            "postcode": "L39 2AZ",
+                            "latitude": None,
+                            "longitude": None,
+                            "active": True,
+                            "published_at": None,
+                            "trust": {
+                                "ods_code": "RBN",
+                                "name": "MERSEY AND WEST LANCASHIRE TEACHING HOSPITALS NHS TRUST",
+                            },
+                            "local_health_board": None,
+                            "integrated_care_board": {
+                                "ods_code": "QYG",
+                                "name": "NHS CHESHIRE AND MERSEYSIDE INTEGRATED CARE BOARD",
+                            },
+                            "nhs_england_region": {
+                                "region_code": "Y62",
+                                "name": "North West",
+                            },
+                            "openuk_network": {
+                                "boundary_identifier": "EPIC",
+                                "name": "Mersey and North Wales network 'Epilepsy In Childhood' interest group",
+                            },
+                            "paediatric_diabetes_unit": {"pz_code": "PZ110"},
+                            "predecessor_ods_code": "RVY02",
+                            "successor_ods_code": None,
+                        },
+                        response_only=True,
+                    ),
+                ],
             ),
             404: OpenApiResponse(
                 response=OpenApiTypes.OBJECT,
                 description=(
-                    "The organisation (or any predecessor in the succession "
-                    "chain) did not exist on the given date, or the queried "
-                    "ODS code is not in the database."
+                    "The organisation (or any entity in the succession "
+                    "chain) did not exist on the given date, the queried "
+                    "ODS code is not in the database, or the queried code "
+                    "was split into multiple successors (ambiguous — use "
+                    "the detail endpoint's `successors` array to pick)."
                 ),
             ),
         },

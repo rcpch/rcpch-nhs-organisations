@@ -388,6 +388,80 @@ def organisation_snapshot(organisation, on_date):
 This is the function audit reports call. It returns a dict (or a small dataclass /
 serializer) representing the organisation's full geography at the audit date.
 
+### Succession walk
+
+Before assembling the snapshot, `_resolve_as_of` walks the
+`OrganisationSuccession` chain to find the entity that was in force as
+the audit code on `on_date`. The walk goes in either direction:
+
+1. **Backward — strict succession** — the successor did not exist on
+   `on_date` (its first `valid_from` is after `on_date`). Walk to the
+   predecessor that was open then. Example: querying `RJZ30` before
+   2013 walks to `RYQ30`.
+2. **Backward — parallel code** — the successor pre-existed at `on_date`
+   but a succession link records that the predecessor was the live
+   audit code before the succession date (`succession_date > on_date`).
+   Walk to the predecessor. Example: querying `RAL27` at 2020 walks to
+   `RAPNM`.
+3. **Forward** — the predecessor's history ended before `on_date` (no
+   version row covers `on_date`) and a succession link records that the
+   successor took over on or before `on_date` (`succession_date <=
+   on_date`). Walk to the successor. Only walks if there is exactly one
+   successor — a split (multiple successors) returns 404 because walking
+   to an arbitrary successor would return the wrong site's geography.
+   Example: querying `RVY02` at today walks to `RBN52`.
+
+The snapshot response carries two scalar chain fields describing the
+**resolved** entity's immediate neighbours, regardless of whether a
+walk happened:
+
+- `predecessor_ods_code` — the resolved entity's predecessor (null if
+  none, or if the resolved entity has multiple predecessors).
+- `successor_ods_code` — the resolved entity's successor (null if none,
+  or if the resolved entity has multiple successors — use the detail
+  endpoint's `successors` array in that case).
+
+The consumer detects that a walk happened by comparing `ods_code` in
+the response to the queried code.
+
+#### Snapshot walk table
+
+The Ormskirk scenario (RVY02 → RBN52, succession_date 2023-07-01)
+illustrates all five cases:
+
+| Query | Resolved | `ods_code` | `predecessor_ods_code` | `successor_ods_code` |
+|---|---|---|---|---|
+| `RBN52` @ today | `RBN52` | `RBN52` | `RVY02` | `null` |
+| `RBN52` @ 2022 | `RVY02` (backward walk) | `RVY02` | `null` | `RBN52` |
+| `RVY02` @ 2022 | `RVY02` (no walk) | `RVY02` | `null` | `RBN52` |
+| `RVY02` @ 2024 | `RBN52` (forward walk) | `RBN52` | `RVY02` | `null` |
+| `RVY02` @ today | `RBN52` (forward walk) | `RBN52` | `RVY02` | `null` |
+
+#### Breaking change to `predecessor_ods_code`
+
+`predecessor_ods_code` previously meant "the resolved code, when it
+differs from what you queried." It now means "the resolved entity's
+predecessor." Consumers that detect a walk by checking
+`predecessor_ods_code is not null` should switch to checking
+`ods_code != queried_code`. The new `successor_ods_code` field is
+additive.
+
+#### Out of scope
+
+- A `?date=` parameter on the detail endpoints. As-of queries stay on
+  the snapshot endpoint.
+- A forward walk for trusts, ICBs, or PDUs. They have no snapshot
+  endpoint; the detail endpoint's `successors` array is the
+  chain-navigation mechanism for those levels.
+- Multi-hop forward walks. One hop covers the realistic cases; deeper
+  chains are followed by the consumer via the detail endpoint's
+  `successors` array.
+- Modelling the host/associate ICB distinction (already out of scope
+  per [merger-handling.md § Cross-boundary mergers](merger-handling.md#cross-boundary-mergers)).
+- Changing the `diverged_from_ods` / `ods_replacement_code` fields on
+  `Organisation`. Those flag ODS-divergent codes for the consuming
+  software; the succession chain is a separate concept.
+
 ## Admin interface
 
 A key requirement is that changing an affiliation from the Django admin is painless.
@@ -574,15 +648,76 @@ that ODS data is occasionally ambiguous or wrong.
 
 ## API
 
-A new endpoint exposes the snapshot:
+Two surfaces expose the temporal layer:
+
+### Snapshot endpoint
 
 ```
 GET /organisations/{ods_code}/snapshot?date=YYYY-MM-DD
 ```
 
-Returns the assembled snapshot dict. If `date` is omitted, returns the current state.
-If the date is before the organisation's first `valid_from`, returns 404 with an
-explanatory message (pre-install-day state is not recoverable).
+Returns the assembled snapshot dict — the entity version plus every
+parent relationship as they were on `date`. If `date` is omitted, returns
+the current state. If the date is before the organisation's first
+`valid_from`, returns 404 with an explanatory message (pre-install-day
+state is not recoverable).
+
+If the queried ODS code was not the live audit code on that date, the
+endpoint walks the `OrganisationSuccession` chain (backward or forward)
+to the entity that was, and returns that entity's state. The response
+carries `predecessor_ods_code` and `successor_ods_code` describing the
+resolved entity's immediate neighbours. See [Succession walk](#succession-walk)
+above for the design.
+
+### Detail endpoints — chain arrays
+
+The entity detail endpoints expose the `*Succession` chain as
+`predecessors` and `successors` arrays on the resolved entity:
+
+| Endpoint | Succession table |
+|---|---|
+| `/trusts/{ods_code}/` | `TrustSuccession` |
+| `/organisations/{ods_code}/` | `OrganisationSuccession` |
+| `/integrated_care_boards/{ods_code}/` | `IntegratedCareBoardSuccession` |
+| `/paediatric_diabetes_units/{pz_code}/` | `PaediatricDiabetesUnitSuccession` |
+| `/local_health_boards/{ods_code}/` | none — arrays always empty |
+
+Each array entry is `{ods_code, name, succession_date, succession_type}`.
+For PDUs the identifier is `pz_code` internally but the JSON key is
+`ods_code` for consistency across entity types. Closures
+(`successor=None`) are excluded from `successors` — they have no
+successor entity to serialise.
+
+Example — a split (South London Healthcare RYQ → RJZ + RJ2):
+
+```json
+// /trusts/RYQ/
+{
+  "ods_code": "RYQ",
+  "name": "SOUTH LONDON HEALTHCARE NHS TRUST",
+  "active": false,
+  "predecessors": [],
+  "successors": [
+    {
+      "ods_code": "RJZ",
+      "name": "KING'S COLLEGE HOSPITAL NHS FOUNDATION TRUST",
+      "succession_date": "2013-01-01",
+      "succession_type": "split"
+    },
+    {
+      "ods_code": "RJ2",
+      "name": "LEWISHAM AND GREENWICH NHS TRUST",
+      "succession_date": "2013-01-01",
+      "succession_type": "split"
+    }
+  ]
+}
+```
+
+Arrays are required because trusts, ICBs, and PDUs can split (one
+predecessor, multiple successors) and can be born from full mergers
+(multiple predecessors, one successor). Organisations are 1→1 in
+practice but use the same array shape for API consistency.
 
 ## Backfill strategy
 

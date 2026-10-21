@@ -280,7 +280,8 @@ def test_snapshot_walks_succession_chain_to_predecessor(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["ods_code"] == "RYQ30"
-    assert data["predecessor_ods_code"] == "RYQ30"
+    assert data["predecessor_ods_code"] is None
+    assert data["successor_ods_code"] == "RJZ30"
     assert data["address1"] == "Old Address"
     assert data["trust"]["ods_code"] == "RAA"
 
@@ -646,7 +647,8 @@ def test_snapshot_walks_parallel_code_to_predecessor(api_client, trust_a, trust_
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["ods_code"] == "RAPNM"
-    assert data["predecessor_ods_code"] == "RAPNM"
+    assert data["predecessor_ods_code"] is None
+    assert data["successor_ods_code"] == "RAL27"
     assert data["trust"]["ods_code"] == "RAA"  # RAP
 
     # Query the successor (RAL27) after the succession date — should
@@ -655,5 +657,247 @@ def test_snapshot_walks_parallel_code_to_predecessor(api_client, trust_a, trust_
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["ods_code"] == "RAL27"
-    assert data["predecessor_ods_code"] is None
+    assert data["predecessor_ods_code"] == "RAPNM"
+    assert data["successor_ods_code"] is None
     assert data["trust"]["ods_code"] == "RBB"  # RAL
+
+
+@pytest.mark.django_db
+def test_snapshot_walks_forward_to_successor(api_client, trust_a, trust_b):
+    """If the queried predecessor's history ended before on_date but a
+    successor exists, the walk goes forward to the successor.
+
+    Mirrors the Ormskirk scenario: RVY02 (under RVY) → RBN52 (under RBN),
+    succession_date 2023-07-01. Querying RVY02 at any date after 2023-07-01
+    should walk forward to RBN52.
+    """
+    rvy02 = Organisation.objects.create(
+        ods_code="RVY02",
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+        trust=trust_a,  # RVY
+    )
+    rbn52 = Organisation.objects.create(
+        ods_code="RBN52",
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+        trust=trust_b,  # RBN
+    )
+    # RVY02: open from the floor, closed on the succession date.
+    OrganisationVersion.objects.create(
+        organisation=rvy02,
+        valid_from=datetime.date(2020, 12, 1),
+        valid_to=datetime.date(2023, 7, 1),
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+    )
+    # RBN52: open from the succession date.
+    OrganisationVersion.objects.create(
+        organisation=rbn52,
+        valid_from=datetime.date(2023, 7, 1),
+        valid_to=None,
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=rvy02,
+        trust=trust_a,
+        valid_from=datetime.date(2020, 12, 1),
+        valid_to=datetime.date(2023, 7, 1),
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=rbn52,
+        trust=trust_b,
+        valid_from=datetime.date(2023, 7, 1),
+        valid_to=None,
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=rvy02,
+        successor=rbn52,
+        succession_date=datetime.date(2023, 7, 1),
+        succession_type="code_change",
+    )
+
+    # Query the predecessor (RVY02) at a date after the succession — should
+    # walk forward to RBN52.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RVY02"})
+    response = api_client.get(url, {"date": "2024-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+    assert data["trust"]["ods_code"] == "RBB"  # RBN
+
+    # Query the predecessor (RVY02) at today — should also walk forward.
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+
+    # Query the predecessor (RVY02) at a date before the succession — should
+    # return RVY02 directly (no walk).
+    response = api_client.get(url, {"date": "2022-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RVY02"
+    assert data["predecessor_ods_code"] is None
+    assert data["successor_ods_code"] == "RBN52"
+    assert data["trust"]["ods_code"] == "RAA"  # RVY
+
+    # Query the successor (RBN52) at today — should return RBN52 directly.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RBN52"})
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+
+
+@pytest.mark.django_db
+def test_snapshot_forward_walk_404_on_split(api_client, trust_a, trust_b):
+    """If the queried predecessor was split into multiple successors, the
+    forward walk is ambiguous and returns 404.
+
+    Mirrors a trust-level split (e.g. South London Healthcare RYQ → RJZ +
+    RJ2) applied at organisation level: one predecessor, two successors.
+    The model does not enforce 1→1 for organisations, so this is a
+    defensive test.
+    """
+    pred = Organisation.objects.create(
+        ods_code="RPRED",
+        name="Predecessor Hospital",
+        address1="Old Address",
+        active=True,
+        trust=trust_a,
+    )
+    succ1 = Organisation.objects.create(
+        ods_code="RSUC1",
+        name="Successor One",
+        address1="New Address 1",
+        active=True,
+        trust=trust_b,
+    )
+    succ2 = Organisation.objects.create(
+        ods_code="RSUC2",
+        name="Successor Two",
+        address1="New Address 2",
+        active=True,
+        trust=trust_b,
+    )
+    OrganisationVersion.objects.create(
+        organisation=pred,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=datetime.date(2023, 1, 1),
+        name="Predecessor Hospital",
+        address1="Old Address",
+        active=True,
+    )
+    OrganisationVersion.objects.create(
+        organisation=succ1,
+        valid_from=datetime.date(2023, 1, 1),
+        valid_to=None,
+        name="Successor One",
+        address1="New Address 1",
+        active=True,
+    )
+    OrganisationVersion.objects.create(
+        organisation=succ2,
+        valid_from=datetime.date(2023, 1, 1),
+        valid_to=None,
+        name="Successor Two",
+        address1="New Address 2",
+        active=True,
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=pred,
+        successor=succ1,
+        succession_date=datetime.date(2023, 1, 1),
+        succession_type="split",
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=pred,
+        successor=succ2,
+        succession_date=datetime.date(2023, 1, 1),
+        succession_type="split",
+    )
+
+    # Query the predecessor after the split date — ambiguous, should 404.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RPRED"})
+    response = api_client.get(url, {"date": "2024-01-01"})
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    # Query the predecessor before the split date — should return pred directly.
+    response = api_client.get(url, {"date": "2021-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RPRED"
+    assert data["predecessor_ods_code"] is None
+    # Two successors → scalar is null (use the detail endpoint's array).
+    assert data["successor_ods_code"] is None
+
+
+@pytest.mark.django_db
+def test_snapshot_schema_documents_chain_fields_and_walk_examples(api_client):
+    """The OpenAPI schema for the snapshot endpoint must document the
+    `predecessor_ods_code` and `successor_ods_code` fields and the three
+    walk examples (no walk, backward walk, forward walk).
+
+    Guards against accidental removal of the @extend_schema examples that
+    help consumers discover the succession-walk behaviour.
+    """
+    response = api_client.get("/schema/")
+    assert response.status_code == status.HTTP_200_OK
+    schema = response.json()
+    op = schema["paths"]["/organisations/{ods_code}/snapshot/"]["get"]
+    resp200 = op["responses"]["200"]
+
+    # The description mentions both chain fields.
+    description = resp200.get("description", "")
+    assert "predecessor_ods_code" in description
+    assert "successor_ods_code" in description
+
+    # drf-spectacular emits examples under content/application/json/examples
+    # when OpenApiExample is used on an OpenApiResponse.
+    examples = (
+        resp200.get("content", {})
+        .get("application/json", {})
+        .get("examples", {})
+    )
+    assert examples, (
+        "expected the snapshot 200 response to expose the three walk examples"
+    )
+
+    # The three walk cases are present (keyed by the OpenApiExample name,
+    # sanitized by drf-spectacular — spaces removed, punctuation kept).
+    example_keys = set(examples.keys())
+    assert any("NoWalk" in k for k in example_keys), (
+        f"missing 'No walk' example; got {example_keys}"
+    )
+    assert any("BackwardWalk" in k for k in example_keys), (
+        f"missing 'Backward walk' example; got {example_keys}"
+    )
+    assert any("ForwardWalk" in k for k in example_keys), (
+        f"missing 'Forward walk' example; got {example_keys}"
+    )
+
+    # Each example value carries both chain fields.
+    for name, example in examples.items():
+        value = example.get("value", {})
+        assert "predecessor_ods_code" in value, (
+            f"example {name!r} missing predecessor_ods_code"
+        )
+        assert "successor_ods_code" in value, (
+            f"example {name!r} missing successor_ods_code"
+        )
+
+    # The 404 description mentions the split case (ambiguous forward walk).
+    resp404 = op["responses"]["404"]
+    assert "split" in resp404.get("description", "")

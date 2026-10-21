@@ -8,10 +8,12 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 from .local_health_board import LocalHealthBoardLimitedSerializer
+from .succession import SuccessionLinkSerializer
 
 Organisation = apps.get_model("hospitals", "Organisation")
 PaediatricDiabetesUnit = apps.get_model("hospitals", "PaediatricDiabetesUnit")
 Trust = apps.get_model("hospitals", "Trust")
+TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +34,17 @@ logger = logging.getLogger(__name__)
                 "website": "",
                 "active": "",
                 "published_at": "",
+                "predecessors": [],
+                "successors": [],
             },
             response_only=True,
         )
     ]
 )
 class TrustSerializer(serializers.ModelSerializer):
+    predecessors = serializers.SerializerMethodField()
+    successors = serializers.SerializerMethodField()
+
     class Meta:
         model = Trust
         # depth = 1
@@ -53,7 +60,27 @@ class TrustSerializer(serializers.ModelSerializer):
             "website",
             "active",
             "published_at",
+            "predecessors",
+            "successors",
         ]
+
+    def get_predecessors(self, obj):
+        # Rows where this trust is the successor → the trust's predecessors.
+        links = obj.succession_successor_links.select_related("predecessor").order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="ods_code", related_attr="predecessor"
+        ).data
+
+    def get_successors(self, obj):
+        # Rows where this trust is the predecessor → the trust's successors.
+        # Excludes closures (successor=None) — those have no successor entity
+        # to serialise.
+        links = obj.succession_predecessor_links.filter(
+            successor__isnull=False
+        ).select_related("successor").order_by("succession_date")
+        return SuccessionLinkSerializer(
+            links, many=True, code_field="ods_code", related_attr="successor"
+        ).data
 
 
 @extend_schema_serializer(

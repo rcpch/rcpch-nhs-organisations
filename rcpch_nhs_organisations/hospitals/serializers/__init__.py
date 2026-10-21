@@ -39,6 +39,7 @@ from .organisation import (
     OrganisationWithLSOAAndLADSerializer,
 )
 from .paediatric_diabetes_unit import PaediatricDiabetesUnitSerializer
+from .succession import SuccessionLinkSerializer
 from .trust import (
     TrustSerializer,
     LimitedTrustSerializer,

@@ -486,3 +486,410 @@ def test_pdu_parent_returns_null_when_lead_unset_and_multiple_children(
     assert response.status_code == status.HTTP_200_OK
     assert response.data["parent"] is None
     assert response.data["primary_organisation"] is None
+
+
+# ---------------------------------------------------------------------------
+# Trust detail endpoint — predecessors / successors chain arrays
+# ---------------------------------------------------------------------------
+
+TrustSuccession = apps.get_model("hospitals", "TrustSuccession")
+
+
+@pytest.fixture
+def trust_chain():
+    """Build a small trust succession graph covering the four cases:
+
+      RVL → RAL  (acquisition, 1→1)
+      RGQ → RJL  (full merger, 2→1)
+      RDE → RJL  (full merger, 2→1)
+      RYQ → RJZ  (split, 1→2)
+      RYQ → RJ2  (split, 1→2)
+      ROLD → None (closure, 1→0)
+    """
+    rvl = Trust.objects.create(ods_code="RVL", name="BARNET AND CHASE FARM HOSPITALS NHS TRUST")
+    ral = Trust.objects.create(ods_code="RAL", name="ROYAL FREE LONDON NHS FOUNDATION TRUST")
+    rgq = Trust.objects.create(ods_code="RGQ", name="IPSWICH HOSPITAL NHS TRUST")
+    rde = Trust.objects.create(ods_code="RDE", name="COLCHESTER UNIVERSITY HOSPITALS NHS FOUNDATION TRUST")
+    rjl = Trust.objects.create(ods_code="RJL", name="EAST SUFFOLK AND NORTH ESSEX NHS FOUNDATION TRUST")
+    ryq = Trust.objects.create(ods_code="RYQ", name="SOUTH LONDON HEALTHCARE NHS TRUST")
+    rjz = Trust.objects.create(ods_code="RJZ", name="KING'S COLLEGE HOSPITAL NHS FOUNDATION TRUST")
+    rj2 = Trust.objects.create(ods_code="RJ2", name="LEWISHAM AND GREENWICH NHS TRUST")
+    rold = Trust.objects.create(ods_code="ROLD", name="CLOSED TRUST")
+
+    TrustSuccession.objects.create(
+        predecessor=rvl, successor=ral,
+        succession_date=datetime.date(2014, 1, 1), succession_type="acquisition",
+    )
+    TrustSuccession.objects.create(
+        predecessor=rgq, successor=rjl,
+        succession_date=datetime.date(2018, 1, 1), succession_type="merger",
+    )
+    TrustSuccession.objects.create(
+        predecessor=rde, successor=rjl,
+        succession_date=datetime.date(2018, 1, 1), succession_type="merger",
+    )
+    TrustSuccession.objects.create(
+        predecessor=ryq, successor=rjz,
+        succession_date=datetime.date(2013, 1, 1), succession_type="split",
+    )
+    TrustSuccession.objects.create(
+        predecessor=ryq, successor=rj2,
+        succession_date=datetime.date(2013, 1, 1), succession_type="split",
+    )
+    TrustSuccession.objects.create(
+        predecessor=rold, successor=None,
+        succession_date=datetime.date(2020, 1, 1), succession_type="closure",
+    )
+    return {
+        "rvl": rvl, "ral": ral, "rgq": rgq, "rde": rde, "rjl": rjl,
+        "ryq": ryq, "rjz": rjz, "rj2": rj2, "rold": rold,
+    }
+
+
+@pytest.mark.django_db
+def test_trust_detail_returns_predecessors_and_successors_arrays(api_client, trust_chain):
+    """The trust detail endpoint must return `predecessors` and `successors`
+    arrays populated from TrustSuccession, ordered by succession_date.
+    """
+    # RAL has one predecessor (RVL, acquisition).
+    url = reverse("trusts-detail", args=["RAL"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RAL"
+    assert data["predecessors"] == [
+        {
+            "ods_code": "RVL",
+            "name": "BARNET AND CHASE FARM HOSPITALS NHS TRUST",
+            "succession_date": "2014-01-01",
+            "succession_type": "acquisition",
+        }
+    ]
+    assert data["successors"] == []
+
+    # RVL has one successor (RAL, acquisition).
+    url = reverse("trusts-detail", args=["RVL"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RVL"
+    assert data["predecessors"] == []
+    assert data["successors"] == [
+        {
+            "ods_code": "RAL",
+            "name": "ROYAL FREE LONDON NHS FOUNDATION TRUST",
+            "succession_date": "2014-01-01",
+            "succession_type": "acquisition",
+        }
+    ]
+
+
+@pytest.mark.django_db
+def test_trust_detail_full_merger_lists_two_predecessors(api_client, trust_chain):
+    """A full merger (2→1) — the successor lists both predecessors, each
+    predecessor lists the successor. RGQ + RDE → RJL.
+    """
+    url = reverse("trusts-detail", args=["RJL"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RJL"
+    assert len(data["predecessors"]) == 2
+    pred_codes = {p["ods_code"] for p in data["predecessors"]}
+    assert pred_codes == {"RGQ", "RDE"}
+    for p in data["predecessors"]:
+        assert p["succession_date"] == "2018-01-01"
+        assert p["succession_type"] == "merger"
+    assert data["successors"] == []
+
+    # Each predecessor sees RJL as its successor.
+    for code in ("RGQ", "RDE"):
+        url = reverse("trusts-detail", args=[code])
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["successors"]) == 1
+        assert data["successors"][0]["ods_code"] == "RJL"
+        assert data["successors"][0]["succession_type"] == "merger"
+
+
+@pytest.mark.django_db
+def test_trust_detail_split_lists_two_successors(api_client, trust_chain):
+    """A split (1→2) — the predecessor lists both successors, each successor
+    lists the predecessor. RYQ → RJZ + RJ2.
+    """
+    url = reverse("trusts-detail", args=["RYQ"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RYQ"
+    assert data["predecessors"] == []
+    assert len(data["successors"]) == 2
+    succ_codes = {s["ods_code"] for s in data["successors"]}
+    assert succ_codes == {"RJZ", "RJ2"}
+    for s in data["successors"]:
+        assert s["succession_date"] == "2013-01-01"
+        assert s["succession_type"] == "split"
+
+    # Each successor sees RYQ as its predecessor.
+    for code in ("RJZ", "RJ2"):
+        url = reverse("trusts-detail", args=[code])
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["predecessors"]) == 1
+        assert data["predecessors"][0]["ods_code"] == "RYQ"
+        assert data["predecessors"][0]["succession_type"] == "split"
+
+
+@pytest.mark.django_db
+def test_trust_detail_closure_returns_empty_successors(api_client, trust_chain):
+    """A closure (1→0) — the predecessor has no successor. The `successors`
+    array is empty (closures have successor=None, which is excluded).
+    """
+    url = reverse("trusts-detail", args=["ROLD"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "ROLD"
+    assert data["predecessors"] == []
+    assert data["successors"] == []
+
+
+@pytest.mark.django_db
+def test_trust_detail_no_succession_returns_empty_arrays(api_client):
+    """A trust with no succession links returns empty arrays for both fields."""
+    Trust.objects.create(ods_code="RSTA", name="STANDALONE TRUST")
+    url = reverse("trusts-detail", args=["RSTA"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["predecessors"] == []
+    assert data["successors"] == []
+
+
+# ---------------------------------------------------------------------------
+# Organisation / ICB / PDU / LHB detail endpoints — predecessors / successors
+# ---------------------------------------------------------------------------
+
+OrganisationSuccession = apps.get_model("hospitals", "OrganisationSuccession")
+IntegratedCareBoard = apps.get_model("hospitals", "IntegratedCareBoard")
+IntegratedCareBoardSuccession = apps.get_model(
+    "hospitals", "IntegratedCareBoardSuccession"
+)
+LocalHealthBoard = apps.get_model("hospitals", "LocalHealthBoard")
+PaediatricDiabetesUnitSuccession = apps.get_model(
+    "hospitals", "PaediatricDiabetesUnitSuccession"
+)
+
+
+@pytest.fixture
+def trust_pair():
+    """Two standalone trusts for the organisation succession fixture."""
+    return (
+        Trust.objects.create(ods_code="RAA", name="Trust A"),
+        Trust.objects.create(ods_code="RBB", name="Trust B"),
+    )
+
+
+@pytest.fixture
+def organisation_chain(trust_pair):
+    """Organisation succession: RVY02 → RBN52 (code_change, 1→1)."""
+    trust_a, trust_b = trust_pair
+    rvy02 = Organisation.objects.create(
+        ods_code="RVY02", name="ORMSKIRK HOSPITAL", trust=trust_a,
+    )
+    rbn52 = Organisation.objects.create(
+        ods_code="RBN52", name="ORMSKIRK HOSPITAL", trust=trust_b,
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=rvy02, successor=rbn52,
+        succession_date=datetime.date(2023, 7, 1),
+        succession_type="code_change",
+    )
+    return {"rvy02": rvy02, "rbn52": rbn52}
+
+
+@pytest.mark.django_db
+def test_organisation_detail_returns_predecessors_and_successors(
+    api_client, organisation_chain
+):
+    """The organisation detail endpoint returns predecessors / successors
+    arrays populated from OrganisationSuccession."""
+    # Successor (RBN52) sees its predecessor.
+    url = reverse("organisation-detail", args=["RBN52"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessors"] == [
+        {
+            "ods_code": "RVY02",
+            "name": "ORMSKIRK HOSPITAL",
+            "succession_date": "2023-07-01",
+            "succession_type": "code_change",
+        }
+    ]
+    assert data["successors"] == []
+
+    # Predecessor (RVY02) sees its successor.
+    url = reverse("organisation-detail", args=["RVY02"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RVY02"
+    assert data["predecessors"] == []
+    assert data["successors"] == [
+        {
+            "ods_code": "RBN52",
+            "name": "ORMSKIRK HOSPITAL",
+            "succession_date": "2023-07-01",
+            "succession_type": "code_change",
+        }
+    ]
+
+
+@pytest.fixture
+def icb_chain():
+    """ICB succession: QOLD → QNEW (merger, 1→1)."""
+    qold = IntegratedCareBoard.objects.create(
+        ods_code="QOLD", name="OLD ICB",
+    )
+    qnew = IntegratedCareBoard.objects.create(
+        ods_code="QNEW", name="NEW ICB",
+    )
+    IntegratedCareBoardSuccession.objects.create(
+        predecessor=qold, successor=qnew,
+        succession_date=datetime.date(2026, 4, 1),
+        succession_type="merger",
+    )
+    return {"qold": qold, "qnew": qnew}
+
+
+@pytest.mark.django_db
+def test_icb_detail_returns_predecessors_and_successors(api_client, icb_chain):
+    """The ICB detail endpoint returns predecessors / successors arrays
+    populated from IntegratedCareBoardSuccession."""
+    url = reverse("integrated_care_board-detail", args=["QNEW"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "QNEW"
+    assert data["predecessors"] == [
+        {
+            "ods_code": "QOLD",
+            "name": "OLD ICB",
+            "succession_date": "2026-04-01",
+            "succession_type": "merger",
+        }
+    ]
+    assert data["successors"] == []
+
+    url = reverse("integrated_care_board-detail", args=["QOLD"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "QOLD"
+    assert data["predecessors"] == []
+    assert data["successors"] == [
+        {
+            "ods_code": "QNEW",
+            "name": "NEW ICB",
+            "succession_date": "2026-04-01",
+            "succession_type": "merger",
+        }
+    ]
+
+
+@pytest.fixture
+def pdu_chain():
+    """PDU succession: PZ001 → PZ002 (merger, 1→1). Uses pz_code as the
+    identifier field. `name` is a property on PaediatricDiabetesUnit, so
+    `unit_name` is set instead.
+    """
+    pz001 = PaediatricDiabetesUnit.objects.create(pz_code="PZ001", unit_name="Old PDU")
+    pz002 = PaediatricDiabetesUnit.objects.create(pz_code="PZ002", unit_name="New PDU")
+    PaediatricDiabetesUnitSuccession.objects.create(
+        predecessor=pz001, successor=pz002,
+        succession_date=datetime.date(2026, 1, 1),
+        succession_type="merger",
+    )
+    return {"pz001": pz001, "pz002": pz002}
+
+
+@pytest.mark.django_db
+def test_pdu_detail_returns_predecessors_and_successors(api_client, pdu_chain):
+    """The PDU detail endpoint returns predecessors / successors arrays
+    populated from PaediatricDiabetesUnitSuccession. The identifier field
+    is pz_code (not ods_code) but the JSON key is still `ods_code` for API
+    consistency."""
+    url = reverse("paediatric_diabetes_unit-detail", args=["PZ002"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["pz_code"] == "PZ002"
+    assert data["predecessors"] == [
+        {
+            "ods_code": "PZ001",
+            "name": "Old PDU",
+            "succession_date": "2026-01-01",
+            "succession_type": "merger",
+        }
+    ]
+    assert data["successors"] == []
+
+    url = reverse("paediatric_diabetes_unit-detail", args=["PZ001"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["pz_code"] == "PZ001"
+    assert data["predecessors"] == []
+    assert data["successors"] == [
+        {
+            "ods_code": "PZ002",
+            "name": "New PDU",
+            "succession_date": "2026-01-01",
+            "succession_type": "merger",
+        }
+    ]
+
+
+@pytest.fixture
+def lhb_standalone():
+    """A Local Health Board. LHBs have no succession table, so the chain
+    arrays must always be empty."""
+    return LocalHealthBoard.objects.create(
+        ods_code="7A4",
+        name="Betsi Cadwaladr University Local Health Board",
+        welsh_name="Bwrdd Iechyd Prifysgol Betsi Cadwaladr",
+        bng_e=270000,
+        bng_n=340000,
+        long=-3.5,
+        lat=53.2,
+        globalid="globalid-lhb",
+        geom=MultiPolygon(
+            Polygon(
+                (
+                    (269900, 340100),
+                    (269900, 339900),
+                    (270100, 339900),
+                    (270100, 340100),
+                    (269900, 340100),
+                )
+            )
+        ),
+    )
+
+
+@pytest.mark.django_db
+def test_lhb_detail_returns_empty_chain_arrays(api_client, lhb_standalone):
+    """LocalHealthBoard has no succession table — predecessors / successors
+    are always empty arrays, included for API consistency with the other
+    entity detail endpoints."""
+    url = reverse("local_health_board-detail", args=["7A4"])
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "7A4"
+    assert data["predecessors"] == []
+    assert data["successors"] == []

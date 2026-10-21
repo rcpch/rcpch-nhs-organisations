@@ -122,14 +122,14 @@ port 8003.
 
 | Endpoint | Description |
 |---|---|
-| `/organisations/` | Organisation list/detail (filter by `ods_code`, `trust`, `paediatric_diabetes_unit`, etc.) |
-| `/trusts/` | Trust list/detail |
-| `/local_health_boards/` | LHB list/detail (Wales) |
-| `/integrated_care_boards/` | ICB list/detail |
-| `/nhs_england_regions/` | NHS England region list/detail |
-| `/paediatric_diabetes_units/` | PDU list/detail |
+| `/organisations/` | Organisation list/detail (filter by `ods_code`, `trust`, `paediatric_diabetes_unit`, etc.). Detail response includes `predecessors` / `successors` arrays from `OrganisationSuccession`. |
+| `/trusts/` | Trust list/detail. Detail response includes `predecessors` / `successors` arrays from `TrustSuccession`. |
+| `/local_health_boards/` | LHB list/detail (Wales). Detail response includes `predecessors` / `successors` arrays — always `[]` (LHBs have no succession table). |
+| `/integrated_care_boards/` | ICB list/detail. Detail response includes `predecessors` / `successors` arrays from `IntegratedCareBoardSuccession`. |
+| `/nhs_england_regions/` | NHS England region list/detail. |
+| `/paediatric_diabetes_units/` | PDU list/detail. Detail response includes `predecessors` / `successors` arrays from `PaediatricDiabetesUnitSuccession` (identifier is `pz_code`, serialised under the `ods_code` JSON key for consistency). |
 | `/paediatric_diabetes_units/sibling-organisations/{ods_code}/` | PDU for a given organisation with parent |
-| `/organisations/{ods_code}/snapshot/?date=YYYY-MM-DD` | **Give me everything about this organisation as it was on date X.** Temporal snapshot of an organisation at a given date — its name/address/active state (Layer 1) plus every parent relationship (trust, LHB, ICB, NHS England region, OPENUK, PDU) as they were on that date (Layer 2). For a date before the queried ODS code was the live audit code, walks the `OrganisationSuccession` chain backwards to the predecessor that was in force then (Layer 3). Returns 404 if no entity (predecessor or queried) covered the date. If omitted, `date` defaults to today (current state). |
+| `/organisations/{ods_code}/snapshot/?date=YYYY-MM-DD` | **Give me everything about this organisation as it was on date X.** Temporal snapshot of an organisation at a given date — its name/address/active state (Layer 1) plus every parent relationship (trust, LHB, ICB, NHS England region, OPENUK, PDU) as they were on that date (Layer 2). If the queried ODS code was not the live audit code on that date, walks the `OrganisationSuccession` chain (backward or forward) to the entity that was (Layer 3). Returns 404 if no entity covered the date, or if the queried code was split into multiple successors (ambiguous). Response carries `predecessor_ods_code` and `successor_ods_code` describing the resolved entity's immediate neighbours. If omitted, `date` defaults to today (current state). |
 | `/schema/` | OpenAPI schema |
 | `/swagger-ui/` | Swagger UI |
 
@@ -138,11 +138,15 @@ The snapshot endpoint is the read path for audit reports — it answers
 entity version plus every relationship as of that date. When the queried
 code was not the live code on that date (because of a merger, split, or
 parallel-code succession), it walks the `OrganisationSuccession` chain
-backwards to the predecessor that was in force then, and returns that
-predecessor's state with `predecessor_ods_code` populated. This is what
-lets audits compare current performance against past performance using
-the current ODS code as the query key, even across mergers and
-code changes.
+in either direction to the entity that was in force then, and returns
+that entity's state with `predecessor_ods_code` / `successor_ods_code`
+describing the resolved entity's immediate neighbours. The consumer
+detects a walk by comparing `ods_code` in the response to the queried
+code. This is what lets audits compare current performance against past
+performance using any ODS code (current or predecessor) as the query
+key, even across mergers and code changes. See
+`documentation/docs/developer/temporal-history.md` § Succession walk
+for the design.
 
 ## Management commands
 
