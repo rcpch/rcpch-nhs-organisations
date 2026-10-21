@@ -901,3 +901,221 @@ def test_snapshot_schema_documents_chain_fields_and_walk_examples(api_client):
     # The 404 description mentions the split case (ambiguous forward walk).
     resp404 = op["responses"]["404"]
     assert "split" in resp404.get("description", "")
+
+
+@pytest.mark.django_db
+def test_snapshot_forward_walk_fires_for_inactive_predecessor(
+    api_client, trust_a, trust_b
+):
+    """An inactive predecessor with an open-ended baseline version (e.g.
+    created by `mergers --create`) must still walk forward to its successor
+    when queried at today.
+
+    Regression test for the RVY02/RBN52 deployment issue: `mergers --create
+    RVY02` created a baseline OrganisationVersion with valid_from=today,
+    valid_to=None, active=False. The old code checked only whether a version
+    row covered on_date, not whether it was active — so the forward walk
+    never fired and the snapshot returned RVY02 with null relationships.
+    """
+    rvy02 = Organisation.objects.create(
+        ods_code="RVY02",
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=False,  # inactive — succeeded by RBN52
+        trust=trust_a,
+    )
+    rbn52 = Organisation.objects.create(
+        ods_code="RBN52",
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+        trust=trust_b,
+    )
+    # RVY02: open-ended baseline version (as created by mergers --create).
+    # active=False — the entity is no longer live.
+    OrganisationVersion.objects.create(
+        organisation=rvy02,
+        valid_from=datetime.date(2020, 12, 1),
+        valid_to=None,  # open-ended — covers today
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=False,
+    )
+    # RBN52: open since the succession date.
+    OrganisationVersion.objects.create(
+        organisation=rbn52,
+        valid_from=datetime.date(2023, 7, 1),
+        valid_to=None,
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=rbn52,
+        trust=trust_b,
+        valid_from=datetime.date(2023, 7, 1),
+        valid_to=None,
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=rvy02,
+        successor=rbn52,
+        succession_date=datetime.date(2023, 7, 1),
+        succession_type="code_change",
+    )
+
+    # Query the inactive predecessor at today — should walk forward to
+    # RBN52 despite the open-ended version covering today.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RVY02"})
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+    assert data["trust"]["ods_code"] == "RBB"  # RBN
+
+    # Query the successor at today — should return RBN52 with predecessor.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RBN52"})
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+
+
+@pytest.mark.django_db
+def test_snapshot_duplicate_succession_rows_treated_as_one(
+    api_client, trust_a, trust_b
+):
+    """Duplicate OrganisationSuccession rows to the same successor (e.g.
+    from re-running the backfill with different effective dates) must be
+    treated as one successor — the scalar fields populate and the forward
+    walk fires.
+
+    Regression test for the RVY02/RBN52 deployment issue: two
+    OrganisationSuccession rows linked RVY02 → RBN52 with different dates
+    (2023-06-30 and 2023-07-01). The old code used count() == 1, which
+    failed because count() was 2, so predecessor_ods_code and
+    successor_ods_code were null and the forward walk didn't fire.
+    """
+    rvy02 = Organisation.objects.create(
+        ods_code="RVY02",
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=False,
+        trust=trust_a,
+    )
+    rbn52 = Organisation.objects.create(
+        ods_code="RBN52",
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+        trust=trust_b,
+    )
+    OrganisationVersion.objects.create(
+        organisation=rvy02,
+        valid_from=datetime.date(2020, 12, 1),
+        valid_to=datetime.date(2023, 7, 1),
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+    )
+    OrganisationVersion.objects.create(
+        organisation=rbn52,
+        valid_from=datetime.date(2023, 7, 1),
+        valid_to=None,
+        name="Ormskirk and District General Hospital",
+        address1="Wigan Road",
+        active=True,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=rbn52,
+        trust=trust_b,
+        valid_from=datetime.date(2023, 7, 1),
+        valid_to=None,
+    )
+    # Two succession rows to the SAME successor with different dates.
+    OrganisationSuccession.objects.create(
+        predecessor=rvy02,
+        successor=rbn52,
+        succession_date=datetime.date(2023, 6, 30),
+        succession_type="code_change",
+    )
+    OrganisationSuccession.objects.create(
+        predecessor=rvy02,
+        successor=rbn52,
+        succession_date=datetime.date(2023, 7, 1),
+        succession_type="code_change",
+    )
+
+    # Successor at today — predecessor_ods_code should populate despite
+    # two rows (both point to the same predecessor).
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RBN52"})
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+
+    # Predecessor before the succession — successor_ods_code should populate.
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RVY02"})
+    response = api_client.get(url, {"date": "2022-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RVY02"
+    assert data["predecessor_ods_code"] is None
+    assert data["successor_ods_code"] == "RBN52"
+
+    # Predecessor after the succession — should walk forward to RBN52
+    # despite two rows (both point to the same successor).
+    response = api_client.get(url, {"date": "2024-01-01"})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RBN52"
+    assert data["predecessor_ods_code"] == "RVY02"
+    assert data["successor_ods_code"] is None
+
+
+@pytest.mark.django_db
+def test_snapshot_closure_returns_inactive_entity_not_404(
+    api_client, trust_a
+):
+    """A closed entity (active=False, no successor) queried after its
+    closure date should return its final state, not 404.
+
+    The forward walk finds no successor (it's a closure), so the entity
+    itself is returned with its inactive state.
+    """
+    closed = Organisation.objects.create(
+        ods_code="RCLOS",
+        name="Closed Hospital",
+        address1="Old Address",
+        active=False,
+        trust=trust_a,
+    )
+    OrganisationVersion.objects.create(
+        organisation=closed,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,  # open-ended, active=False
+        name="Closed Hospital",
+        address1="Old Address",
+        active=False,
+    )
+    OrganisationTrustMembership.objects.create(
+        organisation=closed,
+        trust=trust_a,
+        valid_from=datetime.date(2020, 1, 1),
+        valid_to=None,
+    )
+    # No OrganisationSuccession row — this is a closure with no successor.
+
+    url = reverse("organisation_snapshot", kwargs={"ods_code": "RCLOS"})
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["ods_code"] == "RCLOS"
+    assert data["active"] is False
+    assert data["predecessor_ods_code"] is None
+    assert data["successor_ods_code"] is None

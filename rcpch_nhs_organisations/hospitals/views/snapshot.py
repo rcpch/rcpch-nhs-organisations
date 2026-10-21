@@ -62,15 +62,18 @@ def _resolve_as_of(organisation, on_date):
        followed to RAL27.
 
     3. **Forward** — the predecessor's history ended before `on_date` (no
-       version row covers `on_date`) and a succession link records that
+       version row covers `on_date`) OR the predecessor is inactive
+       (``active=False``) with a successor. A succession link records that
        the successor took over on or before `on_date`
        (``succession_date <= on_date``). The walk returns the successor
        because that is the code the audit would use at `on_date`. Example:
        querying RVY02 at today walks to RBN52, because RVY02 closed on
        2023-07-01 and was succeeded by RBN52. Only walks if there is
-       exactly one successor — a split (multiple successors) returns
-       None because walking to an arbitrary successor would return the
-       wrong site's geography.
+       exactly one distinct successor — a split (multiple distinct
+       successors) returns None because walking to an arbitrary successor
+       would return the wrong site's geography. Duplicate succession rows
+       to the same successor (e.g. from re-running the backfill with
+       different effective dates) are treated as one successor.
     """
     current = organisation
     visited = set()
@@ -104,24 +107,37 @@ def _resolve_as_of(organisation, on_date):
             continue
 
         # History started by on_date. Check whether a version row actually
-        # covers on_date. If not, the entity's history ended before on_date
-        # — try the forward walk.
-        if _as_of(current.versions, on_date).exists():
+        # covers on_date, and whether it is active.
+        version = _as_of(current.versions, on_date).first()
+        if version is not None and version.active:
             return current
 
-        # Forward walk: the entity's history ended before on_date. Walk to
-        # the successor if there is exactly one (excluding closures, which
-        # have successor=None).
+        # No active version covering on_date — the entity is either closed
+        # (no version row) or inactive (active=False, e.g. a predecessor
+        # created by `mergers --create` with an open-ended baseline version).
+        # Try the forward walk.
         forward_links = current.succession_predecessor_links.filter(
             succession_date__lte=on_date,
             successor__isnull=False,
         )
-        if forward_links.count() == 1:
+        # Count distinct successors, not rows — duplicate succession rows
+        # to the same successor (e.g. from re-running the backfill with
+        # different effective dates) should be treated as one.
+        distinct_successor_ids = set(
+            forward_links.values_list("successor_id", flat=True)
+        )
+        if len(distinct_successor_ids) == 1:
             current = forward_links.first().successor
             continue
 
-        # Multiple successors (a split) or no successor (a closure with no
-        # version covering on_date) — cannot resolve.
+        # No forward walk possible. If we have an inactive version covering
+        # on_date (a closure with no successor), return the entity itself —
+        # the consumer gets its final state. If no version covers on_date,
+        # or the entity was split (multiple distinct successors), return
+        # None (404).
+        if version is not None:
+            return current
+
         return None
 
     return None
@@ -172,12 +188,20 @@ def organisation_snapshot(organisation, on_date):
 
     # Chain fields: the resolved entity's immediate neighbours in the
     # OrganisationSuccession chain, regardless of whether a walk happened.
-    # Scalar — null if zero or multiple links (a split or a closure).
-    # The consumer detects a walk by comparing `ods_code` to their
-    # queried code.
+    # Scalar — null if zero or multiple distinct entities (a split or a
+    # closure). Duplicate succession rows to the same entity (e.g. from
+    # re-running the backfill with different effective dates) are treated
+    # as one. The consumer detects a walk by comparing `ods_code` to
+    # their queried code.
     predecessor_links = resolved.succession_successor_links.all()
     successor_links = resolved.succession_predecessor_links.filter(
         successor__isnull=False
+    )
+    distinct_predecessor_ids = set(
+        predecessor_links.values_list("predecessor_id", flat=True)
+    )
+    distinct_successor_ids = set(
+        successor_links.values_list("successor_id", flat=True)
     )
 
     return {
@@ -228,12 +252,12 @@ def organisation_snapshot(organisation, on_date):
         } if paediatric_diabetes_unit else None,
         "predecessor_ods_code": (
             predecessor_links.first().predecessor.ods_code
-            if predecessor_links.count() == 1
+            if len(distinct_predecessor_ids) == 1
             else None
         ),
         "successor_ods_code": (
             successor_links.first().successor.ods_code
-            if successor_links.count() == 1
+            if len(distinct_successor_ids) == 1
             else None
         ),
     }
