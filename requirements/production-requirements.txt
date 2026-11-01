@@ -8,7 +8,7 @@ python-dateutil==2.9.0.post0
 
 # Django and API
 Django==5.2.17
-djangorestframework==3.17.2
+djangorestframework==3.18.2
 djangorestframework-gis==1.3.0
 drf-spectacular==0.29.0
 django-filter==25.2
