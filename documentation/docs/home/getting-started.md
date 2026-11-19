@@ -32,4 +32,21 @@ To seed the database:
 
 1. `docker compose exec django python manage.py seed --model=all`
 
+### Upgrading from Postgres 15
+
+The local `postgis` service runs Postgres 18 (`postgis/postgis:18-3.6`). Postgres data directories are not compatible across major versions, so the compose file uses a new volume, `postgis-18-data`. After pulling this change a fresh, empty database is created; either reseed it (above), or carry your existing data across:
+
+```bash
+# 1. Before upgrading, dump the old Postgres 15 database
+docker compose exec postgis pg_dumpall -U "$POSTGRES_USER" > pg15-dump.sql
+
+# 2. Pull the upgrade and start the new Postgres 18 container
+docker compose up -d postgis
+
+# 3. Restore into it
+docker compose exec -T postgis psql -U "$POSTGRES_USER" -d postgres < pg15-dump.sql
+```
+
+Once you are happy, the old volume (`<project>_postgis-data`) can be removed with `docker volume rm`.
+
 If you navigate to [the Open API Specification](https://rcpch-nhs-organisations.azurewebsites.net/swagger-ui/)) the schemas are visible. If only the [base url](https://rcpch-nhs-organisations.azurewebsites.net/) is used, the django browsable API can be found.
