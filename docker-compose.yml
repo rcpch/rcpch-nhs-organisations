@@ -39,9 +39,13 @@ services:
   # PostgreSQL with PostGIS extension
   postgis:
     <<: *global # this will inherit all the envs from x-global-environment
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:18-3.6
     volumes:
-      - postgis-data:/var/lib/postgresql/data
+      # Postgres 18+ images keep data in a major-version subdirectory
+      # (/var/lib/postgresql/18/docker), so the volume mounts one level up.
+      # A new volume name is used so existing Postgres 15 data is not
+      # picked up by the 18 server (see documentation/docs/home/getting-started.md).
+      - postgis-18-data:/var/lib/postgresql
     restart: always
 
   mkdocs:
@@ -55,4 +59,4 @@ services:
 
 volumes:
   caddy-data:
-  postgis-data:
+  postgis-18-data:
